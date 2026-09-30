@@ -83,7 +83,28 @@ class InstallController extends Controller
                 ->withErrors(['database' => 'Could not connect with these details. Check the database name, username and password in hPanel → Databases. (' . $this->safe($e->getMessage(), $data['password']) . ')']);
         }
 
-        // 2. Save them in .env so the site uses them from now on.
+        // 2. A database that already has tables (for example the old website) is only replaced
+        //    when the owner ticks the box, and always backed up first.
+        $file = database_path(self::DATA);
+        $tables = (int) $pdo->query("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE()")->fetchColumn();
+        $backup = null;
+        if ($tables > 0 && is_file($file)) {
+            if (!$request->boolean('replace')) {
+                return back()->withInput($request->except('password'))->with('existing_tables', $tables);
+            }
+            try {
+                $backup = $this->backup($pdo);
+                $this->wipe($pdo);
+                $tables = 0;
+            } catch (\Throwable $e) {
+                Log::error('Installer backup/replace failed', ['error' => $e->getMessage()]);
+
+                return back()->withInput($request->except('password'))->with('existing_tables', $tables)
+                    ->withErrors(['database' => 'The old data could not be backed up, so nothing was changed: ' . $this->safe($e->getMessage(), $data['password'])]);
+            }
+        }
+
+        // 3. Save the details in .env so the site uses them from now on.
         if (!$this->writeEnv([
             'DB_CONNECTION' => 'mysql',
             'DB_HOST' => $data['host'],
@@ -96,10 +117,8 @@ class InstallController extends Controller
                 ->withErrors(['database' => 'The .env file could not be saved. In File Manager, make sure .env exists and is writable (permission 644), then try again.']);
         }
 
-        // 3. Load the website data into an empty database.
+        // 4. Load the website data into the empty database.
         $imported = false;
-        $tables = (int) $pdo->query('SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE()')->fetchColumn();
-        $file = database_path(self::DATA);
         if ($tables === 0 && is_file($file)) {
             try {
                 $this->import($pdo, $file);
@@ -112,7 +131,7 @@ class InstallController extends Controller
             }
         }
 
-        // 4. Use the new connection now and bring the tables up to date.
+        // 5. Use the new connection now and bring the tables up to date.
         config([
             'database.default' => 'mysql',
             'database.connections.mysql.host' => $data['host'],
@@ -139,14 +158,76 @@ class InstallController extends Controller
         }
         rescue(fn () => blank(\App\Models\SiteSetting::get('system.app_url')) && \App\Models\SiteSetting::putMany(['system.app_url' => $url]), null, false);
 
-        // 5. Close the installer for good and remove the bundled data from the server.
-        @file_put_contents(storage_path(self::LOCK), json_encode(['installed_at' => now()->toIso8601String(), 'imported' => $imported]));
+        // 6. Close the installer for good and remove the bundled data from the server.
+        @file_put_contents(storage_path(self::LOCK), json_encode(['installed_at' => now()->toIso8601String(), 'imported' => $imported, 'backup' => $backup]));
         if ($imported) {
             @unlink($file);
         }
         $hasUsers = rescue(fn () => DB::table('users')->exists(), false, false);
 
-        return view('install', ['done' => true, 'imported' => $imported, 'hasUsers' => $hasUsers, 'hasData' => false]);
+        return view('install', ['done' => true, 'imported' => $imported, 'hasUsers' => $hasUsers, 'hasData' => false, 'backup' => $backup]);
+    }
+
+    /**
+     * Save every table of the database as a .sql file under storage/app/private/backups
+     * (outside the web root). Returns the path relative to the site folder.
+     */
+    private function backup(\PDO $pdo): string
+    {
+        $dir = storage_path('app/private/backups');
+        if (!is_dir($dir) && !@mkdir($dir, 0700, true) && !is_dir($dir)) {
+            throw new \RuntimeException('Cannot create the backup folder storage/app/private/backups.');
+        }
+        $path = $dir . '/database-before-install-' . date('Y-m-d-His') . '.sql';
+        $out = fopen($path, 'w');
+        if (!$out) {
+            throw new \RuntimeException('Cannot write the backup file.');
+        }
+        fwrite($out, "-- Backup made by the installer on " . date('Y-m-d H:i:s') . " before replacing this database\nSET NAMES utf8mb4;\nSET FOREIGN_KEY_CHECKS = 0;\n\n");
+        $pdo->exec('SET NAMES utf8mb4');
+        foreach ($pdo->query('SHOW FULL TABLES')->fetchAll(\PDO::FETCH_NUM) as [$table, $type]) {
+            $q = '`' . str_replace('`', '``', $table) . '`';
+            if ($type === 'VIEW') {
+                $create = $pdo->query("SHOW CREATE VIEW {$q}")->fetch(\PDO::FETCH_NUM)[1];
+                fwrite($out, "DROP VIEW IF EXISTS {$q};\n{$create};\n\n");
+                continue;
+            }
+            $create = $pdo->query("SHOW CREATE TABLE {$q}")->fetch(\PDO::FETCH_NUM)[1];
+            fwrite($out, "DROP TABLE IF EXISTS {$q};\n{$create};\n\n");
+            $rows = $pdo->query("SELECT * FROM {$q}", \PDO::FETCH_NUM);
+            $batch = [];
+            foreach ($rows as $row) {
+                $batch[] = '(' . implode(',', array_map(fn ($v) => $v === null ? 'NULL' : $pdo->quote((string) $v), $row)) . ')';
+                if (count($batch) >= 100) {
+                    fwrite($out, "INSERT INTO {$q} VALUES\n" . implode(",\n", $batch) . ";\n");
+                    $batch = [];
+                }
+            }
+            if ($batch) {
+                fwrite($out, "INSERT INTO {$q} VALUES\n" . implode(",\n", $batch) . ";\n");
+            }
+            fwrite($out, "\n");
+        }
+        fwrite($out, "SET FOREIGN_KEY_CHECKS = 1;\n");
+        fclose($out);
+        @chmod($path, 0600);
+
+        if (filesize($path) < 100) {
+            throw new \RuntimeException('The backup file came out empty.');
+        }
+
+        return 'storage/app/private/backups/' . basename($path);
+    }
+
+    /** Remove every table and view (only called right after a successful backup). */
+    private function wipe(\PDO $pdo): void
+    {
+        $pdo->exec('SET FOREIGN_KEY_CHECKS = 0');
+        foreach ($pdo->query('SHOW FULL TABLES')->fetchAll(\PDO::FETCH_NUM) as [$table, $type]) {
+            $q = '`' . str_replace('`', '``', $table) . '`';
+            $pdo->exec(($type === 'VIEW' ? 'DROP VIEW IF EXISTS ' : 'DROP TABLE IF EXISTS ') . $q);
+        }
+        $pdo->exec('SET FOREIGN_KEY_CHECKS = 1');
     }
 
     /** Run a mysqldump file statement by statement (dumps end every statement with ";" at the end of a line). */

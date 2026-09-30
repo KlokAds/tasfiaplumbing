@@ -26,6 +26,9 @@
         .btn.alt { background: transparent; color: var(--text); border: 1px solid var(--border); margin-top: 10px; }
         .ok { color: var(--ok); font-weight: 700; }
         button[disabled] { opacity: .6; cursor: wait; }
+        .warn { margin-top: 20px; background: color-mix(in srgb, #f59e0b 14%, transparent); border: 1px solid color-mix(in srgb, #f59e0b 45%, transparent); border-radius: 14px; padding: 14px 16px; font-size: 14px; line-height: 1.55; }
+        .check { display: flex; gap: 10px; align-items: center; margin: 12px 0 0; font-size: 14.5px; }
+        .check input { width: 18px; height: 18px; }
     </style>
 </head>
 <body>
@@ -41,6 +44,9 @@
                 The database is connected{{ $imported ? ' and all website data (articles, services, projects, settings and accounts) has been loaded' : '' }}.
                 This installer is now closed for good.
             </p>
+            @if (!empty($backup))
+                <p class="hint">The old data that was in this database is saved in <b>{{ $backup }}</b> (in the site folder, not reachable from the web). Keep it until you are sure everything is right.</p>
+            @endif
             <a class="btn" href="/">Open the website</a>
             <a class="btn alt" href="{{ $hasUsers ? '/admin/login' : '/setup' }}">{{ $hasUsers ? 'Sign in to the admin' : 'Create the owner account' }}</a>
         @else
@@ -74,7 +80,15 @@
                 <label for="password">Database password</label>
                 <input id="password" name="password" type="password" autocomplete="new-password">
 
-                <button type="submit">Install the website</button>
+                @if (session('existing_tables'))
+                    <div class="warn">
+                        <b>This database already has {{ session('existing_tables') }} tables</b> (probably the old website).
+                        To use it, the installer first saves a full backup of them on the server, then replaces them with the new website data. Tick the box and type the database password again.
+                        <label class="check"><input type="checkbox" name="replace" value="1" required> Back up the old data and replace it</label>
+                    </div>
+                @endif
+
+                <button type="submit">{{ session('existing_tables') ? 'Back up, replace and install' : 'Install the website' }}</button>
             </form>
         @endif
     </div>
