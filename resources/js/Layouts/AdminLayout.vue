@@ -33,7 +33,10 @@
               <svg class="w-[17px] h-[17px] shrink-0 opacity-70" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" :d="icons[item.icon]" /></svg>
               <span class="truncate">{{ item.label }}</span>
             </span>
-            <span v-if="item.badge" :class="['min-w-5 px-1.5 rounded-full text-[10.5px] font-bold text-center leading-[18px]', item.alert ? 'bg-[#f59e0b] text-[#1f1300]' : 'bg-white/10 text-white/70']">{{ item.badge }}</span>
+            <span v-if="item.badge || item.count != null" class="flex items-center gap-1 shrink-0">
+              <span v-if="item.badge" :title="item.badgeTitle" :class="['min-w-5 px-1.5 rounded-full text-[10.5px] font-bold text-center leading-[18px]', item.alert ? 'bg-[#f59e0b] text-[#1f1300]' : 'bg-white/10 text-white/70']">{{ item.badge }}</span>
+              <span v-if="item.count != null" class="min-w-5 px-1.5 rounded-full text-[10.5px] font-semibold text-center leading-[18px] bg-white/10 text-white/75 tabular-nums">{{ Number(item.count).toLocaleString() }}</span>
+            </span>
           </Link>
         </div>
       </nav>
@@ -233,16 +236,16 @@ const groups = computed(() => {
       { label: 'Enquiries', icon: 'mail', badge: c.unread, alert: true, tabs: [{ label: 'Enquiries', href: '/admin/messages', can: 'enquiries.view' }] },
     ] },
     { label: 'Content', items: [
-      { label: 'Articles', icon: 'doc', badge: c.review, alert: true, tabs: [{ label: 'Articles', href: '/admin/blogs', can: 'articles.create' }] },
-      { label: 'Services', icon: 'wrench', tabs: [
+      { label: 'Articles', icon: 'doc', badge: c.review, badgeTitle: 'Waiting for approval', alert: true, count: c.articles, tabs: [{ label: 'Articles', href: '/admin/blogs', can: 'articles.create' }] },
+      { label: 'Services', icon: 'wrench', count: c.services, tabs: [
         { label: 'Services', href: '/admin/services', can: 'services.view' },
         { label: 'Categories', href: '/admin/service-categories', can: 'categories.view' },
         { label: 'Price list', href: '/admin/pricing', can: 'pricing.view' },
         { label: 'FAQs', href: '/admin/faqs', can: 'faqs.view' },
       ] },
-      { label: 'Locations', icon: 'pin', tabs: [{ label: 'Locations', href: '/admin/locations', can: 'locations.view' }] },
-      { label: 'Projects', icon: 'briefcase', tabs: [{ label: 'Projects', href: '/admin/projects', can: 'projects.view' }] },
-      { label: 'Reviews', icon: 'star', tabs: [{ label: 'Reviews', href: '/admin/reviews', can: 'reviews.view' }] },
+      { label: 'Locations', icon: 'pin', count: c.locations, tabs: [{ label: 'Locations', href: '/admin/locations', can: 'locations.view' }] },
+      { label: 'Projects', icon: 'briefcase', count: c.projects, tabs: [{ label: 'Projects', href: '/admin/projects', can: 'projects.view' }] },
+      { label: 'Reviews', icon: 'star', count: c.reviews, tabs: [{ label: 'Reviews', href: '/admin/reviews', can: 'reviews.view' }] },
     ] },
     { label: 'Website', items: [
       { label: 'Homepage', icon: 'layout', tabs: [
