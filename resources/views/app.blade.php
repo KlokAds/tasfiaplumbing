@@ -69,6 +69,11 @@
                         window.Tawk_API = window.Tawk_API || {}; window.Tawk_LoadStart = new Date();
                         // Keep the chat bubble above the mobile action bar.
                         Tawk_API.customStyle = { visibility: { mobile: { position: 'br', xOffset: 12, yOffset: 84 }, desktop: { position: 'br', xOffset: 20, yOffset: 20 } } };
+                        // First chat message from a visitor counts as a lead in GTM (same event as the old site).
+                        Tawk_API.onChatMessageVisitor = function () {
+                            if (window.__tawkLead) return; window.__tawkLead = true;
+                            (window.dataLayer = window.dataLayer || []).push({ event: 'tawkto_lead', page_path: location.pathname });
+                        };
                         var s = document.createElement('script'); s.async = true; s.charset = 'UTF-8';
                         s.src = 'https://embed.tawk.to/{{ $tawkId }}'; s.setAttribute('crossorigin', '*');
                         document.head.appendChild(s);
@@ -93,14 +98,26 @@
                             dataLayer.push({ 'gtm.start': Date.now(), event: 'gtm.js' });
                             s.src = 'https://www.googletagmanager.com/gtm.js?id={{ $gtmId }}';
                         @else
-                            window.gtag = function () { dataLayer.push(arguments); };
                             gtag('js', new Date()); gtag('config', '{{ $ga4Id }}');
                             s.src = 'https://www.googletagmanager.com/gtag/js?id={{ $ga4Id }}';
                         @endif
                         document.head.appendChild(s);
                     }
+                    @unless ($gtmId)
+                        window.gtag = function () { dataLayer.push(arguments); };
+                    @endunless
+                    // Pages opened inside the site (no full reload) are sent as page views too
+                    // (called from app.js). Anything pushed before the tag loads is queued, not lost.
+                    window.__trackPage = function () {
+                        var p = { page_location: location.href, page_path: location.pathname + location.search, page_title: document.title };
+                        @if ($gtmId)
+                            dataLayer.push(Object.assign({ event: 'page_view' }, p));
+                        @else
+                            gtag('event', 'page_view', p);
+                        @endif
+                    };
                     ['scroll', 'pointerdown', 'keydown', 'touchstart'].forEach(function (e) { addEventListener(e, load, { once: true, passive: true }); });
-                    addEventListener('load', function () { setTimeout(load, 10000); });
+                    addEventListener('load', function () { setTimeout(load, 3000); });
                 })();
             </script>
         @endif

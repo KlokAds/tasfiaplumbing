@@ -3,7 +3,7 @@
 if (window.location.pathname.startsWith('/admin')) import('./bootstrap');
 
 import { createApp, h } from 'vue';
-import { createInertiaApp } from '@inertiajs/vue3';
+import { createInertiaApp, router } from '@inertiajs/vue3';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 
 // Titles come from the server (SEO settings); keep the one already in the page otherwise.
@@ -19,4 +19,11 @@ createInertiaApp({
         color: '#1a66d2',
         showSpinner: false,
     },
+});
+
+// GTM / GA4 page views for pages opened inside the site (the first page is counted on load).
+let firstVisit = true;
+router.on('navigate', () => {
+    if (firstVisit) { firstVisit = false; return; }
+    setTimeout(() => window.__trackPage?.(), 50); // after the new page title is set
 });
