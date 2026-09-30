@@ -91,13 +91,17 @@
               </thead>
               <tbody>
                 <tr v-for="n in notFound.data" :key="n.id">
-                  <td class="font-mono text-xs a-text break-all max-w-sm">{{ n.path }}</td>
+                  <td class="font-mono text-xs a-text break-all max-w-sm">
+                    {{ n.path }}
+                    <p v-if="n.suggestion" class="mt-1 font-sans text-[12px] a-muted">Did you mean <a :href="n.suggestion" target="_blank" rel="noopener" class="a-accent hover:underline break-all">{{ n.suggestion }}</a>?</p>
+                  </td>
                   <td class="text-right font-semibold">{{ n.hits }}</td>
                   <td class="text-xs a-muted whitespace-nowrap">{{ n.last_seen_at ? new Date(n.last_seen_at).toLocaleString('en-SG') : '' }}</td>
                   <td class="text-xs a-muted break-all max-w-xs">{{ n.last_referer || '—' }}</td>
                   <td class="text-right whitespace-nowrap">
                     <template v-if="can('redirects.create')">
-                      <button @click="openModal(null, n.path)" class="admin-btn-secondary a-btn-sm">Redirect</button>
+                      <button v-if="n.suggestion" @click="openModal(null, n.path, 301, n.suggestion)" class="admin-btn-primary a-btn-sm">Redirect there</button>
+                      <button @click="openModal(null, n.path)" :class="[n.suggestion ? 'a-btn-ghost' : 'admin-btn-secondary', 'a-btn-sm']">{{ n.suggestion ? 'Other page' : 'Redirect' }}</button>
                       <button @click="openModal(null, n.path, 410)" class="a-btn-ghost a-btn-sm">Mark gone</button>
                     </template>
                     <button v-if="can('redirects.edit')" @click="ignore(n)" class="a-btn-ghost a-btn-sm">Ignore</button>
@@ -233,12 +237,12 @@ const editing = ref(null);
 const blank = () => ({ from_path: '', to_path: '', code: 301, is_active: true, notes: '' });
 const form = useForm(blank());
 
-function openModal(r = null, fromPath = '', code = 301) {
+function openModal(r = null, fromPath = '', code = 301, toPath = '') {
   form.clearErrors();
   editing.value = r;
   const data = blank();
   if (r) Object.assign(data, { from_path: r.from_path, to_path: r.to_path || '', code: r.code, is_active: r.is_active, notes: r.notes || '' });
-  else Object.assign(data, { from_path: fromPath, code });
+  else Object.assign(data, { from_path: fromPath, code, ...(toPath ? { to_path: toPath } : {}) });
   form.defaults(data);
   form.reset();
   modalOpen.value = true;

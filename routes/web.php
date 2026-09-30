@@ -98,6 +98,8 @@ Route::post('/messages', [FrontendController::class, 'storeMessage'])
 
 // Sitemap XML for SEO
 Route::get('/sitemap.xml', [FrontendController::class, 'sitemap'])->name('sitemap');
+// A plain-text guide to the site for AI assistants (ChatGPT, Perplexity, Google AI): llmstxt.org
+Route::get('/llms.txt', \App\Http\Controllers\LlmsController::class)->name('llms');
 
 Route::get('/robots.txt', fn () => response(\App\Support\SiteSchema::robots(), 200, ['Content-Type' => 'text/plain; charset=UTF-8']))
     ->name('robots');

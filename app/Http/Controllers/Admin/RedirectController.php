@@ -35,6 +35,11 @@ class RedirectController extends Controller
             ->orderByDesc('hits')
             ->paginate(PerPage::get($request, 25), ['*'], 'nf_page')
             ->withQueryString();
+        // "Did you mean …": the most likely page for each broken URL, ready to redirect to.
+        $pages = \App\Support\Sitemap::urls()->pluck('loc')->all();
+        $notFound->getCollection()->transform(fn (NotFoundLog $n) => $n->toArray() + [
+            'suggestion' => \App\Support\NotFoundRules::suggest($n->path, $pages),
+        ]);
 
         return Inertia::render('Admin/Redirects/Index', [
             'redirects' => $redirects,

@@ -85,6 +85,7 @@ class Analytics
                 'users' => (int) $r['metricValues'][0]['value'],
                 'sessions' => (int) $r['metricValues'][1]['value'],
             ], $daily['rows'] ?? []);
+            $days = $range->fillDays($days, ['users', 'sessions']);
 
             return [
                 'now' => $pick(0),

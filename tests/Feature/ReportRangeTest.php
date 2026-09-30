@@ -64,4 +64,14 @@ class ReportRangeTest extends TestCase
             ['date' => '2026-09-28', 'clicks' => 1, 'impressions' => 1],
         ], $weeks);
     }
+
+    public function test_missing_days_are_filled_with_zero(): void
+    {
+        $r = ReportRange::make('7d', null, null, 2, 16);
+        $days = $r->fillDays([['date' => '2026-09-24', 'clicks' => 3, 'impressions' => 40]], ['clicks', 'impressions']);
+
+        $this->assertCount(7, $days);
+        $this->assertSame(['date' => '2026-09-22', 'clicks' => 0, 'impressions' => 0], $days[0]);
+        $this->assertSame(3, $days[2]['clicks']);
+    }
 }

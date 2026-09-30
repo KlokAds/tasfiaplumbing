@@ -13,7 +13,7 @@ use Symfony\Component\HttpFoundation\Response;
  */
 class SiteAccess
 {
-    private const ALWAYS_OPEN = ['admin', 'admin/*', 'login', 'up', 'robots.txt', 'cache/img/*', 'mail/*', 'setup'];
+    private const ALWAYS_OPEN = ['admin', 'admin/*', 'login', 'up', 'robots.txt', 'llms.txt', 'cache/img/*', 'mail/*', 'setup'];
 
     public function handle(Request $request, Closure $next): Response
     {

@@ -116,12 +116,13 @@
 </template>
 
 <script setup>
-import { computed, defineComponent, h, ref } from 'vue';
+import { computed, defineComponent, h, ref, watch } from 'vue';
 import { Deferred, Link, router } from '@inertiajs/vue3';
 import AdminLayout from '@/Layouts/AdminLayout.vue';
 import PageHeader from '@/Components/Admin/PageHeader.vue';
 import TrendChart from '@/Components/Admin/TrendChart.vue';
 import { usePermissions } from '@/Composables/usePermissions';
+import { toast } from '@/Composables/useToast';
 
 const props = defineProps({
   connected: Boolean, hasGsc: Boolean, hasGa4: Boolean, gsc: Object, ga4: Object,
@@ -142,11 +143,26 @@ const from = ref(props.range.from || props.gscRange.start || '');
 const to = ref(props.range.to || props.gscRange.end || '');
 const loading = ref(false);
 
+let announce = '';
 function go(extra = {}) {
   const params = current.value === 'custom' ? { range: 'custom', from: from.value, to: to.value } : (current.value === '28d' ? {} : { range: current.value });
+  announce = extra.refresh ? 'refresh' : 'period';
   loading.value = true;
-  router.get('/admin/insights', { ...params, ...extra }, { preserveScroll: true, onFinish: () => { loading.value = false; } });
+  // preserveState keeps this page (and the note below) while the new reports load.
+  router.get('/admin/insights', { ...params, ...extra }, { preserveScroll: true, preserveState: true, onFinish: () => { loading.value = false; } });
 }
+
+// Once the reports for the new request have arrived, say so.
+watch(() => [props.gsc, props.ga4], ([g, a]) => {
+  if (!announce) return;
+  if ((props.hasGsc && g === undefined) || (props.hasGa4 && a === undefined)) return; // still loading
+  const failed = [g, a].some((r) => r && !r.ok);
+  const period = fmtRange(props.gscRange.start, props.gscRange.end);
+  if (failed) toast.error('Some Google data could not be loaded. See the message on the report.');
+  else if (announce === 'refresh') toast.success(`Reports updated with fresh data from Google (${period}).`);
+  else toast.info(`Showing ${props.gscRange.label?.toLowerCase() || 'the chosen period'}: ${period}.`);
+  announce = '';
+});
 function pick(key) {
   current.value = key;
   if (key !== 'custom') go();
@@ -217,16 +233,25 @@ const ReportSkeleton = defineComponent({
   },
 });
 
+// The arrow always means better (▲ green) or worse (▼ red).
+// For the Google position a lower number is better, so it is shown as places moved up or down.
 const Kpi = defineComponent({
   props: { icon: String, label: String, value: Number, before: Number, suffix: { type: String, default: '' }, lowerIsBetter: Boolean, help: String },
   setup(p) {
     return () => {
-      const diff = p.before ? ((p.value - p.before) / p.before) * 100 : null;
-      const good = diff === null ? null : (p.lowerIsBetter ? diff < 0 : diff > 0);
-      const flat = diff !== null && Math.abs(diff) < 0.5;
-      const pill = diff === null || !isFinite(diff)
-        ? h('span', { class: 'a-subtle' }, 'No earlier data')
-        : h('span', { class: ['inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 font-semibold', flat ? 'a-panel-3 a-muted' : good ? 'bg-emerald-500/12 a-text-success' : 'bg-red-500/10 a-text-danger'] }, `${diff > 0 ? '▲' : diff < 0 ? '▼' : ''} ${Math.abs(diff).toFixed(Math.abs(diff) < 10 ? 1 : 0)}%`);
+      let pill;
+      if (!p.before || !isFinite(p.before)) {
+        pill = h('span', { class: 'a-subtle' }, 'No earlier data');
+      } else {
+        const change = p.lowerIsBetter ? p.before - p.value : ((p.value - p.before) / p.before) * 100;
+        const flat = Math.abs(change) < (p.lowerIsBetter ? 0.05 : 0.5);
+        const better = change > 0;
+        const amount = Math.abs(change);
+        const text = p.lowerIsBetter
+          ? (flat ? 'No change' : `${amount.toFixed(1)} ${amount.toFixed(1) === '1.0' ? 'place' : 'places'} ${better ? 'up' : 'down'}`)
+          : (flat ? 'No change' : `${amount.toFixed(amount < 10 ? 1 : 0)}%`);
+        pill = h('span', { class: ['inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-semibold', flat ? 'a-panel-3 a-muted' : better ? 'bg-emerald-500/12 a-text-success' : 'bg-red-500/10 a-text-danger'], title: `Before: ${nf(p.before)}${p.suffix}` }, flat ? text : `${better ? '▲' : '▼'} ${text}`);
+      }
       return h('div', { class: 'admin-card p-4 sm:p-5' }, [
         h('div', { class: 'flex items-center justify-between gap-2' }, [
           h('p', { class: 'text-xs font-semibold a-muted' }, p.label),

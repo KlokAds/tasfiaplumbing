@@ -111,6 +111,22 @@ class ReportRange
         ];
     }
 
+    /** Every day of the period, with 0 for days Google sent nothing for (so the chart has no gaps). */
+    public function fillDays(array $daily, array $fields): array
+    {
+        $byDate = [];
+        foreach ($daily as $row) {
+            $byDate[$row['date']] = $row;
+        }
+        $out = [];
+        for ($d = $this->start->copy(); $d->lte($this->end); $d->addDay()) {
+            $key = $d->toDateString();
+            $out[] = $byDate[$key] ?? ['date' => $key] + array_fill_keys($fields, 0);
+        }
+
+        return $out;
+    }
+
     /** Sums daily rows into weeks starting on Monday: [date => Y-m-d, ...numbers]. */
     public static function toWeeks(array $daily, array $fields): array
     {

@@ -69,7 +69,7 @@ class SearchConsole
                 'position' => round($r['position'], 1),
             ], $list);
 
-            $daily = array_map(fn ($r) => ['date' => $r['keys'][0], 'clicks' => (int) $r['clicks'], 'impressions' => (int) $r['impressions']], $q($start, $end, ['date'], 500));
+            $daily = $range->fillDays(array_map(fn ($r) => ['date' => $r['keys'][0], 'clicks' => (int) $r['clicks'], 'impressions' => (int) $r['impressions']], $q($start, $end, ['date'], 500)), ['clicks', 'impressions']);
 
             return [
                 'range' => [$start->toDateString(), $end->toDateString()],

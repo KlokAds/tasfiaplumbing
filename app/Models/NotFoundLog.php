@@ -18,6 +18,10 @@ class NotFoundLog extends Model
 
     public static function record(string $path, ?string $referer): void
     {
+        // Bots probing for .env, WordPress, vendor files…: a 404 is the right answer, not worth listing.
+        if (\App\Support\NotFoundRules::isNoise($path)) {
+            return;
+        }
         $now = now();
         static::query()->upsert(
             [[
