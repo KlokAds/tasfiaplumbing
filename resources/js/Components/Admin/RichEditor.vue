@@ -23,6 +23,8 @@
       <span class="sep"></span>
       <button type="button" v-for="b in blockButtons" :key="b.name" @click="b.run" :class="btn(isActive(b.name))" :title="b.title" :disabled="source" v-html="b.icon"></button>
       <span class="sep"></span>
+      <button type="button" v-for="a in alignButtons" :key="a.value" @click="setTextAlign(a.value)" :class="btn(textAlign() === a.value)" :title="a.title" :disabled="source || imageSelected()" v-html="a.icon"></button>
+      <span class="sep"></span>
       <button type="button" @click="toggleLinkBar" :class="btn(isActive('link'))" title="Link" :disabled="source" v-html="icons.link"></button>
       <button type="button" @click="pickerOpen = true" :class="btn(false)" title="Insert image" :disabled="source" v-html="icons.image"></button>
       <button type="button" @click="insertTable" :class="btn(isActive('table'))" title="Insert table" :disabled="source" v-html="icons.table"></button>
@@ -52,7 +54,11 @@
 
     <!-- Selected image: size and alt text -->
     <div v-if="imageSelected() && !source" class="flex flex-wrap items-center gap-x-3 gap-y-2 px-3 py-2 border-b a-border a-panel-2 text-xs">
-      <span class="font-semibold a-muted">Image size:</span>
+      <span class="font-semibold a-muted">Position:</span>
+      <div class="flex items-center gap-1">
+        <button v-for="p in imagePositions" :key="p.value" type="button" :class="['tbl', imageAlign() === p.value && 'a-inverse']" :title="p.title" @click="setImageAlign(p.value)">{{ p.label }}</button>
+      </div>
+      <span class="font-semibold a-muted">Size:</span>
       <div class="flex items-center gap-1">
         <button v-for="s in imageSizes" :key="s.label" type="button" :class="['tbl', imageSize() === s.pct && 'a-inverse']" @click="setImageSize(s.pct)">{{ s.label }}</button>
       </div>
@@ -61,7 +67,7 @@
         <input :value="imageAlt()" @input="setImageAlt($event.target.value)" @keydown.enter.prevent type="text" maxlength="160" placeholder="Describe the photo, e.g. Leaking pipe under an HDB kitchen sink" class="admin-input text-xs py-1.5 flex-1" />
       </label>
       <button type="button" class="tbl a-text-danger" @click="editor.chain().focus().deleteSelection().run()">Remove</button>
-      <span class="w-full text-[11px] a-muted">Drag a corner of the photo to resize it freely. Alt text tells Google and screen readers what the photo shows.</span>
+      <span class="w-full text-[11px] a-muted">Left or Right puts the photo beside the text that follows it. Drag a corner to resize freely. Alt text tells Google and screen readers what the photo shows.</span>
     </div>
     </div>
 
@@ -79,6 +85,7 @@ import StarterKit from '@tiptap/starter-kit';
 import Image from '@tiptap/extension-image';
 import { Table, TableRow, TableHeader, TableCell } from '@tiptap/extension-table';
 import Placeholder from '@tiptap/extension-placeholder';
+import TextAlign from '@tiptap/extension-text-align';
 import MediaPicker from '@/Components/Admin/MediaPicker.vue';
 
 const props = defineProps({
@@ -100,7 +107,19 @@ const editor = useEditor({
       code: false,
       link: { openOnClick: false, autolink: true, HTMLAttributes: { target: null, rel: null } },
     }),
-    Image.configure({
+    // data-align: left / right float the photo so the following text wraps beside it.
+    Image.extend({
+      addAttributes() {
+        return {
+          ...this.parent?.(),
+          align: {
+            default: null,
+            parseHTML: (el) => (['left', 'center', 'right'].includes(el.getAttribute('data-align')) ? el.getAttribute('data-align') : null),
+            renderHTML: (attrs) => (attrs.align ? { 'data-align': attrs.align } : {}),
+          },
+        };
+      },
+    }).configure({
       allowBase64: false,
       HTMLAttributes: { loading: 'lazy' },
       resize: { enabled: true, directions: ['top-left', 'top-right', 'bottom-left', 'bottom-right'], minWidth: 80, minHeight: 60, alwaysPreserveAspectRatio: true },
@@ -110,6 +129,7 @@ const editor = useEditor({
     TableHeader,
     TableCell,
     Placeholder.configure({ placeholder: props.placeholder }),
+    TextAlign.configure({ types: ['heading', 'paragraph'], alignments: ['left', 'center', 'right', 'justify'] }),
   ],
   onUpdate: ({ editor }) => {
     emit('update:modelValue', editor.isEmpty ? '' : editor.getHTML());
@@ -174,6 +194,19 @@ const markButtons = [
   { name: 'underline', title: 'Underline', icon: icons.underline, run: () => editor.value.chain().focus().toggleUnderline().run() },
   { name: 'strike', title: 'Strikethrough', icon: icons.strike, run: () => editor.value.chain().focus().toggleStrike().run() },
 ];
+const alignIcon = (lines) => `<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="${lines}"/></svg>`;
+const alignButtons = [
+  { value: 'left', title: 'Align left', icon: alignIcon('M4 6h16M4 10h10M4 14h16M4 18h10') },
+  { value: 'center', title: 'Align center', icon: alignIcon('M4 6h16M7 10h10M4 14h16M7 18h10') },
+  { value: 'right', title: 'Align right', icon: alignIcon('M4 6h16M10 10h10M4 14h16M10 18h10') },
+  { value: 'justify', title: 'Justify', icon: alignIcon('M4 6h16M4 10h16M4 14h16M4 18h16') },
+];
+const textAlign = () => ['center', 'right', 'justify'].find((a) => editor.value?.isActive({ textAlign: a })) || 'left';
+function setTextAlign(value) {
+  const chain = editor.value.chain().focus();
+  value === 'left' ? chain.unsetTextAlign().run() : chain.setTextAlign(value).run();
+}
+
 const blockButtons = [
   { name: 'bulletList', title: 'Bullet list', icon: icons.bullet, run: () => editor.value.chain().focus().toggleBulletList().run() },
   { name: 'orderedList', title: 'Numbered list', icon: icons.ordered, run: () => editor.value.chain().focus().toggleOrderedList().run() },
@@ -224,6 +257,19 @@ function removeLink() {
 const imageSelected = () => isActive('image');
 const imageAttrs = () => (imageSelected() ? editor.value.getAttributes('image') : {});
 const imageAlt = () => imageAttrs().alt || '';
+const imageAlign = () => imageAttrs().align || 'center';
+const imagePositions = [
+  { value: 'left', label: 'Left', title: 'Photo on the left, text wraps on the right' },
+  { value: 'center', label: 'Center', title: 'Photo on its own line, centred' },
+  { value: 'right', label: 'Right', title: 'Photo on the right, text wraps on the left' },
+];
+function setImageAlign(value) {
+  const pos = editor.value.state.selection.from;
+  editor.value.chain().focus().updateAttributes('image', { align: value === 'center' ? null : value }).setNodeSelection(pos).run();
+  // Beside text a full-width photo leaves no room, so it starts at medium size.
+  if (value !== 'center' && !Number(imageAttrs().width)) setImageSize(50);
+}
+
 const imageSizes = [
   { label: 'Small', pct: 33 },
   { label: 'Medium', pct: 50 },
@@ -296,7 +342,11 @@ function toggleSource() {
 .rich-editor-content :deep(a) { color: var(--a-info-text); text-decoration: underline; }
 .rich-editor-content :deep(img) { max-width: 100%; height: auto; border-radius: 0.5rem; }
 .rich-editor-content :deep(img.ProseMirror-selectednode) { outline: 3px solid var(--a-accent); }
-.rich-editor-content :deep([data-resize-container]) { display: block; max-width: 100%; }
+.rich-editor-content :deep(.tiptap) { display: flow-root; }
+.rich-editor-content :deep([data-resize-container]) { display: block !important; max-width: 100%; text-align: center; }
+.rich-editor-content :deep([data-resize-container]:has(img[data-align='left'])) { float: left; clear: both; max-width: 60%; margin: 0.35em 1.25em 0.75em 0; text-align: left; }
+.rich-editor-content :deep([data-resize-container]:has(img[data-align='right'])) { float: right; clear: both; max-width: 60%; margin: 0.35em 0 0.75em 1.25em; text-align: right; }
+.rich-editor-content :deep(h2), .rich-editor-content :deep(h3) { clear: both; }
 .rich-editor-content :deep([data-resize-wrapper]) { display: inline-block !important; max-width: 100%; }
 .rich-editor-content :deep([data-resize-handle]) { width: 12px; height: 12px; margin: -6px; border-radius: 3px; background: var(--a-accent); border: 2px solid #fff; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35); opacity: 0; transition: opacity 0.12s; z-index: 2; }
 .rich-editor-content :deep([data-resize-handle='top-left']), .rich-editor-content :deep([data-resize-handle='bottom-right']) { cursor: nwse-resize; }
