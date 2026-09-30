@@ -186,6 +186,7 @@ const leadEvents = computed(() => {
     { key: 'click_whatsapp', label: 'WhatsApp clicks', count: get('click_whatsapp') },
     { key: 'click_call', label: 'Phone calls', count: get('click_call') },
     { key: 'click_email', label: 'Email clicks', count: get('click_email') },
+    { key: 'tawkto_lead', label: 'Chat leads', count: get('tawkto_lead') },
   ];
 });
 

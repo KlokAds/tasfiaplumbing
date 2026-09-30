@@ -387,7 +387,7 @@ function trackClick(e) {
   const a = e.target.closest?.('a[href]');
   if (!a) return;
   const href = a.getAttribute('href') || '';
-  const event = href.startsWith('tel:') ? 'click_call' : /wa\.me|whatsapp\.com/i.test(href) ? 'click_whatsapp' : href.startsWith('mailto:') ? 'click_email' : null;
+  const event = href.startsWith('tel:') ? 'click_call' : /wa\.me|wa\.link|whatsapp\.com/i.test(href) ? 'click_whatsapp' : href.startsWith('mailto:') ? 'click_email' : null;
   if (!event) return;
   (window.dataLayer = window.dataLayer || []).push({ event, link_url: href, page_path: location.pathname });
 }

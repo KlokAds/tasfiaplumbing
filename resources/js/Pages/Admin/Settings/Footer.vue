@@ -58,7 +58,7 @@
           <label class="md:col-span-2 a-toggle-row">
             <span>
               <span class="block text-sm font-semibold">Send conversion events</span>
-              <span class="block text-xs a-muted mt-0.5">Pushes <span class="a-mono">generate_lead</span> (form sent), <span class="a-mono">click_call</span>, <span class="a-mono">click_whatsapp</span> and <span class="a-mono">click_email</span> to the dataLayer, so you can use them as conversions in GA4 and Google Ads.</span>
+              <span class="block text-xs a-muted mt-0.5">Pushes <span class="a-mono">generate_lead</span> (form sent), <span class="a-mono">click_call</span>, <span class="a-mono">click_whatsapp</span>, <span class="a-mono">click_email</span>, <span class="a-mono">tawkto_chat_start</span> and <span class="a-mono">tawkto_lead</span> (chat) to the dataLayer, plus a <span class="a-mono">page_view</span> for every page opened inside the site, so you can use them as conversions in GA4 and Google Ads.</span>
             </span>
             <input v-model="form.events" type="checkbox" class="a-switch mt-0.5" :disabled="readOnly" />
           </label>
