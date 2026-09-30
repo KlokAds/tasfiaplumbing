@@ -57,6 +57,7 @@
 
             <form method="post" action="/install" onsubmit="this.querySelector('button').disabled = true; this.querySelector('button').textContent = 'Installing… this can take a minute';">
                 @csrf
+                <input type="hidden" name="key" value="{{ request('key') }}">
                 @error('database')<div class="err">{{ $message }}</div>@enderror
 
                 <div class="row">

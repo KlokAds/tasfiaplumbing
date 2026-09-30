@@ -15,6 +15,9 @@ return [
 
     'name' => env('APP_NAME', 'Laravel'),
 
+    // One-time key for /install (see InstallController); empty = open until installed.
+    'install_key' => env('INSTALL_KEY', ''),
+
     /*
     |--------------------------------------------------------------------------
     | Application Environment

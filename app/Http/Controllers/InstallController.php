@@ -49,16 +49,27 @@ class InstallController extends Controller
         return in_array($default, ['mysql', 'mariadb'], true) && blank(config("database.connections.{$default}.database"));
     }
 
-    public function show()
+    /**
+     * With INSTALL_KEY in .env the installer only opens from the link that carries the key
+     * (/install?key=...), so nobody else can reach it before the owner has finished.
+     */
+    private static function keyMatches(Request $request): bool
     {
-        abort_unless(self::isOpen(), 404);
+        $key = (string) config('app.install_key');
+
+        return $key === '' || hash_equals($key, (string) $request->input('key', ''));
+    }
+
+    public function show(Request $request)
+    {
+        abort_unless(self::isOpen() && self::keyMatches($request), 404);
 
         return view('install', ['hasData' => is_file(database_path(self::DATA))]);
     }
 
     public function store(Request $request)
     {
-        abort_unless(self::isOpen(), 404);
+        abort_unless(self::isOpen() && self::keyMatches($request), 404);
         @set_time_limit(600);
 
         $data = $request->validate([
