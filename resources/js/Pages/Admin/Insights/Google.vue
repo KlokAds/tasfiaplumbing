@@ -37,7 +37,10 @@
 
         <!-- What to use -->
         <form v-if="connected" @submit.prevent="saveProps" class="admin-card overflow-hidden">
-          <header class="a-card-head"><div><h3 class="a-card-title">What to use</h3><p class="a-card-sub">Only what your Google account can see is listed.</p></div></header>
+          <header class="a-card-head flex items-start justify-between gap-3">
+            <div><h3 class="a-card-title">What to use</h3><p class="a-card-sub">Only what your Google account can see is listed. Added a site or profile in Google just now? Refresh the lists.</p></div>
+            <button type="button" class="admin-btn-secondary a-btn-sm shrink-0" :disabled="refreshing" @click="refreshLists">{{ refreshing ? 'Refreshing…' : 'Refresh lists' }}</button>
+          </header>
           <div class="p-5 space-y-5">
             <div>
               <label class="admin-label">Business Profile (reviews)</label>
@@ -153,6 +156,12 @@ const apis = [
 
 const clientForm = useForm({ client_id: props.client?.id || '', client_secret: '' });
 const saveClient = () => clientForm.post('/admin/insights/google/client', { preserveScroll: true, onSuccess: () => { clientForm.client_secret = ''; } });
+
+const refreshing = ref(false);
+function refreshLists() {
+  refreshing.value = true;
+  router.reload({ data: { refresh: 1 }, only: ['lists', 'listErrors'], onFinish: () => { refreshing.value = false; } });
+}
 
 const propsForm = useForm({ gsc: props.selected?.gsc || '', ga4: props.selected?.ga4 || '', gbp: props.selected?.gbp || '' });
 const saveProps = () => propsForm.post('/admin/insights/google/properties', { preserveScroll: true });

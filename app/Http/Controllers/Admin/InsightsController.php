@@ -94,18 +94,25 @@ class InsightsController extends Controller
     public function inspectBatch()
     {
         try {
-            $n = SearchConsole::inspectBatch(40);
+            // At most ~20 seconds per click, so the request never runs into the host's 60-second gateway limit.
+            $n = SearchConsole::inspectBatch(40, 20);
         } catch (GoogleException $e) {
             return back()->with('error', $e->getMessage());
         }
 
-        return back()->with('success', "Checked {$n} pages with Google. The rest are checked automatically every day.");
+        return back()->with('success', "Checked {$n} pages with Google. Click again to check more; all pages are also checked automatically every day.");
     }
 
     /** Google connection settings. */
-    public function google()
+    public function google(\Illuminate\Http\Request $request)
     {
         $connected = GoogleApi::connected();
+        // "Refresh lists": read the properties again, e.g. right after adding a site in Search Console.
+        if ($request->boolean('refresh')) {
+            foreach (['sites', 'properties', 'locations'] as $key) {
+                cache()->forget("google.list.{$key}");
+            }
+        }
         $lists = ['sites' => [], 'properties' => [], 'locations' => []];
         $errors = [];
         if ($connected) {

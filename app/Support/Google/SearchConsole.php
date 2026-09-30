@@ -111,14 +111,22 @@ class SearchConsole
      * Daily batch: new URLs first, then the ones checked longest ago.
      * Google allows 2,000 inspections a day; 150 keeps well inside that.
      */
-    public static function inspectBatch(int $limit = 150): int
+    /**
+     * Checks the pages checked longest ago. $seconds stops early (a button click must finish well
+     * inside the web server's time limit; the daily job runs without one).
+     */
+    public static function inspectBatch(int $limit = 150, ?int $seconds = null): int
     {
         $urls = \App\Support\Sitemap::urls()->map(fn ($u) => url($u['loc']))->all();
         $known = IndexStatus::whereIn('url', $urls)->pluck('checked_at', 'url');
         $queue = collect($urls)->sortBy(fn ($u) => $known->get($u)?->timestamp ?? 0)->take($limit);
+        $stopAt = $seconds ? microtime(true) + $seconds : null;
 
         $done = 0;
         foreach ($queue as $url) {
+            if ($stopAt && microtime(true) >= $stopAt) {
+                break;
+            }
             try {
                 self::inspect($url);
                 $done++;
