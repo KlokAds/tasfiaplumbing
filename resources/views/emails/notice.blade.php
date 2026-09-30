@@ -1,7 +1,7 @@
 @php
     // Every email the site sends uses this one branded layout (no Laravel default template).
     $d = rescue(fn () => \App\Support\SystemSettings::pageDetails(), [], false) + ['brand' => config('app.name'), 'logo' => '/logo.png', 'phone' => null, 'tel' => null, 'whatsapp' => null, 'email' => null];
-    $logo = str_starts_with($d['logo'], 'http') ? $d['logo'] : url($d['logo']);
+    $logo = rescue(fn () => \App\Support\EmailLogo::url($d['logo']), url('/apple-touch-icon.png'), false);
     $accent = '#1452b0';
     $md = function (?string $text) {
         $html = e((string) $text);
@@ -30,7 +30,7 @@
                     <tr>
                         <td style="padding:0 4px 16px;">
                             <table role="presentation" cellspacing="0" cellpadding="0"><tr>
-                                <td style="background:#ffffff;border:1px solid #e5e7eb;border-radius:10px;padding:4px;"><img src="{{ $logo }}" width="32" height="32" alt="" style="display:block;border:0;"></td>
+                                <td style="background:#ffffff;border:1px solid #e5e7eb;border-radius:10px;padding:4px;"><img src="{{ $logo }}" width="40" height="40" alt="{{ $d['brand'] }}" style="display:block;border:0;width:40px;height:40px;object-fit:contain;"></td>
                                 <td style="padding-left:10px;font-size:15px;font-weight:700;color:#0f172a;">{{ $d['brand'] }}</td>
                             </tr></table>
                         </td>
