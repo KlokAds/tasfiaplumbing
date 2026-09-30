@@ -16,9 +16,12 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         // SMTP details saved in Admin → System → Site settings override .env.
-        \App\Support\SystemSettings::applyEnvironment();
-        \App\Support\SystemSettings::applyMail();
-        \App\Support\SystemSettings::applyUrl();
+        // Skipped on a fresh upload with no database yet (the installer runs first).
+        if (!\App\Http\Controllers\InstallController::notConfigured()) {
+            \App\Support\SystemSettings::applyEnvironment();
+            \App\Support\SystemSettings::applyMail();
+            \App\Support\SystemSettings::applyUrl();
+        }
 
         Gate::before(function (User $user) {
             try {
