@@ -43,9 +43,11 @@
     # Built CSS/JS/fonts carry a content hash in their name, so they can be kept for a year.
     <FilesMatch "-[A-Za-z0-9_-]{8}\.(js|css|woff2?)$">
         Header set Cache-Control "public, max-age=31536000, immutable"
+        Header unset Expires
     </FilesMatch>
     # Photos and icons: a month.
     <FilesMatch "\.(jpe?g|png|webp|gif|svg|ico|avif)$">
         Header set Cache-Control "public, max-age=2592000"
+        Header unset Expires
     </FilesMatch>
 </IfModule>

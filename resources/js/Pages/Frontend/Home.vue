@@ -78,6 +78,8 @@
       </div>
     </section>
 
+    <!-- Everything below the first screen is built one frame later (splits the start-up work in two). -->
+    <template v-if="restReady">
     <!-- ============ Services ============ -->
     <section v-if="services.length" class="py-24 lg:py-32 s-bg">
       <div class="container-app">
@@ -194,11 +196,12 @@
     </section>
 
     <CtaBand title="Water where it shouldn't be?" text="Send us a photo on WhatsApp. A plumber replies with a clear price, usually the same day." />
+    </template>
   </FrontendLayout>
 </template>
 
 <script setup>
-import { computed, reactive } from 'vue';
+import { computed, nextTick, onMounted, reactive, ref } from 'vue';
 import { Link, usePage } from '@inertiajs/vue3';
 import FrontendLayout from '@/Layouts/FrontendLayout.vue';
 import QuoteForm from '@/Components/Site/QuoteForm.vue';
@@ -209,6 +212,18 @@ import { useContact } from '@/Composables/useContact';
 import { img, srcset } from '@/utils/img';
 import { statsFrom } from '@/utils/stats';
 import { cleanTitle } from '@/utils/cleanTitle';
+
+const restReady = ref(false);
+onMounted(() => {
+  requestAnimationFrame(() => setTimeout(async () => {
+    restReady.value = true;
+    // A link such as /#quote points into the part that was just built.
+    if (location.hash.length > 1) {
+      await nextTick();
+      document.getElementById(decodeURIComponent(location.hash.slice(1)))?.scrollIntoView();
+    }
+  }));
+});
 
 const props = defineProps({
   hero: { type: Object, default: () => ({}) },
