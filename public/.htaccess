@@ -5,6 +5,14 @@
 
     RewriteEngine On
 
+    # One address for the site: https and without "www."
+    RewriteCond %{HTTP_HOST} ^www\.(.+)$ [NC]
+    RewriteRule ^ https://%1%{REQUEST_URI} [L,R=301]
+    RewriteCond %{HTTPS} !=on
+    RewriteCond %{HTTP:X-Forwarded-Proto} !=https
+    RewriteCond %{HTTP_HOST} !(^localhost|^127\.0\.0\.1|\.test$) [NC]
+    RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
     # Uploaded photos are data, never code: refuse scripts inside upload and cache folders
     RewriteRule ^(Admin|Images|Service\ Image|uploads|cache)/.*\.(php[0-9]?|phtml|phar|pl|py|cgi|sh|shtml|htaccess)$ - [F,NC,L]
 

@@ -131,6 +131,14 @@ class InstallController extends Controller
         }
         rescue(fn () => Artisan::call('config:clear'), null, false);
 
+        // Remember the real website address (APP_URL, or the address used right now), so links,
+        // sitemap and emails always use it and https is enforced (Admin → System can change it).
+        $url = rtrim((string) config('app.url'), '/');
+        if (!filter_var($url, FILTER_VALIDATE_URL) || preg_match('#//(localhost|127\.0\.0\.1)|\.test$#', $url)) {
+            $url = $request->getSchemeAndHttpHost();
+        }
+        rescue(fn () => blank(\App\Models\SiteSetting::get('system.app_url')) && \App\Models\SiteSetting::putMany(['system.app_url' => $url]), null, false);
+
         // 5. Close the installer for good and remove the bundled data from the server.
         @file_put_contents(storage_path(self::LOCK), json_encode(['installed_at' => now()->toIso8601String(), 'imported' => $imported]));
         if ($imported) {

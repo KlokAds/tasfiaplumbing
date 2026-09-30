@@ -17,6 +17,10 @@ return Application::configure(basePath: dirname(__DIR__))
             users: '/admin/dashboard'
         );
 
+        // Hostinger serves the site through its CDN: trust its forwarded headers so the app
+        // knows the visitor is on https (secure cookies, https links, correct visitor IP).
+        $middleware->trustProxies(at: '*');
+
         // Runs first: app key, database check, automatic migrations, first-run owner setup.
         $middleware->prepend(\App\Http\Middleware\AutoSetup::class);
         $middleware->append(\App\Http\Middleware\HandleRedirects::class);
