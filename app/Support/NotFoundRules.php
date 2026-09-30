@@ -22,6 +22,8 @@ class NotFoundRules
         '#^/(install|setup|debug|telescope|_ignition|actuator|owa|remote|solr|druid|jenkins|boaform|hnap1)(/|$)#i',
         '#^/\.well-known/(?!acme-challenge|security\.txt)#i',
         '#^/(ai-catalog|ads)\.(json|txt)$#i',
+        // Guesses for sign-up pages, crypto gateways and app manifests this site does not have.
+        '#^/(register|signup|sign-up|user/register|ipfs|manifest\.json|site\.webmanifest|apple-app-site-association)(/|$)#i',
     ];
 
     /** Old addresses from the previous website (and common guesses) that have a fixed new home. */

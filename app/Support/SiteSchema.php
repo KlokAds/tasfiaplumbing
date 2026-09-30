@@ -146,6 +146,6 @@ class SiteSchema
 
     private static function absolute(string $path, string $base): string
     {
-        return str_starts_with($path, 'http') ? $path : $base . '/' . ltrim($path, '/');
+        return ResponsiveImage::publicUrl($path, $base);
     }
 }

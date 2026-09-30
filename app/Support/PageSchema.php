@@ -93,7 +93,7 @@ class PageSchema
             'serviceType' => $s->name,
             'description' => Str::limit(trim(strip_tags((string) ($s->short_summary ?: $s->desc))), 300, '…'),
             'url' => self::url($s->publicPath()),
-            'image' => $s->image ? self::url('/' . ltrim($s->image, '/')) : null,
+            'image' => $s->image ? ResponsiveImage::publicUrl($s->image, config('app.url')) : null,
             'provider' => ['@id' => self::url('/') . '#business'],
             'areaServed' => ['@type' => 'Country', 'name' => 'Singapore'],
             'category' => $s->category?->name,
@@ -110,7 +110,7 @@ class PageSchema
             '@id' => self::url($b->publicPath()) . '#article',
             'headline' => Str::limit($b->name, 110, ''),
             'description' => Str::limit(trim(strip_tags((string) ($b->excerpt ?: $b->desc))), 300, '…'),
-            'image' => $b->image ? [self::url('/' . ltrim($b->image, '/'))] : null,
+            'image' => $b->image ? [ResponsiveImage::publicUrl($b->image, config('app.url'))] : null,
             'datePublished' => optional($b->published_at ?? $b->created_at)->toIso8601String(),
             'dateModified' => optional($b->content_updated_at ?? $b->updated_at)->toIso8601String(),
             'author' => array_filter([

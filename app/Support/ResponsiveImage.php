@@ -23,15 +23,32 @@ class ResponsiveImage
         return preg_match('#^(Admin|uploads|images)/#', $p) ? $p : null;
     }
 
+    /** "Admin/Blog/Untitled design.jpg" → "Admin/Blog/Untitled%20design.jpg" (never encoded twice). */
+    public static function encodePath(string $path): string
+    {
+        return implode('/', array_map(fn ($seg) => rawurlencode(rawurldecode($seg)), explode('/', $path)));
+    }
+
+    /** Absolute or root-relative URL of a stored file path, safe to put in HTML, srcset or JSON-LD. */
+    public static function publicUrl(string $path, string $base = ''): string
+    {
+        if (preg_match('#^https?://#i', $path)) {
+            return $path;
+        }
+
+        return rtrim($base, '/') . '/' . self::encodePath(ltrim($path, '/'));
+    }
+
     public static function url(?string $path, int $width): ?string
     {
         $p = self::local($path);
         if (!$p) {
-            return $path ? '/' . ltrim($path, '/') : null;
+            return $path ? self::publicUrl($path) : null;
         }
         $w = collect(ImageController::WIDTHS)->first(fn ($x) => $x >= $width) ?? max(ImageController::WIDTHS);
 
-        return "/cache/img/{$w}/{$p}.webp";
+        // Encoded, so a file name with spaces cannot break a srcset or be read as two links.
+        return '/cache/img/' . $w . '/' . self::encodePath($p) . '.webp';
     }
 
     public static function srcset(?string $path, int $max = 1600): ?string
@@ -42,7 +59,7 @@ class ResponsiveImage
         }
 
         return collect(ImageController::WIDTHS)->filter(fn ($w) => $w >= 320 && $w <= $max)
-            ->map(fn ($w) => "/cache/img/{$w}/{$p}.webp {$w}w")->join(', ');
+            ->map(fn ($w) => '/cache/img/' . $w . '/' . self::encodePath($p) . ".webp {$w}w")->join(', ');
     }
 
     /** Ask the layout to preload this image (call from the controller). */

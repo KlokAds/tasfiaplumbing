@@ -83,7 +83,7 @@ class PageMeta
         $desc = Str::limit(trim(preg_replace('/\s+/', ' ', strip_tags(html_entity_decode((string) ($desc ?: $s['seo.default_meta_desc']))))), 160, '…');
         $base = rtrim(config('app.url'), '/');
         $image = $image ?: ($s['seo.default_og_image'] ?: '/logo.png');
-        $image = str_starts_with($image, 'http') ? $image : $base . '/' . ltrim($image, '/');
+        $image = \App\Support\ResponsiveImage::publicUrl($image, $base);
 
         $meta = [
             'title' => $title,
