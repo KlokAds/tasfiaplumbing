@@ -172,35 +172,3 @@ onBeforeUnmount(() => {
   window.removeEventListener('scroll', reposition, true);
 });
 </script>
-
-<style scoped>
-.sbx-trigger { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; width: 100%; text-align: left; cursor: pointer; background-image: none !important; }
-.sbx-trigger:disabled { cursor: not-allowed; opacity: 0.6; }
-.sbx-value { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
-.sbx-placeholder { opacity: 0.6; }
-.sbx-chevron { width: 1rem; height: 1rem; flex-shrink: 0; opacity: 0.55; transition: transform 0.15s; }
-
-.sbx-panel {
-  z-index: 70; display: flex; flex-direction: column; overflow: hidden;
-  border-radius: 12px; border: 1px solid var(--a-border, var(--s-border, #e5e7eb));
-  background: var(--a-panel, var(--s-surface, #fff)); color: var(--a-text, var(--s-text, #0f172a));
-  box-shadow: 0 16px 40px -12px rgba(0, 0, 0, 0.35); outline: none;
-  animation: sbx-in 0.12s ease-out;
-}
-@keyframes sbx-in { from { opacity: 0; transform: translateY(-4px); } }
-.sbx-search-wrap { padding: 6px; border-bottom: 1px solid var(--a-border, var(--s-border, #e5e7eb)); }
-.sbx-search {
-  width: 100%; font-size: 13px; padding: 7px 10px; border-radius: 8px; outline: none;
-  background: var(--a-panel-2, var(--s-surface-2, #f8fafc)); color: inherit;
-  border: 1px solid var(--a-border, var(--s-border, #e5e7eb));
-}
-.sbx-list { overflow-y: auto; overscroll-behavior: contain; padding: 4px; margin: 0; list-style: none; flex: 1; }
-.sbx-option {
-  display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;
-  padding: 8px 10px; border-radius: 8px; font-size: 14px; line-height: 1.3; cursor: pointer;
-}
-.sbx-option.is-active { background: var(--a-panel-3, var(--s-surface-2, #f1f5f9)); }
-.sbx-option.is-selected { font-weight: 600; color: var(--a-accent-text, var(--s-accent-text, #1452b0)); }
-.sbx-option.is-disabled { opacity: 0.45; cursor: not-allowed; }
-.sbx-empty { padding: 10px; font-size: 13px; opacity: 0.6; }
-</style>

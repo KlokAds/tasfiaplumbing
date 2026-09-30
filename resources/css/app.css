@@ -8,6 +8,7 @@
 @import '@fontsource-variable/sora/wght.css';
 @import './tokens.css';
 @import './site.css';
+@import './selectbox.css';
 
 @source '../js/Pages/Frontend';
 @source '../js/Layouts/FrontendLayout.vue';

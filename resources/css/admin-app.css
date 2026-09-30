@@ -3,6 +3,7 @@
 @import '@fontsource-variable/figtree/wght.css';
 @import '@fontsource-variable/sora/wght.css';
 @import './tokens.css';
+@import './selectbox.css';
 @import './admin.css';
 
 @source '../js/Pages/Admin';

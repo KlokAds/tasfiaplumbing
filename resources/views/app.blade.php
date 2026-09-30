@@ -60,7 +60,7 @@
             <script>window.__trackEvents = true;</script>
         @endif
         @if ($tawkId)
-            {{-- Tawk.to chat loads after the first interaction (or 6 s) so it never slows the page. --}}
+            {{-- Tawk.to chat loads after the first interaction (or 10 s) so it never slows the page. --}}
             <script>
                 (function () {
                     var done = false;
@@ -74,12 +74,12 @@
                         document.head.appendChild(s);
                     }
                     ['scroll', 'pointerdown', 'keydown', 'touchstart'].forEach(function (e) { addEventListener(e, load, { once: true, passive: true }); });
-                    addEventListener('load', function () { setTimeout(load, 6000); });
+                    addEventListener('load', function () { setTimeout(load, 10000); });
                 })();
             </script>
         @endif
         @if ($gtmId || $ga4Id)
-            {{-- Tracking (GTM/GA4 and the pixels inside GTM) loads on the first scroll, tap or key press, or after 4 seconds.
+            {{-- Tracking (GTM/GA4 and the pixels inside GTM) loads on the first scroll, tap or key press, or after 10 seconds.
                  Visits are still counted; the page just paints first, which keeps PageSpeed scores high. --}}
             <script>
                 (function () {
@@ -100,7 +100,7 @@
                         document.head.appendChild(s);
                     }
                     ['scroll', 'pointerdown', 'keydown', 'touchstart'].forEach(function (e) { addEventListener(e, load, { once: true, passive: true }); });
-                    addEventListener('load', function () { setTimeout(load, 4000); });
+                    addEventListener('load', function () { setTimeout(load, 10000); });
                 })();
             </script>
         @endif
