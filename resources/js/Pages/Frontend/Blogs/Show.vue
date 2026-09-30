@@ -8,17 +8,17 @@
     <!-- Header -->
     <header class="s-bg border-b s-border">
       <div class="container-app pt-8 pb-10 lg:pt-12 lg:pb-12">
-        <div class="max-w-[46rem]">
+        <div class="max-w-[66rem]">
           <nav class="crumbs" aria-label="Breadcrumb">
             <Link href="/">Home</Link><span class="sep">/</span>
             <Link href="/blogs">Articles</Link>
             <template v-if="blog.primary_service"><span class="sep">/</span><Link :href="`/service/${blog.primary_service.slug}`">{{ blog.primary_service.name }}</Link></template>
           </nav>
           <Link v-if="blog.primary_service" :href="`/blogs?service=${blog.primary_service.slug}`" class="mt-5 inline-flex eyebrow">{{ blog.primary_service.name }}</Link>
-          <h1 class="h-page mt-3">{{ blog.name }}</h1>
+          <h1 class="h-page mt-3 [text-wrap:balance]">{{ blog.name }}</h1>
           <p v-if="blog.excerpt" class="lead mt-4">{{ blog.excerpt }}</p>
 
-          <div class="mt-7 flex flex-wrap items-center justify-between gap-4">
+          <div class="mt-7 max-w-[46rem] flex flex-wrap items-center justify-between gap-4">
             <div class="flex items-center gap-3">
               <img v-if="author.image" :src="img(author.image, 96)" :alt="author.name" class="w-11 h-11 rounded-full object-cover" />
               <span v-else class="w-11 h-11 rounded-full bg-[var(--s-heading)] text-[var(--s-bg)] text-[14px] font-bold flex items-center justify-center">{{ initials }}</span>
