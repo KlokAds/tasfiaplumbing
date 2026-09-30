@@ -122,7 +122,13 @@
     <link rel="icon" type="image/png" sizes="64x64" href="/favicon-64.png">
     <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 
-    @vite([$isPublicPage ? 'resources/css/app.css' : 'resources/css/admin-app.css', 'resources/js/app.js'])
+    @if ($isPublicPage)
+        {{-- Start downloading the two text fonts with the page, so text never shifts when they arrive. --}}
+        <link rel="preload" as="font" type="font/woff2" crossorigin href="{{ Vite::asset('node_modules/@fontsource-variable/figtree/files/figtree-latin-wght-normal.woff2') }}">
+        <link rel="preload" as="font" type="font/woff2" crossorigin href="{{ Vite::asset('node_modules/@fontsource-variable/sora/files/sora-latin-wght-normal.woff2') }}">
+    @endif
+    {{-- The current page's own code is preloaded too, instead of waiting for app.js to ask for it. --}}
+    @vite([$isPublicPage ? 'resources/css/app.css' : 'resources/css/admin-app.css', 'resources/js/app.js', "resources/js/Pages/{$page['component']}.vue"])
     @inertiaHead
 </head>
 <body class="font-sans antialiased min-h-screen flex flex-col">

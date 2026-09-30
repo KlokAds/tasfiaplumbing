@@ -239,7 +239,7 @@ class SystemUpdateController extends Controller
                 ['label' => "Download latest code (git pull {$remote} {$branch})", 'command' => [$git, 'pull', '--ff-only', $remote, $branch]],
             ];
         if (config('deploy.run_composer')) {
-            $args = [config('deploy.composer_binary'), 'install', '--no-interaction', '--no-progress', '--optimize-autoloader'];
+            $args = [...$this->composerCommand($php), 'install', '--no-interaction', '--no-progress', '--optimize-autoloader'];
             if ($production) {
                 $args[] = '--no-dev';
             }
@@ -325,8 +325,35 @@ class SystemUpdateController extends Controller
             return $configured;
         }
         $name = strtolower(basename(PHP_BINARY));
+        if (!str_contains($name, 'fpm') && !str_contains($name, 'cgi') && !str_contains($name, 'lsphp')) {
+            return PHP_BINARY;
+        }
+        // The web server runs PHP through FPM / CGI / LiteSpeed (lsphp): use the command-line PHP
+        // of the same version next to it (e.g. /opt/alt/php85/usr/bin/php on Hostinger).
+        $cli = dirname(PHP_BINARY) . DIRECTORY_SEPARATOR . 'php';
 
-        return (str_contains($name, 'fpm') || str_contains($name, 'cgi')) ? 'php' : PHP_BINARY;
+        return is_file($cli) && is_executable($cli) ? $cli : 'php';
+    }
+
+    /**
+     * Composer as a command. When it is a PHP script (composer.phar, or Hostinger's
+     * /usr/local/bin/composer), run it with the site's PHP, because the default "php" on
+     * shared hosting is often older than the packages need.
+     */
+    private function composerCommand(string $php): array
+    {
+        $composer = (string) config('deploy.composer_binary');
+        $path = str_contains($composer, '/') || str_contains($composer, '\\')
+            ? $composer
+            : (new \Symfony\Component\Process\ExecutableFinder())->find($composer);
+        if ($path && is_file($path)) {
+            $head = (string) @file_get_contents($path, false, null, 0, 64);
+            if (str_ends_with(strtolower($path), '.phar') || str_starts_with($head, '<?php') || preg_match('/^#!.*\bphp\b/', $head)) {
+                return [$php, $path];
+            }
+        }
+
+        return [$composer];
     }
 
     private function processEnv(): array

@@ -55,6 +55,12 @@ class User extends Authenticatable
         'last_login_at' => 'datetime',
     ];
 
+    /** Reset links are sent with the branded email template and point to the admin reset page. */
+    public function sendPasswordResetNotification($token): void
+    {
+        $this->notify(new \App\Notifications\AdminPasswordReset($token));
+    }
+
     public function isSuperAdmin(): bool
     {
         return $this->hasRole(config('admin.super_role'));

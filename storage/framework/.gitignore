@@ -10,3 +10,5 @@ schedule-*
 services.json
 installed.lock
 owner.lock
+setup-state.json
+migrate.lock

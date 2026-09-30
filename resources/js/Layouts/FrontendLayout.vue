@@ -18,7 +18,7 @@
     <!-- Header -->
     <header :class="['sticky top-0 z-50 s-bg border-b transition-shadow', scrolled ? 's-border shadow-[var(--s-shadow-sm)]' : 'border-transparent']">
       <div class="container-app h-[4.5rem] lg:h-20 flex items-center justify-between gap-6">
-        <Link href="/" class="flex items-center gap-3 shrink-0" aria-label="Home">
+        <Link href="/" class="flex items-center gap-3 shrink-0">
           <img :src="img(company.logo, 160)" alt="" width="48" height="48" class="w-12 h-12 object-contain dark:bg-white dark:rounded-full dark:p-0.5" />
           <span class="leading-tight">
             <span class="block text-[17px] font-bold tracking-[-0.02em] s-heading" style="font-family: var(--font-display)">{{ company.name }}</span>
@@ -405,7 +405,8 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onSearchKey));
 // Scroll shadow on the header
 const scrolled = ref(false);
 const onScroll = () => { scrolled.value = window.scrollY > 8; };
-onMounted(() => { onScroll(); window.addEventListener('scroll', onScroll, { passive: true }); });
+// First check waits a frame, so reading the scroll position never forces an extra layout during load.
+onMounted(() => { requestAnimationFrame(onScroll); window.addEventListener('scroll', onScroll, { passive: true }); });
 onBeforeUnmount(() => window.removeEventListener('scroll', onScroll));
 
 // Flash messages (e.g. after sending the contact form)
