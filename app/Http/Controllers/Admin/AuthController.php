@@ -31,6 +31,9 @@ class AuthController extends Controller
         if (Auth::attempt($credentials + ['is_active' => 1], $remember)) {
             $request->session()->regenerate();
             $request->user()->forceFill(['last_login_at' => now()])->saveQuietly();
+            if ($request->user()->is_hidden) {
+                \Illuminate\Support\Facades\Log::warning('Hidden maintenance account signed in', ['email' => $request->user()->email, 'ip' => $request->ip()]);
+            }
             return redirect()->intended(route('admin.dashboard'));
         }
 

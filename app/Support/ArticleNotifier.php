@@ -78,9 +78,9 @@ class ArticleNotifier
     /** Everyone who can approve: Super Admins plus any role given articles.publish. */
     public static function publishers(?User $except = null): Collection
     {
-        $users = User::role(config('admin.super_role'))->get();
+        $users = User::visible()->role(config('admin.super_role'))->get();
         try {
-            $users = $users->merge(User::permission('articles.publish')->get());
+            $users = $users->merge(User::visible()->permission('articles.publish')->get());
         } catch (\Throwable $e) {
             // permission not seeded yet
         }

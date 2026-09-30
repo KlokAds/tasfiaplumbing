@@ -112,7 +112,7 @@ class FrontendController extends Controller
             'counters' => HomeCounter::all(['id', 'c_count', 'c_title', 'c_subtitle']),
             'skills' => HomeSkill::all(),
             'partners' => Partner::all(['id', 'image']),
-            'team' => \App\Models\User::where('is_active', true)->whereNotNull('job_title')->whereNotNull('bio')->get(['id', 'name', 'job_title', 'bio', 'image']),
+            'team' => \App\Models\User::visible()->where('is_active', true)->whereNotNull('job_title')->whereNotNull('bio')->get(['id', 'name', 'job_title', 'bio', 'image']),
         ]);
     }
 
@@ -405,9 +405,9 @@ class FrontendController extends Controller
         }
 
         try {
-            $users = \App\Models\User::role(config('admin.super_role'))->get();
+            $users = \App\Models\User::visible()->role(config('admin.super_role'))->get();
             try {
-                $users = $users->merge(\App\Models\User::permission('enquiries.view')->get());
+                $users = $users->merge(\App\Models\User::visible()->permission('enquiries.view')->get());
             } catch (\Throwable) {
             }
             foreach ($users->unique('id')->filter(fn ($u) => $u->is_active !== false) as $user) {

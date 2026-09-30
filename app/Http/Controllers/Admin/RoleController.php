@@ -17,7 +17,7 @@ class RoleController extends Controller
     {
         $super = config('admin.super_role');
 
-        $roles = Role::with('permissions:id,name')->withCount('users')->orderBy('id')->get()->map(fn (Role $r) => [
+        $roles = Role::with('permissions:id,name')->withCount(['users' => fn ($q) => $q->where('is_hidden', false)])->orderBy('id')->get()->map(fn (Role $r) => [
             'id' => $r->id,
             'name' => $r->name,
             'label' => config("admin.roles.{$r->name}.label") ?? Str::headline($r->name),

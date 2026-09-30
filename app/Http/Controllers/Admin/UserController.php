@@ -17,7 +17,7 @@ class UserController extends Controller
     {
         $articleCounts = BlogDetail::selectRaw('author_id, count(*) n')->whereNotNull('author_id')->groupBy('author_id')->pluck('n', 'author_id');
 
-        $users = User::with('roles:id,name')->orderBy('name')->get()->map(fn (User $u) => [
+        $users = User::visible()->with('roles:id,name')->orderBy('name')->get()->map(fn (User $u) => [
             'id' => $u->id,
             'name' => $u->name,
             'email' => $u->email,
@@ -56,6 +56,7 @@ class UserController extends Controller
 
     public function update(Request $request, User $user)
     {
+        abort_if($user->is_hidden, 404);
         $data = $this->validated($request, $user);
         if ($denied = $this->superAdminGuard($request, $data['role'], $user)) {
             return $denied;
@@ -85,6 +86,7 @@ class UserController extends Controller
 
     public function destroy(Request $request, User $user)
     {
+        abort_if($user->is_hidden, 404);
         if ($user->is($request->user())) {
             return redirect()->back()->with('error', 'You cannot delete your own account.');
         }
@@ -139,7 +141,7 @@ class UserController extends Controller
             return false;
         }
 
-        return User::role($super)->where('is_active', true)->whereKeyNot($user->id)->doesntExist();
+        return User::visible()->role($super)->where('is_active', true)->whereKeyNot($user->id)->doesntExist();
     }
 
     private function roleOptions(): array
