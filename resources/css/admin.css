@@ -484,3 +484,6 @@
         align-self: start;
     }
 }
+
+/* Divider lines use the panel border colour (Tailwind 4 would otherwise draw them in the text colour). */
+.admin-ui [class*="divide-"] > * + *, .admin-ui .a-divide > * + * { border-color: var(--a-border); }

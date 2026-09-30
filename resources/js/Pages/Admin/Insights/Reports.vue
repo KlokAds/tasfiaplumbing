@@ -45,6 +45,7 @@
               <Kpi icon="percent" label="Click-through rate" :value="gsc.data.now.ctr" :before="gsc.data.before.ctr" suffix="%" />
               <Kpi icon="rank" label="Average position" :value="gsc.data.now.position" :before="gsc.data.before.position" lower-is-better help="1 = top of Google" />
             </div>
+            <div class="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_19rem] gap-5 items-stretch">
             <section class="admin-card p-5">
               <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
                 <h3 class="a-card-title">{{ gscRange.weekly ? 'Clicks per week' : 'Clicks per day' }}</h3>
@@ -55,11 +56,12 @@
               </div>
               <TrendChart :points="gsc.data.daily.map(d => ({ date: d.date, value: d.clicks }))" :second="gsc.data.daily.map(d => ({ date: d.date, value: d.impressions }))" unit="clicks" unit2="impressions" :label="gscRange.weekly ? 'Clicks from Google per week' : 'Clicks from Google per day'" />
             </section>
-            <div class="grid grid-cols-1 xl:grid-cols-2 gap-5 items-start">
+            <ShareCard title="Clicks by device" unit="clicks" :rows="(gsc.data.devices || []).map(d => ({ key: deviceName(d.key), value: d.clicks, extra: `${nf(d.impressions)} shown` }))" />
+            </div>
+            <div class="grid grid-cols-1 xl:grid-cols-2 gap-5 items-stretch">
               <DataTable title="What people searched" :rows="gsc.data.queries" key-label="Search term" empty="No searches yet. New sites take a few weeks to appear." />
               <DataTable title="Pages people clicked" :rows="gsc.data.pages" key-label="Page" path-key="path" empty="No page clicks yet." />
             </div>
-            <SimpleTable v-if="gsc.data.devices?.length" title="Search clicks by device" :rows="gsc.data.devices.map(d => ({ ...d, key: deviceName(d.key) }))" :cols="[['key', 'Device'], ['clicks', 'Clicks'], ['impressions', 'Shown']]" bar="clicks" />
           </div>
         </Deferred>
       </section>
@@ -78,29 +80,32 @@
               <Kpi icon="spark" label="Engaged visits" :value="Math.round(ga4.data.now.engagementRate * 1000) / 10" :before="Math.round(ga4.data.before.engagementRate * 1000) / 10" suffix="%" help="Stayed 10 s+, 2+ pages or converted" />
             </div>
 
-            <section class="admin-card p-5">
-              <h3 class="a-card-title mb-4">{{ ga4Range.weekly ? 'Visitors per week' : 'Visitors per day' }}</h3>
-              <TrendChart :points="ga4.data.daily.map(d => ({ date: d.date, value: d.users }))" unit="visitors" :label="ga4Range.weekly ? 'Visitors per week' : 'Visitors per day'" />
-            </section>
+            <div class="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_19rem] gap-5 items-stretch">
+              <section class="admin-card p-5">
+                <h3 class="a-card-title mb-4">{{ ga4Range.weekly ? 'Visitors per week' : 'Visitors per day' }}</h3>
+                <TrendChart :points="ga4.data.daily.map(d => ({ date: d.date, value: d.users }))" unit="visitors" :label="ga4Range.weekly ? 'Visitors per week' : 'Visitors per day'" />
+              </section>
+              <ShareCard title="Visitors by device" unit="visitors" :rows="(ga4.data.devices || []).map(d => ({ key: deviceName(d.key), value: d.activeUsers }))" />
+            </div>
 
             <section class="admin-card overflow-hidden">
               <header class="a-card-head"><div><h3 class="a-card-title">Leads</h3><p class="a-card-sub">Counted by the conversion events (Logo, footer & tracking → Send conversion events).</p></div></header>
-              <div class="grid grid-cols-2 lg:grid-cols-4 divide-x a-divide">
-                <div v-for="e in leadEvents" :key="e.key" class="p-5">
+              <div class="grid grid-cols-2 lg:grid-cols-4 gap-px" style="background: var(--a-border)">
+                <div v-for="e in leadEvents" :key="e.key" class="p-5" style="background: var(--a-panel)">
                   <p class="text-xs a-subtle">{{ e.label }}</p>
                   <p class="text-2xl font-extrabold mt-1 tabular-nums">{{ e.count.toLocaleString() }}</p>
                 </div>
               </div>
             </section>
 
-            <div class="grid grid-cols-1 xl:grid-cols-2 gap-5 items-start">
+            <!-- Cards side by side share one height, so the page reads as even rows -->
+            <div class="grid grid-cols-1 xl:grid-cols-[1.4fr_1fr] gap-5 items-stretch">
               <SimpleTable title="Most viewed pages" :rows="ga4.data.pages" :cols="[['key', 'Page'], ['screenPageViews', 'Views'], ['activeUsers', 'Visitors']]" link />
-              <SimpleTable title="Where visitors come from" :rows="ga4.data.channels" :cols="[['key', 'Channel'], ['sessions', 'Visits'], ['activeUsers', 'Visitors']]" bar="sessions" />
               <SimpleTable title="Top sources" :rows="ga4.data.sources" :cols="[['key', 'Source'], ['sessions', 'Visits']]" bar="sessions" />
-              <div class="space-y-5">
-                <SimpleTable title="Devices" :rows="ga4.data.devices.map(d => ({ ...d, key: deviceName(d.key) }))" :cols="[['key', 'Device'], ['activeUsers', 'Visitors']]" bar="activeUsers" />
-                <SimpleTable title="Cities" :rows="ga4.data.cities" :cols="[['key', 'City'], ['activeUsers', 'Visitors']]" bar="activeUsers" />
-              </div>
+            </div>
+            <div class="grid grid-cols-1 xl:grid-cols-2 gap-5 items-stretch">
+              <SimpleTable title="Where visitors come from" :rows="ga4.data.channels" :cols="[['key', 'Channel'], ['sessions', 'Visits'], ['activeUsers', 'Visitors']]" bar="sessions" />
+              <SimpleTable title="Cities" :rows="ga4.data.cities" :cols="[['key', 'City'], ['activeUsers', 'Visitors']]" bar="activeUsers" />
             </div>
           </div>
         </Deferred>
@@ -237,6 +242,28 @@ const Kpi = defineComponent({
   },
 });
 
+// Small card: each row's share of the total (devices), with a bar and a percentage.
+const ShareCard = defineComponent({
+  props: { title: String, rows: Array, unit: String },
+  setup(p) {
+    return () => {
+      const rows = (p.rows || []).filter((r) => r.value > 0 || r.extra);
+      const total = rows.reduce((t, r) => t + r.value, 0) || 1;
+      return h('section', { class: 'admin-card p-5 flex flex-col' }, [
+        h('h3', { class: 'a-card-title' }, p.title),
+        rows.length ? h('ul', { class: 'mt-4 space-y-4' }, rows.map((r) => h('li', [
+          h('div', { class: 'flex items-baseline justify-between gap-2 text-sm' }, [
+            h('span', { class: 'font-semibold' }, r.key),
+            h('span', { class: 'tabular-nums' }, [h('span', { class: 'font-bold' }, Math.round((r.value / total) * 100) + '%'), h('span', { class: 'text-xs a-subtle' }, ` · ${nf(r.value)} ${p.unit}`)]),
+          ]),
+          h('div', { class: 'mt-1.5 h-2 rounded-full a-panel-3 overflow-hidden' }, h('div', { class: 'h-full rounded-full bg-[var(--a-accent)]', style: { width: `${(r.value / total) * 100}%` } })),
+          r.extra ? h('p', { class: 'mt-1 text-xs a-subtle' }, r.extra) : null,
+        ]))) : h('p', { class: 'mt-3 text-sm a-muted' }, 'No data yet.'),
+      ]);
+    };
+  },
+});
+
 // Long tables show 10 rows at a time.
 const PER_PAGE = 10;
 function pager(rows, page) {
@@ -248,7 +275,7 @@ function pager(rows, page) {
 function pagerFooter(pg, set) {
   if (pg.pages <= 1) return null;
   const btn = (label, target, disabled, aria) => h('button', { type: 'button', class: 'admin-btn-secondary a-btn-sm !px-2.5', disabled, onClick: () => set(target), 'aria-label': aria }, label);
-  return h('footer', { class: 'flex items-center justify-between gap-3 px-4 py-2.5 border-t a-border text-xs a-muted' }, [
+  return h('footer', { class: 'mt-auto flex items-center justify-between gap-3 px-4 py-2.5 border-t a-border text-xs a-muted' }, [
     h('span', { class: 'tabular-nums' }, `${pg.from}–${pg.to} of ${pg.total}`),
     h('span', { class: 'flex items-center gap-1.5' }, [
       btn('‹', pg.current - 1, pg.current <= 1, 'Previous page'),
@@ -267,18 +294,18 @@ const DataTable = defineComponent({
     return () => {
       const pg = pager(p.rows, page.value);
       const maxCtr = Math.max(1, ...(p.rows || []).map((r) => r.ctr));
-      return h('section', { class: 'admin-card overflow-hidden' }, [
+      return h('section', { class: 'admin-card overflow-hidden flex flex-col h-full' }, [
         h('header', { class: 'a-card-head' }, [h('h3', { class: 'a-card-title' }, p.title), pg.total ? h('span', { class: 'text-xs a-subtle' }, `${pg.total} total`) : null]),
         pg.total ? h('div', { class: 'overflow-x-auto' }, h('table', { class: 'a-table' }, [
           h('thead', h('tr', ['#', p.keyLabel, 'Clicks', 'Shown', 'CTR', 'Position'].map((c, i) => h('th', { class: i > 1 || i === 0 ? 'text-right' : '' }, c)))),
           h('tbody', pg.slice.map((r, i) => h('tr', [
             rankCell(pg.start + i + 1),
-            h('td', { class: 'max-w-[16rem] truncate' }, p.pathKey ? h('a', { href: r.key, target: '_blank', rel: 'noopener', class: 'a-accent hover:underline', title: r.key }, r[p.pathKey]) : h('span', { title: r.key }, r.key)),
+            h('td', { class: 'max-w-[11rem] 2xl:max-w-[16rem] truncate' }, p.pathKey ? h('a', { href: r.key, target: '_blank', rel: 'noopener', class: 'a-accent hover:underline', title: r.key }, r[p.pathKey]) : h('span', { title: r.key }, r.key)),
             h('td', { class: 'text-right tabular-nums font-semibold' }, nf(r.clicks)),
             h('td', { class: 'text-right tabular-nums a-muted' }, nf(r.impressions)),
             h('td', { class: 'text-right tabular-nums' }, [
               h('span', r.ctr + '%'),
-              h('div', { class: 'mt-1 ml-auto h-1 w-12 rounded-full a-panel-3 overflow-hidden' }, h('div', { class: 'h-full rounded-full bg-[var(--a-accent)]', style: { width: `${(r.ctr / maxCtr) * 100}%` } })),
+              h('div', { class: 'mt-1 ml-auto h-1 w-10 rounded-full a-panel-3 overflow-hidden' }, h('div', { class: 'h-full rounded-full bg-[var(--a-accent)]', style: { width: `${(r.ctr / maxCtr) * 100}%` } })),
             ]),
             h('td', { class: 'text-right' }, positionBadge(r.position)),
           ]))),
@@ -296,12 +323,12 @@ const SimpleTable = defineComponent({
     return () => {
       const pg = pager(p.rows, page.value);
       const max = p.bar ? Math.max(1, ...(p.rows || []).map((r) => r[p.bar])) : 1;
-      return h('section', { class: 'admin-card overflow-hidden' }, [
+      return h('section', { class: 'admin-card overflow-hidden flex flex-col h-full' }, [
         h('header', { class: 'a-card-head' }, [h('h3', { class: 'a-card-title' }, p.title), pg.total > PER_PAGE ? h('span', { class: 'text-xs a-subtle' }, `${pg.total} total`) : null]),
         pg.total ? h('table', { class: 'a-table' }, [
           h('thead', h('tr', ['#', ...p.cols.map(([, label]) => label)].map((label, i) => h('th', { class: i !== 1 ? 'text-right' : '' }, label)))),
           h('tbody', pg.slice.map((r, n) => h('tr', [rankCell(pg.start + n + 1), ...p.cols.map(([key], i) => h('td', { class: i ? 'text-right tabular-nums' : 'max-w-[16rem]' }, i ? nf(r[key]) : [
-            h('div', { class: 'truncate' }, p.link ? h('a', { href: r[key], target: '_blank', rel: 'noopener', class: 'a-accent hover:underline', title: r[key] }, r[key]) : (r[key] === '(not set)' ? 'Unknown' : r[key])),
+            h('div', { class: 'truncate' }, p.link ? h('a', { href: r[key], target: '_blank', rel: 'noopener', class: 'a-accent hover:underline', title: r[key] }, r[key]) : (r[key] === '(not set)' || r[key] === '' ? 'Unknown' : r[key])),
             p.bar ? h('div', { class: 'mt-1 h-1 rounded-full a-panel-3 overflow-hidden' }, h('div', { class: 'h-full rounded-full bg-[var(--a-accent)]', style: { width: `${(r[p.bar] / max) * 100}%` } })) : null,
           ]))]))),
         ]) : h('p', { class: 'p-5 text-sm a-muted' }, 'No data yet.'),

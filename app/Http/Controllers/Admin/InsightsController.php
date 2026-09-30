@@ -155,7 +155,7 @@ class InsightsController extends Controller
             ],
             'lists' => $lists,
             'listErrors' => $errors,
-            'sync' => \App\Support\Google\GoogleSync::status(),
+            'automation' => \App\Support\Google\GoogleSync::status(),
             'reviews' => [
                 'count' => rescue(fn () => GoogleReview::count(), 0, false),
                 'rating' => SiteSetting::get('google.gbp_rating'),

@@ -11,7 +11,7 @@
           </span>
           <div class="flex-1 min-w-0">
             <p class="text-sm font-bold">{{ connected ? 'Connected' : 'Not connected' }}<span v-if="email" class="font-normal a-muted"> · {{ email }}</span></p>
-            <p class="text-xs a-muted mt-0.5">{{ connected ? 'Reviews sync every night at 4:30 am. Reports refresh every few hours.' : 'Finish the 4 setup steps on the right, then connect.' }}</p>
+            <p class="text-xs a-muted mt-0.5">{{ connected ? 'Reports, index checks and reviews update on their own — see Automatic updates below.' : 'Finish the 4 setup steps on the right, then connect.' }}</p>
           </div>
           <button v-if="!connected" type="button" class="admin-btn-primary" :disabled="!client.id || !client.has_secret" @click="connect">Connect Google</button>
           <button v-else type="button" class="admin-btn-secondary" @click="disconnect">Disconnect</button>
@@ -41,6 +41,7 @@
             <div><h3 class="a-card-title">What to use</h3><p class="a-card-sub">Only what your Google account can see is listed. Added a site or profile in Google just now? Refresh the lists.</p></div>
             <button type="button" class="admin-btn-secondary a-btn-sm shrink-0" :disabled="refreshing" @click="refreshLists">{{ refreshing ? 'Refreshing…' : 'Refresh lists' }}</button>
           </header>
+          <p v-if="refreshNote" role="status" class="a-alert a-alert-success text-sm mx-5 mt-4">{{ refreshNote }}</p>
           <div class="p-5 space-y-5">
             <div>
               <label class="admin-label">Business Profile (reviews)</label>
@@ -75,11 +76,11 @@
         </form>
 
         <!-- Automatic updates (server cron) -->
-        <form v-if="connected && sync" @submit.prevent="saveSync" class="admin-card overflow-hidden">
+        <form v-if="connected && automation" @submit.prevent="saveSync" class="admin-card overflow-hidden">
           <header class="a-card-head"><div><h3 class="a-card-title">Automatic updates</h3><p class="a-card-sub">The server does these on its own, in the background. Choose how often.</p></div></header>
-          <p v-if="!sync.cron_ok" class="a-alert a-alert-warning text-sm mx-5 mt-5">The server cron has not run in the last 10 minutes{{ sync.cron_seen ? ` (last seen ${ago(sync.cron_seen)})` : '' }}, so nothing updates automatically. Check the cron job in your hosting panel.</p>
-          <div class="divide-y a-divide">
-            <div v-for="t in sync.tasks" :key="t.key" class="p-5 grid grid-cols-1 md:grid-cols-[1fr_11rem] gap-3 items-start">
+          <p v-if="!automation.cron_ok" class="a-alert a-alert-warning text-sm mx-5 mt-5">The server cron has not run in the last 10 minutes{{ automation.cron_seen ? ` (last seen ${ago(automation.cron_seen)})` : '' }}, so nothing updates automatically. Check the cron job in your hosting panel.</p>
+          <div class="a-divide">
+            <div v-for="t in automation.tasks" :key="t.key" class="p-5 grid grid-cols-1 md:grid-cols-[1fr_11rem] gap-3 items-start">
               <div class="min-w-0">
                 <p class="text-sm font-bold">{{ t.label }}</p>
                 <p class="text-xs a-muted mt-0.5">{{ t.help }}</p>
@@ -99,7 +100,7 @@
             <div class="p-5 grid grid-cols-1 md:grid-cols-[1fr_11rem] gap-3 items-center">
               <div><p class="text-sm font-bold">Pages per index check</p><p class="text-xs a-muted mt-0.5">Google allows about 2,000 checks a day. "Run now" stops after about 20 seconds.</p></div>
               <SelectBox v-model="syncForm.index_batch" class="admin-input">
-                <option v-for="o in sync.index_batch_options" :key="o" :value="o">{{ o }} pages</option>
+                <option v-for="o in automation.index_batch_options" :key="o" :value="o">{{ o }} pages</option>
               </SelectBox>
             </div>
           </div>
@@ -174,7 +175,7 @@ import { confirmDialog } from '@/Composables/useConfirm';
 
 const props = defineProps({
   client: Object, redirectUri: String, origin: String, connected: Boolean, email: String, lastError: String,
-  selected: Object, lists: Object, sync: Object, listErrors: { type: [Object, Array], default: () => ({}) }, reviews: Object,
+  selected: Object, lists: Object, automation: Object, listErrors: { type: [Object, Array], default: () => ({}) }, reviews: Object,
 });
 
 const apis = [
@@ -190,15 +191,29 @@ const clientForm = useForm({ client_id: props.client?.id || '', client_secret: '
 const saveClient = () => clientForm.post('/admin/insights/google/client', { preserveScroll: true, onSuccess: () => { clientForm.client_secret = ''; } });
 
 const refreshing = ref(false);
+const refreshNote = ref('');
+let noteTimer;
 function refreshLists() {
   refreshing.value = true;
-  router.reload({ data: { refresh: 1 }, only: ['lists', 'listErrors'], onFinish: () => { refreshing.value = false; } });
+  refreshNote.value = '';
+  router.reload({
+    data: { refresh: 1 },
+    only: ['lists', 'listErrors'],
+    onSuccess: (page) => {
+      const l = page.props.lists || {};
+      const n = (list, one, many) => `${(list || []).length} ${(list || []).length === 1 ? one : many}`;
+      refreshNote.value = `Lists updated: ${n(l.sites, 'Search Console site', 'Search Console sites')}, ${n(l.properties, 'Analytics property', 'Analytics properties')}, ${n(l.locations, 'Business Profile', 'Business Profiles')}.`;
+      clearTimeout(noteTimer);
+      noteTimer = setTimeout(() => { refreshNote.value = ''; }, 8000);
+    },
+    onFinish: () => { refreshing.value = false; },
+  });
 }
 
 // ---- Automatic updates
 const syncForm = useForm({
-  ...Object.fromEntries((props.sync?.tasks || []).map((t) => [t.key, t.every])),
-  index_batch: props.sync?.index_batch || 150,
+  ...Object.fromEntries((props.automation?.tasks || []).map((t) => [t.key, t.every])),
+  index_batch: props.automation?.index_batch || 150,
 });
 function saveSync() { syncForm.post('/admin/insights/google/sync', { preserveScroll: true }); }
 const running = ref('');
