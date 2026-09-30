@@ -41,9 +41,10 @@ Schedule::call(fn () => \Illuminate\Support\Facades\Cache::forever('system.sched
  * php artisan site:hidden-admin maintenance@example.com
  * Creates (or gives a new password to) the maintenance account: a Super Admin that is not listed in
  * Users, role counts, notifications or the team page, and that other users cannot change or delete.
- * The password is shown once here and stored nowhere else. Every sign-in is logged.
+ * The password is shown once here and stored nowhere else (or, with --link, emailed as a
+ * set-password link so nobody sees it). Every sign-in is logged.
  */
-Artisan::command('site:hidden-admin {email} {--name=System maintenance} {--remove}', function (string $email) {
+Artisan::command('site:hidden-admin {email} {--name=System maintenance} {--remove} {--link : Email a link to set the password instead of showing one}', function (string $email) {
     $email = strtolower(trim($email));
     if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
         return $this->error('That is not an email address.');
@@ -70,6 +71,15 @@ Artisan::command('site:hidden-admin {email} {--name=System maintenance} {--remov
     $role = \Spatie\Permission\Models\Role::firstOrCreate(['name' => config('admin.super_role'), 'guard_name' => 'web']);
     $user->syncRoles([$role]);
     \Illuminate\Support\Facades\Log::warning('Hidden maintenance account created or its password changed', ['email' => $email]);
+
+    if ($this->option('link')) {
+        // Nobody sees a password: the owner of the mailbox sets one from the emailed link.
+        $status = \Illuminate\Support\Facades\Password::broker()->sendResetLink(['email' => $email]);
+
+        return $status === \Illuminate\Support\Facades\Password::RESET_LINK_SENT
+            ? $this->info("Account ready. A link to set the password was emailed to {$email}.")
+            : $this->warn("Account ready, but the email was not sent ({$status}). Use \"Forgot password\" on the login page.");
+    }
 
     $this->newLine();
     $this->line("  Email:    {$email}");
