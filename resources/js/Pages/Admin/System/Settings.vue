@@ -172,6 +172,7 @@
           <input v-model="testTo" type="email" class="admin-input" placeholder="you@example.com" />
         </div>
         <button type="button" class="admin-btn-secondary" :disabled="testing || !testTo" @click="sendTest">{{ testing ? 'Sending…' : 'Send test email' }}</button>
+        <p v-if="testResult" role="status" :class="['w-full rounded-lg px-3.5 py-2.5 text-sm', testResult.ok ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200' : 'bg-red-50 text-red-800 dark:bg-red-950/40 dark:text-red-200']">{{ testResult.text }}</p>
         <p class="w-full a-help">Save first. The test uses the saved settings and shows the exact error if the server refuses.</p>
       </section>
     </form>
@@ -232,7 +233,7 @@
 <script setup>
 import SelectBox from '@/Components/SelectBox.vue';
 import { computed, onBeforeUnmount, ref } from 'vue';
-import { router, useForm } from '@inertiajs/vue3';
+import { router, useForm, usePage } from '@inertiajs/vue3';
 import AdminLayout from '@/Layouts/AdminLayout.vue';
 import PageHeader from '@/Components/Admin/PageHeader.vue';
 import CountryPicker from '@/Components/Admin/CountryPicker.vue';
@@ -327,11 +328,22 @@ function usePreset(p) {
 function saveMail() {
   mailForm.post('/admin/system/settings', { preserveScroll: true, onSuccess: () => { mailForm.password = ''; } });
 }
-const testTo = ref(props.mail.from_address || '');
+const page = usePage();
+const testTo = ref(page.props.auth?.user?.email || props.mail.from_address || '');
 const testing = ref(false);
+const testResult = ref(null);
 function sendTest() {
   testing.value = true;
-  router.post('/admin/system/settings/test-mail', { to: testTo.value }, { preserveScroll: true, onFinish: () => { testing.value = false; } });
+  testResult.value = null;
+  router.post('/admin/system/settings/test-mail', { to: testTo.value }, {
+    preserveScroll: true,
+    onSuccess: (p) => {
+      const f = p.props.flash || {};
+      testResult.value = f.error ? { ok: false, text: f.error } : { ok: true, text: f.success || `Test email sent to ${testTo.value}.` };
+    },
+    onError: (errors) => { testResult.value = { ok: false, text: Object.values(errors)[0] || 'The test email could not be sent.' }; },
+    onFinish: () => { testing.value = false; },
+  });
 }
 
 // ---- Country access

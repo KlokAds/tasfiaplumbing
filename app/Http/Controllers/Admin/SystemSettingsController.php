@@ -171,6 +171,7 @@ class SystemSettingsController extends Controller
         }
 
         $mailer = config('mail.default');
+        Log::info('Test email sent', ['to' => $to, 'mailer' => $mailer, 'by' => $request->user()?->id]);
 
         return back()->with('success', $mailer === 'smtp'
             ? "Test email sent to {$to}. Check the inbox (and spam folder)."
