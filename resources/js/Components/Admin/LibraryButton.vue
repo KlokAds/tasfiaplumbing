@@ -14,6 +14,7 @@
 <script setup>
 import { ref } from 'vue';
 import MediaPicker from '@/Components/Admin/MediaPicker.vue';
+import { libraryFile } from '@/utils/libraryFile';
 
 defineOptions({ inheritAttrs: false });
 defineProps({ label: { type: String, default: 'Choose from Media library' }, disabled: Boolean });
@@ -21,10 +22,6 @@ const emit = defineEmits(['pick']);
 const open = ref(false);
 
 function pick({ path, url }) {
-  const ext = (path.split('.').pop() || 'jpg').toLowerCase();
-  const code = btoa(unescape(encodeURIComponent(path))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-  const mime = { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp', gif: 'image/gif', avif: 'image/avif', svg: 'image/svg+xml' }[ext] || 'application/octet-stream';
-  const file = new File([new Uint8Array([0])], `library--${code}.${ext}`, { type: mime });
-  emit('pick', { file, url, path });
+  emit('pick', { file: libraryFile(path), url, path });
 }
 </script>

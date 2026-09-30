@@ -6,10 +6,12 @@
   -->
   <div v-if="$slots.default" data-page-slim class="sticky z-20 h-0 -mx-4 sm:-mx-6 lg:-mx-8" :style="{ top: offset + 'px' }">
     <transition enter-active-class="transition duration-200 ease-out" enter-from-class="opacity-0 -translate-y-2" leave-active-class="transition duration-150 ease-in" leave-to-class="opacity-0 -translate-y-2">
-      <div v-if="stuck" class="absolute inset-x-0 top-0 h-12 px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-3 border-b a-border shadow-sm backdrop-blur-md"
+      <div v-if="stuck" class="absolute inset-x-0 top-0 h-12 px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-3 border-b a-border shadow-sm backdrop-blur-md overflow-hidden"
         style="background: color-mix(in srgb, var(--a-bg) 88%, transparent)">
-        <p class="text-[15px] font-semibold a-display truncate min-w-0">{{ title }}</p>
-        <div class="flex items-center gap-2 shrink-0 overflow-x-auto a-scroll page-header-compact">
+        <!-- On phones the top bar already shows the page name, so the buttons get the whole row. -->
+        <p class="hidden sm:block text-[15px] font-semibold a-display truncate min-w-0">{{ title }}</p>
+        <!-- Buttons that do not fit scroll sideways inside this row instead of pushing the page wider. -->
+        <div class="flex items-center gap-2 min-w-0 max-w-full ml-auto overflow-x-auto a-scroll page-header-compact [&>*]:shrink-0 [&>*]:whitespace-nowrap" style="scrollbar-width: none">
           <slot />
         </div>
       </div>

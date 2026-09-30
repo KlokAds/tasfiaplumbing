@@ -266,8 +266,21 @@ const imagePositions = [
 function setImageAlign(value) {
   const pos = editor.value.state.selection.from;
   editor.value.chain().focus().updateAttributes('image', { align: value === 'center' ? null : value }).setNodeSelection(pos).run();
+  if (value === 'center') return;
   // Beside text a full-width photo leaves no room, so it starts at medium size.
-  if (value !== 'center' && !Number(imageAttrs().width)) setImageSize(50);
+  if (!Number(imageAttrs().width)) setImageSize(50);
+  // Text wraps around the photo only in the paragraph that follows it, so make sure there is
+  // one and put the cursor in it, ready to type.
+  const { state } = editor.value;
+  const node = state.doc.nodeAt(pos);
+  if (!node) return;
+  const after = pos + node.nodeSize;
+  const next = state.doc.nodeAt(after);
+  if (!next || next.type.name !== 'paragraph') {
+    editor.value.chain().insertContentAt(after, { type: 'paragraph' }).setTextSelection(after + 1).focus().run();
+  } else {
+    editor.value.chain().setTextSelection(after + 1).focus().run();
+  }
 }
 
 const imageSizes = [
@@ -346,7 +359,7 @@ function toggleSource() {
 .rich-editor-content :deep([data-resize-container]) { display: block !important; max-width: 100%; text-align: center; }
 .rich-editor-content :deep([data-resize-container]:has(img[data-align='left'])) { float: left; clear: both; max-width: 60%; margin: 0.35em 1.25em 0.75em 0; text-align: left; }
 .rich-editor-content :deep([data-resize-container]:has(img[data-align='right'])) { float: right; clear: both; max-width: 60%; margin: 0.35em 0 0.75em 1.25em; text-align: right; }
-.rich-editor-content :deep(h2), .rich-editor-content :deep(h3) { clear: both; }
+.rich-editor-content :deep(h2), .rich-editor-content :deep(h3), .rich-editor-content :deep(hr), .rich-editor-content :deep(table) { clear: both; }
 .rich-editor-content :deep([data-resize-wrapper]) { display: inline-block !important; max-width: 100%; }
 .rich-editor-content :deep([data-resize-handle]) { width: 12px; height: 12px; margin: -6px; border-radius: 3px; background: var(--a-accent); border: 2px solid #fff; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35); opacity: 0; transition: opacity 0.12s; z-index: 2; }
 .rich-editor-content :deep([data-resize-handle='top-left']), .rich-editor-content :deep([data-resize-handle='bottom-right']) { cursor: nwse-resize; }

@@ -255,7 +255,8 @@
                 <span v-else class="text-xs px-3">Click to choose a photo</span>
                 <input type="file" accept="image/jpeg,image/png,image/webp" @change="pickImage" class="hidden" />
               </label>
-              <LibraryButton class="mt-1.5" @pick="p => { form.image = p.file; preview = p.url; imageCheck = null; }" />
+              <p v-if="imageUploading" class="mt-1.5 text-xs a-muted">Uploading the photo…</p>
+              <LibraryButton class="mt-1.5" @pick="p => { form.image_path = p.path; imageCheck = null; }" />
               <p v-if="form.errors.image" class="a-error">{{ form.errors.image }}</p>
               <p v-else-if="imageCheck" :class="['mt-1.5 text-xs', imageCheck.ok ? 'a-text-success' : 'a-text-warning']">{{ imageCheck.text }}</p>
               <ul class="mt-2 text-[11.5px] a-subtle space-y-0.5 leading-relaxed">
@@ -342,7 +343,8 @@ import LibraryButton from '@/Components/Admin/LibraryButton.vue';
 import StickyBar from '@/Components/Admin/StickyBar.vue';
 import DatePicker from '@/Components/DatePicker.vue';
 import SelectBox from '@/Components/SelectBox.vue';
-import { computed, onMounted, reactive, ref } from 'vue';
+import { computed, onMounted, reactive, ref, watch } from 'vue';
+import axios from 'axios';
 import { router, useForm, usePage } from '@inertiajs/vue3';
 import AdminLayout from '@/Layouts/AdminLayout.vue';
 import PageHeader from '@/Components/Admin/PageHeader.vue';
@@ -357,6 +359,7 @@ import { compressImage } from '@/Composables/compressImage';
 import { confirmDialog } from '@/Composables/useConfirm';
 import { useAutosave } from '@/Composables/useAutosave';
 import { useTitleCheck } from '@/Composables/useTitleCheck';
+import { libraryFile, libraryUrl } from '@/utils/libraryFile';
 
 const props = defineProps({
   blogs: Object,
@@ -470,11 +473,12 @@ const editing = ref(null);
 const preview = ref(null);
 const busy = ref('');
 
-const FIELDS = ['name', 'slug', 'primary_service_id', 'excerpt', 'desc', 'meta_title', 'meta_desc', 'focus_keyword', 'canonical', 'noindex', 'faqs', 'schedule_mode', 'scheduled_at'];
+// image_path: the featured image as a Media library path, so it survives in the autosaved draft.
+const FIELDS = ['name', 'slug', 'primary_service_id', 'excerpt', 'desc', 'meta_title', 'meta_desc', 'focus_keyword', 'canonical', 'noindex', 'faqs', 'schedule_mode', 'scheduled_at', 'image_path'];
 const blank = () => ({
   name: '', slug: '', primary_service_id: null, excerpt: '', desc: '',
   meta_title: '', meta_desc: '', focus_keyword: '', canonical: '', noindex: false,
-  faqs: [], schedule_mode: 'now', scheduled_at: '', image: null,
+  faqs: [], schedule_mode: 'now', scheduled_at: '', image: null, image_path: null,
 });
 const form = useForm(blank());
 const autosave = useAutosave({ type: 'article', recordId: computed(() => editing.value?.id || 0), form, fields: FIELDS, active: modalOpen });
@@ -545,14 +549,36 @@ function checkImage(file) {
   });
 }
 
+// A chosen library photo (or a restored draft) becomes the form's image.
+watch(() => form.image_path, (path) => {
+  if (!path) return;
+  form.image = libraryFile(path);
+  preview.value = libraryUrl(path);
+});
+
+// A photo from the computer goes to the Media library straight away, so the draft can keep it.
+// If that is not allowed (no media permission) it is sent with the article as before.
+const imageUploading = ref(false);
 async function pickImage(e) {
   const original = e.target.files[0];
+  e.target.value = '';
   if (!original) return;
   imageCheck.value = await checkImage(original);
   const file = await compressImage(original, { maxSide: 1920 });
-  if (file) {
+  if (!file) return;
+  preview.value = URL.createObjectURL(file);
+  imageUploading.value = true;
+  try {
+    const body = new FormData();
+    body.append('files[]', file);
+    body.append('folder', 'Admin/Blog/Details');
+    const { data } = await axios.post('/admin/media', body, { headers: { Accept: 'application/json' } });
+    form.image_path = data.files[0].path;
+  } catch (err) {
+    form.image_path = null;
     form.image = file;
-    preview.value = URL.createObjectURL(file);
+  } finally {
+    imageUploading.value = false;
   }
 }
 

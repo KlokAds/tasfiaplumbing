@@ -240,7 +240,7 @@
     .site .prose-site img.content-single[width] { max-height: none; height: auto; }
     /* Photo placed left or right in the editor: the following text wraps beside it (from tablet width). */
     .site .prose-site { display: flow-root; }
-    .site .prose-site h2, .site .prose-site h3 { clear: both; }
+    .site .prose-site h2, .site .prose-site h3, .site .prose-site hr, .site .prose-site table { clear: both; }
     @media (min-width: 640px) {
         .site .prose-site img[data-align='left'] { float: left; clear: both; max-width: 50%; margin: 0.35em 1.5em 1em 0; }
         .site .prose-site img[data-align='right'] { float: right; clear: both; max-width: 50%; margin: 0.35em 0 1em 1.5em; }
