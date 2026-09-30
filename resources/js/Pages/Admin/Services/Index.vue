@@ -85,6 +85,11 @@
     <!-- ============ Editor ============ -->
     <Modal :show="modalOpen" :title="editing ? 'Edit service' : 'New service'" subtitle="Summary → facts → body → prices → FAQs. The name is the H1." width="5xl" @close="modalOpen = false">
       <form @submit.prevent="save" class="space-y-5">
+        <!-- Unsaved work was put back automatically -->
+        <div v-if="autosave.restored.value" class="rounded-xl border px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-3 justify-between" style="border-color: var(--a-accent); background: var(--a-accent-soft)">
+          <p class="text-sm"><span class="font-semibold">Your unsaved changes are back</span> <span class="a-muted">(autosaved {{ new Date(autosave.restored.value.saved_at).toLocaleString('en-SG', { dateStyle: 'medium', timeStyle: 'short' }) }}). Save when you are ready.</span></p>
+          <button type="button" @click="autosave.undoRestore()" class="admin-btn-secondary a-btn-sm shrink-0">Discard changes</button>
+        </div>
         <AutosaveRestore :autosave="autosave" />
 
         <div class="grid grid-cols-1 xl:grid-cols-[1fr_20rem] gap-6">

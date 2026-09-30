@@ -146,13 +146,10 @@
     <!-- ============ Editor ============ -->
     <Modal :show="modalOpen" :title="modalTitle" subtitle="Answer the title question early, link the service page, end with FAQs (price question first)." width="5xl" @close="closeModal">
       <form @submit.prevent="save('primary')" class="space-y-5">
-        <!-- Restore autosave -->
-        <div v-if="autosave.restore.value" class="rounded-xl border px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-3 justify-between" style="border-color: var(--a-accent); background: var(--a-accent-soft)">
-          <p class="text-sm"><span class="font-semibold">Unsaved work found</span> <span class="a-muted">from {{ new Date(autosave.restore.value.saved_at).toLocaleString('en-SG', { dateStyle: 'medium', timeStyle: 'short' }) }}. Restore it?</span></p>
-          <div class="flex gap-2 shrink-0">
-            <button type="button" @click="autosave.discard()" class="admin-btn-secondary a-btn-sm">Discard</button>
-            <button type="button" @click="autosave.applyRestore()" class="admin-btn-primary a-btn-sm">Restore</button>
-          </div>
+        <!-- Unsaved work was put back automatically -->
+        <div v-if="autosave.restored.value" class="rounded-xl border px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-3 justify-between" style="border-color: var(--a-accent); background: var(--a-accent-soft)">
+          <p class="text-sm"><span class="font-semibold">Your unsaved changes are back</span> <span class="a-muted">(autosaved {{ new Date(autosave.restored.value.saved_at).toLocaleString('en-SG', { dateStyle: 'medium', timeStyle: 'short' }) }}). Save when you are ready.</span></p>
+          <button type="button" @click="autosave.undoRestore()" class="admin-btn-secondary a-btn-sm shrink-0">Discard changes</button>
         </div>
 
         <!-- Context: why the buttons are what they are -->
