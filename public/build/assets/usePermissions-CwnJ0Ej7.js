@@ -1,1 +1,0 @@
-import{_ as e,i as t}from"./app-DW2swnJG.js";function n(){let n=t(),r=e(()=>n.props.admin?.can||{}),i=e=>!!r.value[e];return{can:i,canAny:(...e)=>e.some(i)}}export{n as t};

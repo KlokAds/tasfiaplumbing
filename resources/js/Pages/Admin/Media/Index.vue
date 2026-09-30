@@ -125,6 +125,7 @@
             </span>
             <div class="px-2.5 py-2">
               <div class="text-xs font-semibold truncate" :title="f.name">{{ f.name }}</div>
+              <div v-if="f.uploaded_by" class="text-[11px] a-muted truncate" :title="`Uploaded by ${f.uploaded_by}`">by {{ f.uploaded_by }}</div>
               <div class="text-[11px] a-subtle flex justify-between gap-2">
                 <span :class="f.size > 500000 && 'a-text-warning'">{{ formatSize(f.size) }}</span>
                 <span v-if="!currentFolder" class="truncate" :title="f.folder">{{ f.folder.split('/').pop() }}</span>
@@ -188,6 +189,7 @@
           <dl class="grid grid-cols-2 gap-3">
             <div><dt class="text-xs a-subtle">Size</dt><dd class="font-semibold" :class="detail.size > 500000 ? 'a-text-warning' : ''">{{ formatSize(detail.size) }}</dd></div>
             <div><dt class="text-xs a-subtle">Dimensions</dt><dd class="font-semibold">{{ detail.width ? `${detail.width}×${detail.height}` : '—' }}</dd></div>
+            <div class="col-span-2"><dt class="text-xs a-subtle">Uploaded by</dt><dd class="font-semibold">{{ detail.uploaded_by || 'Not recorded (uploaded before this was tracked)' }}<span v-if="detail.uploaded_by && detail.uploaded_at" class="font-normal a-muted"> · {{ new Date(detail.uploaded_at).toLocaleString('en-SG', { dateStyle: 'medium', timeStyle: 'short' }) }}</span></dd></div>
             <div class="col-span-2"><dt class="text-xs a-subtle">Modified</dt><dd class="font-semibold">{{ new Date(detail.modified).toLocaleString('en-SG') }}</dd></div>
           </dl>
           <p v-if="detail.size > 500000" class="text-xs a-text-warning">Over 500 KB. Compress or convert to WebP before re-uploading; big images slow the page (LCP).</p>

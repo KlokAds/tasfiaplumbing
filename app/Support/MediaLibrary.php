@@ -44,6 +44,7 @@ class MediaLibrary
         'partners' => ['Partner logo', '/admin/partners', null, ['image'], []],
         'footers' => ['Logo / footer', '/admin/settings/footer', null, ['main_logo', 'f_logo'], ['f_short_desc']],
         'faqs' => ['FAQ', '/admin/faqs', 'question', [], ['answer']],
+        'users' => ['Profile photo', '/admin/users', 'name', ['image'], []],
     ];
 
     /** All files under public/Admin: [path => [size, modified]] */

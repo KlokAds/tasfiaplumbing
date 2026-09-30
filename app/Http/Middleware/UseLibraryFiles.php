@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Support\LibraryFile;
+use App\Support\TrackedUpload;
 use App\Support\MediaLibrary;
 use Closure;
 use Illuminate\Http\Request;
@@ -12,7 +13,8 @@ use Symfony\Component\HttpFoundation\Response;
  * "Choose from Media library" on any image field: the browser sends a tiny placeholder file
  * named "library--<base64 path>.<ext>". It is swapped for the real library file here, and
  * that file's store() simply returns its existing path, so no copy is made and every
- * controller keeps working unchanged.
+ * controller keeps working unchanged. Every other upload is wrapped so the Media library
+ * records who uploaded it.
  */
 class UseLibraryFiles
 {
@@ -24,6 +26,8 @@ class UseLibraryFiles
                     continue;
                 }
                 if (!preg_match('/^library--([A-Za-z0-9_-]+)\.\w+$/', $file->getClientOriginalName(), $m)) {
+                    // A real upload: remember who uploaded it once it is stored.
+                    $request->files->set($key, TrackedUpload::wrap(\Illuminate\Http\UploadedFile::createFromBase($file), $request->user()->id));
                     continue;
                 }
                 $path = MediaLibrary::normalize(base64_decode(strtr($m[1], '-_', '+/')));

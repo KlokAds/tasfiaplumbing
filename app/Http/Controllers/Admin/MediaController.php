@@ -25,6 +25,7 @@ class MediaController extends Controller
         }
         $usage = Cache::remember(self::USAGE_CACHE, now()->addMinutes(3), fn () => MediaLibrary::usage());
         $meta = Media::whereIn('path', array_keys($files))->get()->keyBy('path');
+        $uploaders = \App\Models\User::whereIn('id', $meta->pluck('uploaded_by')->filter()->unique())->pluck('name', 'id');
 
         $all = collect($files)->map(fn ($info, $path) => [
             'path' => $path,
@@ -39,6 +40,8 @@ class MediaController extends Controller
             'height' => $meta[$path]->height ?? null,
             'usages' => array_slice($usage[$path] ?? [], 0, 8),
             'usage_count' => count($usage[$path] ?? []),
+            'uploaded_by' => isset($meta[$path]) ? ($uploaders[$meta[$path]->uploaded_by] ?? null) : null,
+            'uploaded_at' => isset($meta[$path]) ? $meta[$path]->created_at?->toIso8601String() : null,
         ])->values();
 
         $summary = [
