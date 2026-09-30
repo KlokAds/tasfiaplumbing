@@ -33,7 +33,7 @@ class Analytics
             Cache::forget('google.ga4.report');
         }
 
-        return Cache::remember('google.ga4.report', now()->addHours(3), function () {
+        return Cache::remember('google.ga4.report', now()->addHours(GoogleSync::reportHours()), function () {
             $property = self::property() ?: throw new GoogleException('Choose your Analytics property first.');
             $run = fn (array $body) => GoogleApi::post("https://analyticsdata.googleapis.com/v1beta/{$property}:runReport", $body);
             $now = ['startDate' => '28daysAgo', 'endDate' => 'yesterday'];

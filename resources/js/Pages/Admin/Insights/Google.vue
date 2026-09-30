@@ -74,6 +74,38 @@
           </div>
         </form>
 
+        <!-- Automatic updates (server cron) -->
+        <form v-if="connected && sync" @submit.prevent="saveSync" class="admin-card overflow-hidden">
+          <header class="a-card-head"><div><h3 class="a-card-title">Automatic updates</h3><p class="a-card-sub">The server does these on its own, in the background. Choose how often.</p></div></header>
+          <p v-if="!sync.cron_ok" class="a-alert a-alert-warning text-sm mx-5 mt-5">The server cron has not run in the last 10 minutes{{ sync.cron_seen ? ` (last seen ${ago(sync.cron_seen)})` : '' }}, so nothing updates automatically. Check the cron job in your hosting panel.</p>
+          <div class="divide-y a-divide">
+            <div v-for="t in sync.tasks" :key="t.key" class="p-5 grid grid-cols-1 md:grid-cols-[1fr_11rem] gap-3 items-start">
+              <div class="min-w-0">
+                <p class="text-sm font-bold">{{ t.label }}</p>
+                <p class="text-xs a-muted mt-0.5">{{ t.help }}</p>
+                <p v-if="!t.available" class="text-xs a-subtle mt-2">Choose the matching Google property above to use this.</p>
+                <p v-else class="text-xs mt-2 flex flex-wrap gap-x-3 gap-y-1">
+                  <span class="a-muted">Last run: <span :class="t.ok ? 'a-text' : 'a-text-danger'">{{ t.last ? `${ago(t.last)} · ${t.result}` : 'not yet' }}</span></span>
+                  <span class="a-muted">Next: <span class="a-text">{{ t.every ? (t.next ? whenNext(t.next) : '—') : 'off' }}</span></span>
+                </p>
+              </div>
+              <div class="flex md:flex-col gap-2">
+                <SelectBox v-model="syncForm[t.key]" class="admin-input flex-1">
+                  <option v-for="o in t.options" :key="o" :value="o">{{ everyLabel(o) }}</option>
+                </SelectBox>
+                <button v-if="t.available" type="button" class="admin-btn-secondary a-btn-sm whitespace-nowrap" :disabled="running === t.key" @click="runNow(t.key)">{{ running === t.key ? 'Running…' : 'Run now' }}</button>
+              </div>
+            </div>
+            <div class="p-5 grid grid-cols-1 md:grid-cols-[1fr_11rem] gap-3 items-center">
+              <div><p class="text-sm font-bold">Pages per index check</p><p class="text-xs a-muted mt-0.5">Google allows about 2,000 checks a day. "Run now" stops after about 20 seconds.</p></div>
+              <SelectBox v-model="syncForm.index_batch" class="admin-input">
+                <option v-for="o in sync.index_batch_options" :key="o" :value="o">{{ o }} pages</option>
+              </SelectBox>
+            </div>
+          </div>
+          <div class="px-5 py-3 border-t a-border flex justify-end"><button type="submit" class="admin-btn-primary" :disabled="syncForm.processing">Save automatic updates</button></div>
+        </form>
+
         <section v-if="connected && selected.gbp" class="admin-card p-5 flex flex-wrap items-center gap-4">
           <div class="flex-1 min-w-0">
             <p class="text-sm font-bold">Google reviews</p>
@@ -142,7 +174,7 @@ import { confirmDialog } from '@/Composables/useConfirm';
 
 const props = defineProps({
   client: Object, redirectUri: String, origin: String, connected: Boolean, email: String, lastError: String,
-  selected: Object, lists: Object, listErrors: { type: [Object, Array], default: () => ({}) }, reviews: Object,
+  selected: Object, lists: Object, sync: Object, listErrors: { type: [Object, Array], default: () => ({}) }, reviews: Object,
 });
 
 const apis = [
@@ -161,6 +193,29 @@ const refreshing = ref(false);
 function refreshLists() {
   refreshing.value = true;
   router.reload({ data: { refresh: 1 }, only: ['lists', 'listErrors'], onFinish: () => { refreshing.value = false; } });
+}
+
+// ---- Automatic updates
+const syncForm = useForm({
+  ...Object.fromEntries((props.sync?.tasks || []).map((t) => [t.key, t.every])),
+  index_batch: props.sync?.index_batch || 150,
+});
+function saveSync() { syncForm.post('/admin/insights/google/sync', { preserveScroll: true }); }
+const running = ref('');
+function runNow(task) {
+  running.value = task;
+  router.post(`/admin/insights/google/sync/${task}/run`, {}, { preserveScroll: true, onFinish: () => { running.value = ''; } });
+}
+function everyLabel(h) {
+  if (!h) return 'Off';
+  if (h < 24) return h === 1 ? 'Every hour' : `Every ${h} hours`;
+  if (h === 24) return 'Every day';
+  if (h === 168) return 'Every week';
+  return `Every ${h / 24} days`;
+}
+function whenNext(iso) {
+  const d = new Date(iso);
+  return d <= new Date() ? 'within 5 minutes' : d.toLocaleString('en-SG', { dateStyle: 'medium', timeStyle: 'short' });
 }
 
 const propsForm = useForm({ gsc: props.selected?.gsc || '', ga4: props.selected?.ga4 || '', gbp: props.selected?.gbp || '' });

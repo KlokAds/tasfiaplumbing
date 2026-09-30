@@ -32,7 +32,7 @@ class SearchConsole
             Cache::forget('google.gsc.report');
         }
 
-        return Cache::remember('google.gsc.report', now()->addHours(6), function () {
+        return Cache::remember('google.gsc.report', now()->addHours(GoogleSync::reportHours()), function () {
             $site = self::property() ?: throw new GoogleException('Choose your Search Console property first.');
             // Search Console data is 2–3 days behind.
             $end = now()->subDays(2)->startOfDay();

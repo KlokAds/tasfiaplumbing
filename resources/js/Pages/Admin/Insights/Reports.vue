@@ -5,7 +5,7 @@
     </PageHeader>
 
     <!-- Not set up -->
-    <section v-if="!connected || (!gsc && !ga4)" class="admin-card p-8 text-center max-w-2xl mx-auto">
+    <section v-if="!connected || (!hasGsc && !hasGa4)" class="admin-card p-8 text-center max-w-2xl mx-auto">
       <div class="w-12 h-12 rounded-2xl a-tint-accent a-accent grid place-items-center mx-auto"><svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M4 20V10m6 10V4m6 16v-7m4 7H2" /></svg></div>
       <h3 class="mt-4 text-base font-bold">{{ connected ? 'Choose what to show' : 'Connect Google to see your reports here' }}</h3>
       <p class="mt-1.5 text-sm a-muted">Search clicks, the words people search, top pages, visitors, traffic sources and WhatsApp / call clicks — without opening Google's tools.</p>
@@ -14,83 +14,89 @@
     </section>
 
     <div v-else class="space-y-6">
-      <!-- Search Console -->
-      <template v-if="gsc">
+      <!-- Search Console (loads after the page has opened) -->
+      <template v-if="hasGsc">
         <h2 class="text-sm font-bold uppercase tracking-wider a-subtle flex items-center gap-2">Google Search <span class="normal-case tracking-normal font-normal">· {{ gscProperty?.replace('sc-domain:', '') }}</span></h2>
-        <p v-if="!gsc.ok" class="a-alert a-alert-danger text-sm">{{ gsc.error }}</p>
-        <template v-else>
-          <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <Kpi label="Clicks from Google" :value="gsc.data.now.clicks" :before="gsc.data.before.clicks" />
-            <Kpi label="Times shown in results" :value="gsc.data.now.impressions" :before="gsc.data.before.impressions" />
-            <Kpi label="Click-through rate" :value="gsc.data.now.ctr" :before="gsc.data.before.ctr" suffix="%" />
-            <Kpi label="Average position" :value="gsc.data.now.position" :before="gsc.data.before.position" lower-is-better help="1 = top of Google" />
-          </div>
-          <section class="admin-card p-5">
-            <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
-              <h3 class="a-card-title">Daily clicks</h3>
-              <span class="text-xs a-subtle">— clicks · - - impressions · data is 2–3 days behind</span>
+        <Deferred data="gsc">
+          <template #fallback><ReportSkeleton label="Loading search data from Google…" :tables="2" /></template>
+          <p v-if="gsc && !gsc.ok" class="a-alert a-alert-danger text-sm">{{ gsc.error }}</p>
+          <div v-else-if="gsc" class="space-y-6">
+            <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              <Kpi label="Clicks from Google" :value="gsc.data.now.clicks" :before="gsc.data.before.clicks" />
+              <Kpi label="Times shown in results" :value="gsc.data.now.impressions" :before="gsc.data.before.impressions" />
+              <Kpi label="Click-through rate" :value="gsc.data.now.ctr" :before="gsc.data.before.ctr" suffix="%" />
+              <Kpi label="Average position" :value="gsc.data.now.position" :before="gsc.data.before.position" lower-is-better help="1 = top of Google" />
             </div>
-            <TrendChart :points="gsc.data.daily.map(d => ({ date: d.date, value: d.clicks }))" :second="gsc.data.daily.map(d => ({ date: d.date, value: d.impressions }))" unit="clicks" unit2="impressions" label="Daily clicks from Google" />
-          </section>
-          <div class="grid grid-cols-1 xl:grid-cols-2 gap-5">
-            <DataTable title="What people searched" :rows="gsc.data.queries" key-label="Search term" empty="No searches yet. New sites take a few weeks to appear." />
-            <DataTable title="Pages people clicked" :rows="gsc.data.pages" key-label="Page" path-key="path" :site="site" empty="No page clicks yet." />
+            <section class="admin-card p-5">
+              <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+                <h3 class="a-card-title">Daily clicks</h3>
+                <span class="text-xs a-subtle">— clicks · - - impressions · data is 2–3 days behind</span>
+              </div>
+              <TrendChart :points="gsc.data.daily.map(d => ({ date: d.date, value: d.clicks }))" :second="gsc.data.daily.map(d => ({ date: d.date, value: d.impressions }))" unit="clicks" unit2="impressions" label="Daily clicks from Google" />
+            </section>
+            <div class="grid grid-cols-1 xl:grid-cols-2 gap-5 items-start">
+              <DataTable title="What people searched" :rows="gsc.data.queries" key-label="Search term" empty="No searches yet. New sites take a few weeks to appear." />
+              <DataTable title="Pages people clicked" :rows="gsc.data.pages" key-label="Page" path-key="path" :site="site" empty="No page clicks yet." />
+            </div>
           </div>
-        </template>
+        </Deferred>
       </template>
 
-      <!-- Analytics -->
-      <template v-if="ga4">
+      <!-- Analytics (loads after the page has opened) -->
+      <template v-if="hasGa4">
         <h2 class="text-sm font-bold uppercase tracking-wider a-subtle pt-2">Visitors (Analytics)</h2>
-        <p v-if="!ga4.ok" class="a-alert a-alert-danger text-sm">{{ ga4.error }}</p>
-        <template v-else>
-          <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <Kpi label="Visitors" :value="ga4.data.now.activeUsers" :before="ga4.data.before.activeUsers" />
-            <Kpi label="Visits" :value="ga4.data.now.sessions" :before="ga4.data.before.sessions" />
-            <Kpi label="Page views" :value="ga4.data.now.screenPageViews" :before="ga4.data.before.screenPageViews" />
-            <Kpi label="Engaged visits" :value="Math.round(ga4.data.now.engagementRate * 1000) / 10" :before="Math.round(ga4.data.before.engagementRate * 1000) / 10" suffix="%" help="Stayed 10 s+, opened 2+ pages or converted" />
-          </div>
+        <Deferred data="ga4">
+          <template #fallback><ReportSkeleton label="Loading visitor data from Google Analytics…" :tables="4" /></template>
+          <p v-if="ga4 && !ga4.ok" class="a-alert a-alert-danger text-sm">{{ ga4.error }}</p>
+          <div v-else-if="ga4" class="space-y-6">
+            <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              <Kpi label="Visitors" :value="ga4.data.now.activeUsers" :before="ga4.data.before.activeUsers" />
+              <Kpi label="Visits" :value="ga4.data.now.sessions" :before="ga4.data.before.sessions" />
+              <Kpi label="Page views" :value="ga4.data.now.screenPageViews" :before="ga4.data.before.screenPageViews" />
+              <Kpi label="Engaged visits" :value="Math.round(ga4.data.now.engagementRate * 1000) / 10" :before="Math.round(ga4.data.before.engagementRate * 1000) / 10" suffix="%" help="Stayed 10 s+, opened 2+ pages or converted" />
+            </div>
 
-          <section class="admin-card p-5">
-            <h3 class="a-card-title mb-3">Visitors per day</h3>
-            <TrendChart :points="ga4.data.daily.map(d => ({ date: d.date, value: d.users }))" unit="visitors" label="Visitors per day" />
-          </section>
+            <section class="admin-card p-5">
+              <h3 class="a-card-title mb-3">Visitors per day</h3>
+              <TrendChart :points="ga4.data.daily.map(d => ({ date: d.date, value: d.users }))" unit="visitors" label="Visitors per day" />
+            </section>
 
-          <section class="admin-card overflow-hidden">
-            <header class="a-card-head"><div><h3 class="a-card-title">Leads</h3><p class="a-card-sub">Counted by the conversion events (Logo, footer & tracking → Send conversion events).</p></div></header>
-            <div class="grid grid-cols-2 lg:grid-cols-4 divide-x a-divide">
-              <div v-for="e in leadEvents" :key="e.key" class="p-5">
-                <p class="text-xs a-subtle">{{ e.label }}</p>
-                <p class="text-2xl font-extrabold mt-1 tabular-nums">{{ e.count.toLocaleString() }}</p>
+            <section class="admin-card overflow-hidden">
+              <header class="a-card-head"><div><h3 class="a-card-title">Leads</h3><p class="a-card-sub">Counted by the conversion events (Logo, footer & tracking → Send conversion events).</p></div></header>
+              <div class="grid grid-cols-2 lg:grid-cols-4 divide-x a-divide">
+                <div v-for="e in leadEvents" :key="e.key" class="p-5">
+                  <p class="text-xs a-subtle">{{ e.label }}</p>
+                  <p class="text-2xl font-extrabold mt-1 tabular-nums">{{ e.count.toLocaleString() }}</p>
+                </div>
+              </div>
+            </section>
+
+            <div class="grid grid-cols-1 xl:grid-cols-2 gap-5 items-start">
+              <SimpleTable title="Most viewed pages" :rows="ga4.data.pages" :cols="[['key', 'Page'], ['screenPageViews', 'Views'], ['activeUsers', 'Visitors']]" link />
+              <SimpleTable title="Where visitors come from" :rows="ga4.data.channels" :cols="[['key', 'Channel'], ['sessions', 'Visits'], ['activeUsers', 'Visitors']]" bar="sessions" />
+              <SimpleTable title="Top sources" :rows="ga4.data.sources" :cols="[['key', 'Source'], ['sessions', 'Visits']]" bar="sessions" />
+              <div class="space-y-5">
+                <SimpleTable title="Devices" :rows="ga4.data.devices" :cols="[['key', 'Device'], ['activeUsers', 'Visitors']]" bar="activeUsers" />
+                <SimpleTable title="Cities" :rows="ga4.data.cities" :cols="[['key', 'City'], ['activeUsers', 'Visitors']]" bar="activeUsers" />
               </div>
             </div>
-          </section>
-
-          <div class="grid grid-cols-1 xl:grid-cols-2 gap-5">
-            <SimpleTable title="Most viewed pages" :rows="ga4.data.pages" :cols="[['key', 'Page'], ['screenPageViews', 'Views'], ['activeUsers', 'Visitors']]" link />
-            <SimpleTable title="Where visitors come from" :rows="ga4.data.channels" :cols="[['key', 'Channel'], ['sessions', 'Visits'], ['activeUsers', 'Visitors']]" bar="sessions" />
-            <SimpleTable title="Top sources" :rows="ga4.data.sources" :cols="[['key', 'Source'], ['sessions', 'Visits']]" bar="sessions" />
-            <div class="space-y-5">
-              <SimpleTable title="Devices" :rows="ga4.data.devices" :cols="[['key', 'Device'], ['activeUsers', 'Visitors']]" bar="activeUsers" />
-              <SimpleTable title="Cities" :rows="ga4.data.cities" :cols="[['key', 'City'], ['activeUsers', 'Visitors']]" bar="activeUsers" />
-            </div>
           </div>
-        </template>
+        </Deferred>
       </template>
-      <p class="text-xs a-subtle text-center">Updated {{ updated }}. Reports are kept for a few hours; press Refresh for the latest numbers.</p>
+      <p v-if="gsc || ga4" class="text-xs a-subtle text-center">Updated {{ updated }}. Reports are kept for a few hours; press Refresh for the latest numbers.</p>
     </div>
   </AdminLayout>
 </template>
 
 <script setup>
 import { computed, defineComponent, h, ref } from 'vue';
-import { Link, router } from '@inertiajs/vue3';
+import { Deferred, Link, router } from '@inertiajs/vue3';
 import AdminLayout from '@/Layouts/AdminLayout.vue';
 import PageHeader from '@/Components/Admin/PageHeader.vue';
 import TrendChart from '@/Components/Admin/TrendChart.vue';
 import { usePermissions } from '@/Composables/usePermissions';
 
-const props = defineProps({ connected: Boolean, gsc: Object, ga4: Object, gscProperty: String, ga4Property: String, site: String });
+const props = defineProps({ connected: Boolean, hasGsc: Boolean, hasGa4: Boolean, gsc: Object, ga4: Object, gscProperty: String, ga4Property: String, site: String });
 const { can } = usePermissions();
 const loading = ref(false);
 const refresh = () => { loading.value = true; router.get('/admin/insights', { refresh: 1 }, { preserveScroll: true, onFinish: () => { loading.value = false; } }); };
@@ -112,6 +118,44 @@ const leadEvents = computed(() => {
 });
 
 const nf = (v) => (Number.isInteger(v) ? v.toLocaleString() : Number(v).toLocaleString(undefined, { maximumFractionDigits: 1 }));
+
+// Grey placeholders in the shape of the report (numbers, chart, tables) while Google answers.
+const ReportSkeleton = defineComponent({
+  props: { label: String, tables: { type: Number, default: 2 } },
+  setup(p) {
+    const bar = (cls) => h('div', { class: ['rounded-md a-panel-3 animate-pulse', cls] });
+    return () => h('div', { class: 'space-y-6', role: 'status', 'aria-live': 'polite' }, [
+      h('p', { class: 'flex items-center gap-2 text-sm a-muted' }, [
+        h('span', { class: 'w-4 h-4 rounded-full border-2 border-[var(--a-accent)] border-t-transparent animate-spin', 'aria-hidden': 'true' }),
+        p.label,
+      ]),
+      h('div', { class: 'grid grid-cols-2 lg:grid-cols-4 gap-4' }, [0, 1, 2, 3].map(() => h('div', { class: 'admin-card p-4 space-y-2.5' }, [bar('h-3 w-24'), bar('h-7 w-20'), bar('h-3 w-16')]))),
+      h('div', { class: 'admin-card p-5 space-y-3' }, [bar('h-4 w-32'), bar('h-40 w-full')]),
+      h('div', { class: 'grid grid-cols-1 xl:grid-cols-2 gap-5' }, Array.from({ length: p.tables }, () => h('div', { class: 'admin-card p-5 space-y-3' }, [bar('h-4 w-40'), ...[0, 1, 2, 3, 4, 5].map(() => bar('h-3.5 w-full'))]))),
+    ]);
+  },
+});
+
+// Long tables show 10 rows at a time.
+const PER_PAGE = 10;
+function pager(rows, page) {
+  const total = rows?.length || 0;
+  const pages = Math.max(1, Math.ceil(total / PER_PAGE));
+  const current = Math.min(page, pages);
+  return { total, pages, current, slice: (rows || []).slice((current - 1) * PER_PAGE, current * PER_PAGE), from: total ? (current - 1) * PER_PAGE + 1 : 0, to: Math.min(total, current * PER_PAGE) };
+}
+function pagerFooter(pg, set) {
+  if (pg.pages <= 1) return null;
+  const btn = (label, target, disabled) => h('button', { type: 'button', class: 'admin-btn-secondary a-btn-sm', disabled, onClick: () => set(target), 'aria-label': label === '‹' ? 'Previous page' : 'Next page' }, label);
+  return h('footer', { class: 'flex items-center justify-between gap-3 px-4 py-2.5 border-t a-border text-xs a-muted' }, [
+    h('span', { class: 'tabular-nums' }, `${pg.from}–${pg.to} of ${pg.total}`),
+    h('span', { class: 'flex items-center gap-1.5' }, [
+      btn('‹', pg.current - 1, pg.current <= 1),
+      h('span', { class: 'tabular-nums px-1' }, `${pg.current} / ${pg.pages}`),
+      btn('›', pg.current + 1, pg.current >= pg.pages),
+    ]),
+  ]);
+}
 
 const Kpi = defineComponent({
   props: { label: String, value: Number, before: Number, suffix: { type: String, default: '' }, lowerIsBetter: Boolean, help: String },
@@ -135,36 +179,44 @@ const Kpi = defineComponent({
 const DataTable = defineComponent({
   props: { title: String, rows: Array, keyLabel: String, pathKey: String, site: String, empty: String },
   setup(p) {
-    return () => h('section', { class: 'admin-card overflow-hidden' }, [
-      h('header', { class: 'a-card-head' }, h('h3', { class: 'a-card-title' }, p.title)),
-      p.rows?.length ? h('div', { class: 'overflow-x-auto' }, h('table', { class: 'a-table' }, [
-        h('thead', h('tr', [p.keyLabel, 'Clicks', 'Shown', 'CTR', 'Position'].map((c, i) => h('th', { class: i ? 'text-right' : '' }, c)))),
-        h('tbody', p.rows.map((r) => h('tr', [
-          h('td', { class: 'max-w-[18rem] truncate' }, p.pathKey ? h('a', { href: r.key, target: '_blank', rel: 'noopener', class: 'a-accent' }, r[p.pathKey]) : r.key),
-          h('td', { class: 'text-right tabular-nums font-semibold' }, nf(r.clicks)),
-          h('td', { class: 'text-right tabular-nums' }, nf(r.impressions)),
-          h('td', { class: 'text-right tabular-nums' }, r.ctr + '%'),
-          h('td', { class: 'text-right tabular-nums' }, r.position),
-        ]))),
-      ])) : h('p', { class: 'p-5 text-sm a-muted' }, p.empty),
-    ]);
+    const page = ref(1);
+    return () => {
+      const pg = pager(p.rows, page.value);
+      return h('section', { class: 'admin-card overflow-hidden' }, [
+        h('header', { class: 'a-card-head' }, h('h3', { class: 'a-card-title' }, p.title)),
+        pg.total ? h('div', { class: 'overflow-x-auto' }, h('table', { class: 'a-table' }, [
+          h('thead', h('tr', [p.keyLabel, 'Clicks', 'Shown', 'CTR', 'Position'].map((c, i) => h('th', { class: i ? 'text-right' : '' }, c)))),
+          h('tbody', pg.slice.map((r) => h('tr', [
+            h('td', { class: 'max-w-[18rem] truncate' }, p.pathKey ? h('a', { href: r.key, target: '_blank', rel: 'noopener', class: 'a-accent' }, r[p.pathKey]) : r.key),
+            h('td', { class: 'text-right tabular-nums font-semibold' }, nf(r.clicks)),
+            h('td', { class: 'text-right tabular-nums' }, nf(r.impressions)),
+            h('td', { class: 'text-right tabular-nums' }, r.ctr + '%'),
+            h('td', { class: 'text-right tabular-nums' }, r.position),
+          ]))),
+        ])) : h('p', { class: 'p-5 text-sm a-muted' }, p.empty),
+        pagerFooter(pg, (n) => { page.value = n; }),
+      ]);
+    };
   },
 });
 
 const SimpleTable = defineComponent({
   props: { title: String, rows: Array, cols: Array, bar: String, link: Boolean },
   setup(p) {
+    const page = ref(1);
     return () => {
+      const pg = pager(p.rows, page.value);
       const max = p.bar ? Math.max(1, ...(p.rows || []).map((r) => r[p.bar])) : 1;
       return h('section', { class: 'admin-card overflow-hidden' }, [
         h('header', { class: 'a-card-head' }, h('h3', { class: 'a-card-title' }, p.title)),
-        p.rows?.length ? h('table', { class: 'a-table' }, [
+        pg.total ? h('table', { class: 'a-table' }, [
           h('thead', h('tr', p.cols.map(([, label], i) => h('th', { class: i ? 'text-right' : '' }, label)))),
-          h('tbody', p.rows.map((r) => h('tr', p.cols.map(([key], i) => h('td', { class: i ? 'text-right tabular-nums' : 'max-w-[16rem]' }, i ? nf(r[key]) : [
+          h('tbody', pg.slice.map((r) => h('tr', p.cols.map(([key], i) => h('td', { class: i ? 'text-right tabular-nums' : 'max-w-[16rem]' }, i ? nf(r[key]) : [
             h('div', { class: 'truncate' }, p.link ? h('a', { href: r[key], target: '_blank', rel: 'noopener', class: 'a-accent' }, r[key]) : (r[key] === '(not set)' ? 'Unknown' : r[key])),
             p.bar ? h('div', { class: 'mt-1 h-1 rounded-full a-panel-3 overflow-hidden' }, h('div', { class: 'h-full rounded-full bg-[var(--a-accent)]', style: { width: `${(r[p.bar] / max) * 100}%` } })) : null,
           ]))))),
         ]) : h('p', { class: 'p-5 text-sm a-muted' }, 'No data yet.'),
+        pagerFooter(pg, (n) => { page.value = n; }),
       ]);
     };
   },

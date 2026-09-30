@@ -12,25 +12,27 @@ Artisan::command('articles:publish-scheduled', function () {
 // Server cron: * * * * * cd /path/to/site && php artisan schedule:run >> /dev/null 2>&1
 Schedule::command('articles:publish-scheduled')->everyMinute()->withoutOverlapping();
 
-Artisan::command('google:sync', function () {
+Artisan::command('google:sync {task? : reports, index or reviews; runs it now}', function (?string $task = null) {
     if (!\App\Support\Google\GoogleApi::connected()) {
         return $this->info('Google is not connected.');
     }
-    try {
-        if (\App\Support\Google\BusinessProfile::selected()) {
-            $this->info('Reviews synced: ' . \App\Support\Google\BusinessProfile::sync());
-        }
-        if (\App\Support\Google\SearchConsole::property()) {
-            $this->info('Pages checked for indexing: ' . \App\Support\Google\SearchConsole::inspectBatch());
-        }
-        \App\Support\Google\GoogleApi::flushReports();
-    } catch (\Throwable $e) {
-        \App\Models\SiteSetting::putMany(['google.last_error' => mb_substr($e->getMessage(), 0, 250)]);
-        $this->error($e->getMessage());
-    }
-})->purpose('Import Google reviews and check which pages Google has indexed');
+    if ($task) {
+        abort_unless(array_key_exists($task, \App\Support\Google\GoogleSync::TASKS), 1, 'Unknown task.');
+        $r = \App\Support\Google\GoogleSync::run($task);
 
-Schedule::command('google:sync')->dailyAt('04:30')->withoutOverlapping();
+        return $r['ok'] ? $this->info("{$task}: {$r['summary']}") : $this->error("{$task}: {$r['summary']}");
+    }
+    $done = \App\Support\Google\GoogleSync::runDue();
+    foreach ($done as $name => $r) {
+        $r['ok'] ? $this->info("{$name}: {$r['summary']}") : $this->error("{$name}: {$r['summary']}");
+    }
+    if (!$done) {
+        $this->info('Nothing due.');
+    }
+})->purpose('Run the Google tasks that are due (reports, index check, reviews), as set in Admin → Insights → Google');
+
+// Checks every 5 minutes which Google task is due; how often each runs is set in the admin.
+Schedule::command('google:sync')->everyFiveMinutes()->withoutOverlapping(30);
 
 // Lets Admin → System show whether the server cron is running.
 Schedule::call(fn () => \Illuminate\Support\Facades\Cache::forever('system.scheduler_seen', time()))->everyMinute()->name('scheduler-heartbeat');

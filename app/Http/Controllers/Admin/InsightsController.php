@@ -36,10 +36,18 @@ class InsightsController extends Controller
             }
         };
 
+        $connected = GoogleApi::connected();
+        $hasGsc = $connected && (bool) SearchConsole::property();
+        $hasGa4 = $connected && (bool) Analytics::property();
+
+        // The page opens at once with loading placeholders; each Google report is fetched right after,
+        // in its own request, so a slow report never holds up the page or the other report.
         return Inertia::render('Admin/Insights/Reports', [
-            'connected' => GoogleApi::connected(),
-            'gsc' => GoogleApi::connected() && SearchConsole::property() ? $load(fn () => SearchConsole::report($fresh)) : null,
-            'ga4' => GoogleApi::connected() && Analytics::property() ? $load(fn () => Analytics::report($fresh)) : null,
+            'connected' => $connected,
+            'hasGsc' => $hasGsc,
+            'hasGa4' => $hasGa4,
+            'gsc' => $hasGsc ? Inertia::defer(fn () => $load(fn () => SearchConsole::report($fresh)), 'gsc') : null,
+            'ga4' => $hasGa4 ? Inertia::defer(fn () => $load(fn () => Analytics::report($fresh)), 'ga4') : null,
             'gscProperty' => SearchConsole::property(),
             'ga4Property' => SiteSetting::get('google.ga4_property'),
             'site' => url('/'),
@@ -139,6 +147,7 @@ class InsightsController extends Controller
             ],
             'lists' => $lists,
             'listErrors' => $errors,
+            'sync' => \App\Support\Google\GoogleSync::status(),
             'reviews' => [
                 'count' => rescue(fn () => GoogleReview::count(), 0, false),
                 'rating' => SiteSetting::get('google.gbp_rating'),
@@ -204,6 +213,35 @@ class InsightsController extends Controller
         GoogleApi::disconnect();
 
         return back()->with('success', 'Google disconnected. Reviews already synced stay on the website.');
+    }
+
+    /** Automatic updates: how often each Google task runs (hours, 0 = off). */
+    public function saveSync(Request $request)
+    {
+        $tasks = \App\Support\Google\GoogleSync::TASKS;
+        $rules = ['index_batch' => ['required', 'integer', \Illuminate\Validation\Rule::in(\App\Support\Google\GoogleSync::INDEX_BATCH_OPTIONS)]];
+        foreach ($tasks as $key => $t) {
+            $rules[$key] = ['required', 'integer', \Illuminate\Validation\Rule::in($t['options'])];
+        }
+        $data = $request->validate($rules);
+
+        $values = ['google.sync.index_batch' => (string) $data['index_batch']];
+        foreach (array_keys($tasks) as $key) {
+            $values["google.sync.{$key}_every"] = (string) $data[$key];
+        }
+        SiteSetting::putMany($values);
+
+        return back()->with('success', 'Automatic updates saved.');
+    }
+
+    /** Runs one task at once (limited to about 20 seconds so the page never times out). */
+    public function runSync(string $task)
+    {
+        abort_unless(array_key_exists($task, \App\Support\Google\GoogleSync::TASKS), 404);
+        abort_unless(\App\Support\Google\GoogleSync::available($task), 422, 'Connect Google and choose the property first.');
+        $r = \App\Support\Google\GoogleSync::run($task, 20);
+
+        return back()->with($r['ok'] ? 'success' : 'error', \App\Support\Google\GoogleSync::TASKS[$task]['label'] . ': ' . $r['summary']);
     }
 
     public function saveProperties(Request $request)

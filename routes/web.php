@@ -307,6 +307,8 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', \App\Http\Middleware
             Route::post('/google/disconnect', 'disconnect')->name('google.disconnect');
             Route::post('/google/properties', 'saveProperties')->name('google.properties');
             Route::post('/google/reviews/sync', 'syncReviews')->middleware('throttle:6,1')->name('google.reviews.sync');
+            Route::post('/google/sync', 'saveSync')->name('google.sync');
+            Route::post('/google/sync/{task}/run', 'runSync')->whereIn('task', ['reports', 'index', 'reviews'])->middleware('throttle:10,1')->name('google.sync.run');
         });
     });
 
