@@ -30,7 +30,7 @@ Artisan::command('google:sync', function () {
     }
 })->purpose('Import Google reviews and check which pages Google has indexed');
 
-Schedule::command('google:sync')->dailyAt('04:30')->timezone(config('admin.timezone'))->withoutOverlapping();
+Schedule::command('google:sync')->dailyAt('04:30')->withoutOverlapping();
 
 // Lets Admin → System show whether the server cron is running.
 Schedule::call(fn () => \Illuminate\Support\Facades\Cache::forever('system.scheduler_seen', time()))->everyMinute()->name('scheduler-heartbeat');

@@ -25,6 +25,7 @@ class ArticleWorkflow extends Notification
         public ?string $note = null,
         public ?string $when = null,
         public ?string $publicUrl = null,
+        public ?array $seo = null,
     ) {}
 
     public function via(object $notifiable): array
@@ -55,6 +56,7 @@ class ArticleWorkflow extends Notification
                 'lines' => $lines,
                 'quoteLabel' => $quote ? 'Note from ' . ($this->actor ?: 'the reviewer') : null,
                 'quote' => $quote,
+                'seo' => $this->seo,
                 'buttons' => [['label' => $c['button'], 'url' => $this->url]],
                 'after' => $after,
                 'footer' => 'Sent by the ' . self::brand() . ' website admin.',
@@ -77,7 +79,7 @@ class ArticleWorkflow extends Notification
         return [
             'event' => $this->event,
             'title' => $c['short'],
-            'body' => $this->note ?: $this->title,
+            'body' => ($this->note ?: $this->title) . ($this->seo ? ' · SEO ' . $this->seo['score'] . '/100' : ''),
             'url' => $this->url,
             'level' => in_array($this->event, ['rejected', 'revision_rejected'], true) ? 'danger'
                 : (in_array($this->event, ['submitted', 'revision_submitted'], true) ? 'warning' : 'success'),

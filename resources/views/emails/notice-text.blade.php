@@ -13,6 +13,15 @@
 {{ $quoteLabel ?? '' }}
 {{ $quote }}
 @endif
+@if (!empty($seo))
+
+SEO score: {{ $seo['score'] }}/100 ({{ $seo['words'] }} words, {{ $seo['errors'] }} errors, {{ $seo['warnings'] }} suggestions)
+@forelse ($seo['issues'] as $issue)
+- {{ $issue['level'] === 'error' ? 'Error' : 'Suggestion' }}: {{ $issue['message'] }}
+@empty
+- Every SEO check passed.
+@endforelse
+@endif
 
 @foreach ($buttons ?? [] as $b)
 {{ $b['label'] }}: {{ $b['url'] }}

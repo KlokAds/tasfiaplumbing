@@ -67,6 +67,9 @@ return [
 
     'timezone' => 'UTC',
 
+    // Scheduled jobs (cron) run on Singapore time. Stored dates stay in UTC.
+    'schedule_timezone' => env('SCHEDULE_TIMEZONE', 'Asia/Singapore'),
+
     /*
     |--------------------------------------------------------------------------
     | Application Locale Configuration

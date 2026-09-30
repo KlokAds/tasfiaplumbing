@@ -38,7 +38,16 @@ class ArticleWorkflowTest extends TestCase
         $this->assertSame($writer->id, $blog->author_id);
         $this->get('/blogs/' . $blog->slug)->assertNotFound();
 
-        Notification::assertSentTo($owner, ArticleWorkflow::class, fn ($n) => $n->event === 'submitted');
+        Notification::assertSentTo($owner, ArticleWorkflow::class, function ($n) use ($owner) {
+            if ($n->event !== 'submitted' || !is_int($n->seo['score'] ?? null)) {
+                return false;
+            }
+            // The approval email shows the SEO score and each finding.
+            $html = $n->toMail($owner)->render();
+
+            return str_contains($html, 'SEO score') && str_contains($html, $n->seo['score'] . '</span>')
+                && (empty($n->seo['issues']) || str_contains($html, e($n->seo['issues'][0]['message'])));
+        });
         Notification::assertNotSentTo($writer, ArticleWorkflow::class);
         $this->actingAs($writer)->post("/admin/blogs/{$blog->id}/approve", ['mode' => 'now'])->assertForbidden();
     }
@@ -99,7 +108,7 @@ class ArticleWorkflowTest extends TestCase
 
         $this->assertSame('Original', $blog->fresh()->desc);
         $revision = ArticleRevision::firstOrFail();
-        Notification::assertSentTo($owner, ArticleWorkflow::class, fn ($n) => $n->event === 'revision_submitted');
+        Notification::assertSentTo($owner, ArticleWorkflow::class, fn ($n) => $n->event === 'revision_submitted' && isset($n->seo['score']));
 
         $this->actingAs($owner)->post("/admin/revisions/{$revision->id}/approve")->assertRedirect();
         $this->assertSame('Changed', $blog->fresh()->desc);

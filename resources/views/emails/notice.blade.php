@@ -79,6 +79,45 @@
                                     </tr>
                                 @endif
 
+                                @if (!empty($seo))
+                                    @php
+                                        $sc = (int) $seo['score'];
+                                        [$scColor, $scBg, $scLabel] = $seo['errors'] > 0 || $sc < 70 ? ['#b91c1c', '#fef2f2', $seo['errors'] > 0 ? 'Fix the errors before publishing' : 'Needs work before publishing']
+                                            : ($sc >= 90 ? ['#15803d', '#f0fdf4', 'Ready to publish'] : ['#b45309', '#fffbeb', 'Good, small fixes suggested']);
+                                    @endphp
+                                    <tr>
+                                        <td style="padding:18px 28px 0;">
+                                            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border:1px solid #e5e7eb;border-radius:12px;">
+                                                <tr>
+                                                    <td style="padding:16px 18px;background:{{ $scBg }};border-radius:12px 12px 0 0;">
+                                                        <table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr>
+                                                            <td style="width:96px;vertical-align:middle;">
+                                                                <span style="font-size:34px;font-weight:800;line-height:1;color:{{ $scColor }};">{{ $sc }}</span><span style="font-size:14px;font-weight:700;color:#64748b;">/100</span>
+                                                            </td>
+                                                            <td style="vertical-align:middle;">
+                                                                <p style="margin:0;font-size:12px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;">SEO score</p>
+                                                                <p style="margin:3px 0 0;font-size:15px;font-weight:700;color:{{ $scColor }};">{{ $scLabel }}</p>
+                                                                <p style="margin:3px 0 0;font-size:13px;color:#64748b;">{{ number_format($seo['words']) }} words · {{ $seo['errors'] }} {{ $seo['errors'] === 1 ? 'error' : 'errors' }} · {{ $seo['warnings'] }} {{ $seo['warnings'] === 1 ? 'suggestion' : 'suggestions' }}</p>
+                                                            </td>
+                                                        </tr></table>
+                                                    </td>
+                                                </tr>
+                                                @forelse ($seo['issues'] as $issue)
+                                                    <tr>
+                                                        <td style="padding:10px 18px;border-top:1px solid #eef0f3;font-size:14px;line-height:1.5;color:#1e293b;">
+                                                            <span style="display:inline-block;min-width:74px;margin-right:6px;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:700;text-align:center;text-transform:uppercase;letter-spacing:.04em;{{ $issue['level'] === 'error' ? 'background:#fee2e2;color:#b91c1c;' : 'background:#fef3c7;color:#92400e;' }}">{{ $issue['level'] === 'error' ? 'Error' : 'Suggestion' }}</span>{{ $issue['message'] }}
+                                                        </td>
+                                                    </tr>
+                                                @empty
+                                                    <tr>
+                                                        <td style="padding:10px 18px;border-top:1px solid #eef0f3;font-size:14px;color:#15803d;">Every SEO check passed.</td>
+                                                    </tr>
+                                                @endforelse
+                                            </table>
+                                        </td>
+                                    </tr>
+                                @endif
+
                                 @if (!empty($buttons))
                                     <tr>
                                         <td style="padding:22px 28px 4px;">

@@ -9,6 +9,7 @@ use App\Notifications\ArticleWorkflow;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 
 /**
  * Sends workflow notifications (bell + email). A mail server problem must never
@@ -20,6 +21,7 @@ class ArticleNotifier
     {
         self::send(self::publishers($by), new ArticleWorkflow(
             'submitted', $blog->name, self::adminUrl($blog, 'review'), $by->name, null, self::when($blog->scheduled_at),
+            seo: self::seoReport($blog),
         ));
     }
 
@@ -47,8 +49,12 @@ class ArticleNotifier
 
     public static function revisionSubmitted(ArticleRevision $revision, User $by): void
     {
+        $proposed = clone $revision->article;
+        $proposed->forceFill(array_intersect_key((array) $revision->payload, $proposed->getAttributes()));
+
         self::send(self::publishers($by), new ArticleWorkflow(
             'revision_submitted', $revision->article->name, url('/admin/blogs?tab=review'), $by->name,
+            seo: self::seoReport($proposed),
         ));
     }
 
@@ -82,6 +88,33 @@ class ArticleNotifier
         return $users->unique('id')
             ->filter(fn (User $u) => $u->is_active !== false && $u->id !== $except?->id)
             ->values();
+    }
+
+    /**
+     * The same SEO check the admin list shows, so the approver sees the quality before opening the article.
+     * Returns null when the check cannot run; the email is then sent without it.
+     */
+    public static function seoReport(BlogDetail $blog): ?array
+    {
+        try {
+            $title = Str::lower(trim($blog->meta_title ?: $blog->name));
+            $taken = BlogDetail::query()->whereKeyNot($blog->getKey())->get(['name', 'meta_title'])
+                ->contains(fn ($r) => Str::lower(trim($r->meta_title ?: $r->name)) === $title);
+            $result = SeoAudit::article($blog, $taken ? [$title => 2] : []);
+
+            return [
+                'score' => $result['score'],
+                'errors' => $result['errors'],
+                'warnings' => count($result['issues']) - $result['errors'],
+                'words' => SeoAudit::wordCount($blog->desc),
+                'issues' => collect($result['issues'])->sortBy(fn ($i) => $i['level'] === 'error' ? 0 : 1)
+                    ->map(fn ($i) => ['level' => $i['level'], 'message' => $i['message']])->values()->all(),
+            ];
+        } catch (\Throwable $e) {
+            Log::warning('SEO report for article email failed', ['article' => $blog->getKey(), 'error' => $e->getMessage()]);
+
+            return null;
+        }
     }
 
     public static function when(?CarbonInterface $at): ?string
