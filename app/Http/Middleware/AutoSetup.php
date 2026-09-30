@@ -74,7 +74,7 @@ class AutoSetup
             if ($hasUser) {
                 $state['owner'] = true;
                 $this->saveState($state);
-            } elseif (!$request->is('setup', 'setup/*', 'build/*', 'up')) {
+            } elseif (!is_file(storage_path('framework/owner.lock')) && !$request->is('setup', 'setup/*', 'build/*', 'up')) {
                 return redirect('/setup');
             }
         }

@@ -41,8 +41,22 @@ class SetupController extends Controller
         return redirect('/admin/checklist')->with('success', 'Welcome! Your owner account is ready. Work through this checklist to finish the website.');
     }
 
+    /**
+     * Closed for good once an owner has existed: the lock file keeps it shut even if every
+     * account is later deleted, so nobody can walk in and make themselves the owner.
+     */
     private function done(): bool
     {
-        return DB::table('users')->exists();
+        $lock = storage_path('framework/owner.lock');
+        if (is_file($lock)) {
+            return true;
+        }
+        if (DB::table('users')->exists()) {
+            @file_put_contents($lock, now()->toIso8601String());
+
+            return true;
+        }
+
+        return false;
     }
 }

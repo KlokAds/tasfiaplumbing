@@ -39,6 +39,9 @@ class UserController extends Controller
     public function store(Request $request)
     {
         $data = $this->validated($request);
+        if ($denied = $this->superAdminGuard($request, $data['role'])) {
+            return $denied;
+        }
         $user = User::create([
             'name' => $data['name'],
             'email' => $data['email'],
@@ -54,6 +57,9 @@ class UserController extends Controller
     public function update(Request $request, User $user)
     {
         $data = $this->validated($request, $user);
+        if ($denied = $this->superAdminGuard($request, $data['role'], $user)) {
+            return $denied;
+        }
 
         if ($this->wouldRemoveLastSuperAdmin($user, $data['role'], $data['is_active'] ?? true)) {
             return redirect()->back()->with('error', 'At least one active Super Admin is required.');
@@ -82,6 +88,9 @@ class UserController extends Controller
         if ($user->is($request->user())) {
             return redirect()->back()->with('error', 'You cannot delete your own account.');
         }
+        if ($denied = $this->superAdminGuard($request, null, $user)) {
+            return $denied;
+        }
         if ($this->wouldRemoveLastSuperAdmin($user, null, false)) {
             return redirect()->back()->with('error', 'At least one active Super Admin is required.');
         }
@@ -103,6 +112,24 @@ class UserController extends Controller
             'is_active' => 'boolean',
             'password' => [$user ? 'nullable' : 'required', 'string', Password::min(8)->letters()->numbers()],
         ]);
+    }
+
+    /**
+     * Only a Super Admin may create a Super Admin, or change or remove a Super Admin's account.
+     * Even if another role is later given the "users" permissions, it cannot raise itself or
+     * anyone else to Super Admin, or take over an owner account by changing its password.
+     */
+    private function superAdminGuard(Request $request, ?string $role, ?User $target = null): ?\Illuminate\Http\RedirectResponse
+    {
+        $super = config('admin.super_role');
+        if ($request->user()->hasRole($super)) {
+            return null;
+        }
+        if ($role === $super || ($target && $target->hasRole($super))) {
+            return redirect()->back()->with('error', 'Only a Super Admin can add, change or remove a Super Admin account.');
+        }
+
+        return null;
     }
 
     private function wouldRemoveLastSuperAdmin(User $user, ?string $newRole, bool $active): bool
