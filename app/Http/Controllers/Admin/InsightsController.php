@@ -39,6 +39,10 @@ class InsightsController extends Controller
         $connected = GoogleApi::connected();
         $hasGsc = $connected && (bool) SearchConsole::property();
         $hasGa4 = $connected && (bool) Analytics::property();
+        // Period chosen above the report (7 days … 12 months or custom dates). Each source has its own
+        // delay (Search Console ~2 days, Analytics 1 day), so the exact dates can differ slightly.
+        $gscRange = SearchConsole::range($request);
+        $ga4Range = Analytics::range($request);
 
         // The page opens at once with loading placeholders; each Google report is fetched right after,
         // in its own request, so a slow report never holds up the page or the other report.
@@ -46,8 +50,12 @@ class InsightsController extends Controller
             'connected' => $connected,
             'hasGsc' => $hasGsc,
             'hasGa4' => $hasGa4,
-            'gsc' => $hasGsc ? Inertia::defer(fn () => $load(fn () => SearchConsole::report($fresh)), 'gsc') : null,
-            'ga4' => $hasGa4 ? Inertia::defer(fn () => $load(fn () => Analytics::report($fresh)), 'ga4') : null,
+            'gsc' => $hasGsc ? Inertia::defer(fn () => $load(fn () => SearchConsole::report($fresh, $gscRange)), 'gsc') : null,
+            'ga4' => $hasGa4 ? Inertia::defer(fn () => $load(fn () => Analytics::report($fresh, $ga4Range)), 'ga4') : null,
+            'range' => ['key' => $gscRange->key, 'from' => $request->input('from'), 'to' => $request->input('to')],
+            'gscRange' => $gscRange->toArray(),
+            'ga4Range' => $ga4Range->toArray(),
+            'presets' => collect(\App\Support\Google\ReportRange::PRESETS)->map(fn ($p, $k) => ['key' => $k, 'label' => $p['label']])->values(),
             'gscProperty' => SearchConsole::property(),
             'ga4Property' => SiteSetting::get('google.ga4_property'),
             'site' => url('/'),

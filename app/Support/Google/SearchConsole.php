@@ -25,20 +25,27 @@ class SearchConsole
         return SiteSetting::get('google.gsc_property') ?: null;
     }
 
-    /** 28 days vs the 28 before, daily clicks, top queries and pages. Cached 6 hours. */
-    public static function report(bool $fresh = false): array
+    /** Search Console data is about 2 days behind and kept for 16 months. */
+    public static function range(?\Illuminate\Http\Request $request = null): ReportRange
     {
+        return $request ? ReportRange::fromRequest($request, 2, 16) : ReportRange::make(ReportRange::DEFAULT, null, null, 2, 16);
+    }
+
+    /** The chosen period vs the period before it: totals, daily (or weekly) clicks, top queries, pages and devices. */
+    public static function report(bool $fresh = false, ?ReportRange $range = null): array
+    {
+        $range ??= self::range();
+        $key = 'google.gsc.report' . $range->cacheSuffix();
         if ($fresh) {
-            Cache::forget('google.gsc.report');
+            Cache::forget($key);
         }
 
-        return Cache::remember('google.gsc.report', now()->addHours(GoogleSync::reportHours()), function () {
+        return Cache::remember($key, now()->addHours(GoogleSync::reportHours()), function () use ($range) {
             $site = self::property() ?: throw new GoogleException('Choose your Search Console property first.');
-            // Search Console data is 2–3 days behind.
-            $end = now()->subDays(2)->startOfDay();
-            $start = $end->copy()->subDays(27);
-            $prevEnd = $start->copy()->subDay();
-            $prevStart = $prevEnd->copy()->subDays(27);
+            $start = $range->start;
+            $end = $range->end;
+            $prevStart = $range->previousStart();
+            $prevEnd = $range->previousEnd();
 
             $q = fn ($s, $e, array $dims = [], int $limit = 25) => GoogleApi::post(self::API . '/sites/' . rawurlencode($site) . '/searchAnalytics/query', array_filter([
                 'startDate' => $s->toDateString(),
@@ -62,13 +69,15 @@ class SearchConsole
                 'position' => round($r['position'], 1),
             ], $list);
 
+            $daily = array_map(fn ($r) => ['date' => $r['keys'][0], 'clicks' => (int) $r['clicks'], 'impressions' => (int) $r['impressions']], $q($start, $end, ['date'], 500));
+
             return [
                 'range' => [$start->toDateString(), $end->toDateString()],
                 'now' => $total($q($start, $end)),
                 'before' => $total($q($prevStart, $prevEnd)),
-                'daily' => array_map(fn ($r) => ['date' => $r['keys'][0], 'clicks' => (int) $r['clicks'], 'impressions' => (int) $r['impressions']], $q($start, $end, ['date'], 60)),
-                'queries' => $rows($q($start, $end, ['query'], 25)),
-                'pages' => array_map(fn ($r) => $r + ['path' => parse_url($r['key'], PHP_URL_PATH) ?: '/'], $rows($q($start, $end, ['page'], 25))),
+                'daily' => $range->weekly() ? ReportRange::toWeeks($daily, ['clicks', 'impressions']) : $daily,
+                'queries' => $rows($q($start, $end, ['query'], 100)),
+                'pages' => array_map(fn ($r) => $r + ['path' => parse_url($r['key'], PHP_URL_PATH) ?: '/'], $rows($q($start, $end, ['page'], 100))),
                 'devices' => $rows($q($start, $end, ['device'], 5)),
                 'fetched_at' => now()->toIso8601String(),
             ];

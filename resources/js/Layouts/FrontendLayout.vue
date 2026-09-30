@@ -18,12 +18,13 @@
 
     <!-- Header -->
     <header :class="['sticky top-0 z-50 s-bg border-b transition-shadow', scrolled ? 's-border shadow-[var(--s-shadow-sm)]' : 'border-transparent']">
-      <div class="container-app h-[4.5rem] lg:h-20 flex items-center justify-between gap-6">
-        <Link href="/" class="flex items-center gap-3 shrink-0">
-          <img :src="img(company.logo, 160)" alt="" width="48" height="48" class="w-12 h-12 object-contain dark:bg-white dark:rounded-full dark:p-0.5" />
-          <span class="leading-tight">
-            <span class="block text-[17px] font-bold tracking-[-0.02em] s-heading" style="font-family: var(--font-display)">{{ company.name }}</span>
-            <span class="block text-[13px] s-subtle">Plumbing Service · Singapore</span>
+      <div class="container-app h-[4.5rem] lg:h-20 flex items-center justify-between gap-2 sm:gap-6">
+        <!-- The brand may shrink so the buttons always fit, even on 320 px phones. -->
+        <Link href="/" class="flex items-center gap-2.5 sm:gap-3 min-w-0">
+          <img :src="img(company.logo, 160)" alt="" width="48" height="48" class="w-10 h-10 sm:w-12 sm:h-12 shrink-0 object-contain dark:bg-white dark:rounded-full dark:p-0.5" />
+          <span class="leading-tight min-w-0">
+            <span class="block truncate text-[15px] min-[360px]:text-[17px] font-bold tracking-[-0.02em] s-heading" style="font-family: var(--font-display)">{{ company.name }}</span>
+            <span class="block truncate text-[12px] min-[360px]:text-[13px] s-subtle">Plumbing Service · Singapore</span>
           </span>
         </Link>
 
@@ -59,7 +60,7 @@
           <Link v-for="item in primaryAfter" :key="item.href" :href="item.href" :class="navClass(item.href)">{{ item.label }}</Link>
         </nav>
 
-        <div class="flex items-center gap-2">
+        <div class="flex items-center gap-1.5 min-[360px]:gap-2 shrink-0">
           <button type="button" @click="searchOpen = true" class="w-10 h-10 rounded-full flex items-center justify-center s-muted hover:bg-[var(--s-surface-2)] hover:text-[var(--s-heading)]" aria-label="Search the website" title="Search (Ctrl K)">
             <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M21 21l-5.2-5.2M17 10.5a6.5 6.5 0 11-13 0 6.5 6.5 0 0113 0z" /></svg>
           </button>
