@@ -1,6 +1,8 @@
 <template>
-  <div class="rich-editor rounded-xl border a-border-2 a-panel overflow-hidden ">
-    <div class="sticky top-0 z-10 flex flex-wrap items-center gap-0.5 px-2 py-1.5 border-b a-border a-panel-2">
+  <div class="rich-editor rounded-xl border a-border-2 a-panel">
+    <!-- Toolbar and its option bars stay at the top while long content scrolls -->
+    <div class="sticky top-0 z-20 rounded-t-xl">
+    <div class="flex flex-wrap items-center gap-0.5 px-2 py-1.5 border-b a-border a-panel-2 rounded-t-xl">
       <!-- Text style: shows the style of the line the cursor is on; each option is drawn at its real size -->
       <div class="relative" ref="styleMenu">
         <button type="button" @click="styleOpen = !styleOpen" :disabled="source" class="h-8 min-w-[8.5rem] inline-flex items-center justify-between gap-2 rounded-md px-2.5 text-xs font-semibold border a-border a-panel hover:border-[var(--a-border-2)] disabled:opacity-50" :aria-expanded="styleOpen" title="Text style">
@@ -48,6 +50,21 @@
       <button type="button" class="tbl a-text-danger" @click="editor.chain().focus().deleteTable().run()">Delete table</button>
     </div>
 
+    <!-- Selected image: size and alt text -->
+    <div v-if="imageSelected() && !source" class="flex flex-wrap items-center gap-x-3 gap-y-2 px-3 py-2 border-b a-border a-panel-2 text-xs">
+      <span class="font-semibold a-muted">Image size:</span>
+      <div class="flex items-center gap-1">
+        <button v-for="s in imageSizes" :key="s.label" type="button" :class="['tbl', imageSize() === s.pct && 'a-inverse']" @click="setImageSize(s.pct)">{{ s.label }}</button>
+      </div>
+      <label class="flex items-center gap-2 flex-1 min-w-[16rem]">
+        <span class="font-semibold a-muted shrink-0">Alt text</span>
+        <input :value="imageAlt()" @input="setImageAlt($event.target.value)" @keydown.enter.prevent type="text" maxlength="160" placeholder="Describe the photo, e.g. Leaking pipe under an HDB kitchen sink" class="admin-input text-xs py-1.5 flex-1" />
+      </label>
+      <button type="button" class="tbl a-text-danger" @click="editor.chain().focus().deleteSelection().run()">Remove</button>
+      <span class="w-full text-[11px] a-muted">Drag a corner of the photo to resize it freely. Alt text tells Google and screen readers what the photo shows.</span>
+    </div>
+    </div>
+
     <EditorContent v-show="!source" :editor="editor" class="rich-editor-content a-text" :style="{ minHeight }" />
     <textarea v-if="source" v-model="sourceHtml" @input="emit('update:modelValue', sourceHtml)" class="w-full font-mono text-xs p-4 a-panel-2 a-muted outline-none" :style="{ minHeight }"></textarea>
 
@@ -83,7 +100,11 @@ const editor = useEditor({
       code: false,
       link: { openOnClick: false, autolink: true, HTMLAttributes: { target: null, rel: null } },
     }),
-    Image.configure({ allowBase64: false, HTMLAttributes: { loading: 'lazy' } }),
+    Image.configure({
+      allowBase64: false,
+      HTMLAttributes: { loading: 'lazy' },
+      resize: { enabled: true, directions: ['top-left', 'top-right', 'bottom-left', 'bottom-right'], minWidth: 80, minHeight: 60, alwaysPreserveAspectRatio: true },
+    }),
     Table.configure({ resizable: false }),
     TableRow,
     TableHeader,
@@ -198,6 +219,39 @@ function removeLink() {
   linkBar.value = false;
 }
 
+// Selected image: size presets (share of the text column) and alt text.
+// Plain functions (not computed): the editor object stays the same while its selection changes.
+const imageSelected = () => isActive('image');
+const imageAttrs = () => (imageSelected() ? editor.value.getAttributes('image') : {});
+const imageAlt = () => imageAttrs().alt || '';
+const imageSizes = [
+  { label: 'Small', pct: 33 },
+  { label: 'Medium', pct: 50 },
+  { label: 'Large', pct: 75 },
+  { label: 'Full', pct: 100 },
+];
+const columnWidth = () => editor.value?.view.dom.clientWidth - 40 || 680;
+const imageSize = () => {
+  const w = Number(imageAttrs().width);
+  if (!w) return 100;
+  const pct = Math.round((w / columnWidth()) * 100);
+  return imageSizes.reduce((best, s) => (Math.abs(s.pct - pct) < Math.abs(best - pct) ? s.pct : best), 100);
+};
+function setImageSize(pct) {
+  const width = pct >= 100 ? null : Math.round((columnWidth() * pct) / 100);
+  const pos = editor.value.state.selection.from;
+  editor.value.chain().focus().updateAttributes('image', { width, height: null }).setNodeSelection(pos).run();
+  // The resizable image view only re-sizes itself while dragging, so apply the preset to the photo now.
+  const img = editor.value.view.nodeDOM(pos)?.querySelector?.('img');
+  if (img) {
+    img.style.width = width ? `${width}px` : '';
+    img.style.height = '';
+  }
+}
+function setImageAlt(alt) {
+  editor.value.chain().updateAttributes('image', { alt: alt.slice(0, 160) }).run();
+}
+
 const pickerOpen = ref(false);
 function insertImage({ src, alt }) {
   editor.value.chain().focus().setImage({ src, alt }).run();
@@ -242,6 +296,12 @@ function toggleSource() {
 .rich-editor-content :deep(a) { color: var(--a-info-text); text-decoration: underline; }
 .rich-editor-content :deep(img) { max-width: 100%; height: auto; border-radius: 0.5rem; }
 .rich-editor-content :deep(img.ProseMirror-selectednode) { outline: 3px solid var(--a-accent); }
+.rich-editor-content :deep([data-resize-container]) { display: block; max-width: 100%; }
+.rich-editor-content :deep([data-resize-wrapper]) { display: inline-block !important; max-width: 100%; }
+.rich-editor-content :deep([data-resize-handle]) { width: 12px; height: 12px; margin: -6px; border-radius: 3px; background: var(--a-accent); border: 2px solid #fff; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35); opacity: 0; transition: opacity 0.12s; z-index: 2; }
+.rich-editor-content :deep([data-resize-handle='top-left']), .rich-editor-content :deep([data-resize-handle='bottom-right']) { cursor: nwse-resize; }
+.rich-editor-content :deep([data-resize-handle='top-right']), .rich-editor-content :deep([data-resize-handle='bottom-left']) { cursor: nesw-resize; }
+.rich-editor-content :deep([data-resize-wrapper]:hover [data-resize-handle]), .rich-editor-content :deep(.ProseMirror-selectednode [data-resize-handle]) { opacity: 1; }
 .rich-editor-content :deep(hr) { border-color: var(--a-border-2); margin: 1.5em 0; }
 .rich-editor-content :deep(table) { width: 100%; border-collapse: collapse; table-layout: fixed; }
 .rich-editor-content :deep(th), .rich-editor-content :deep(td) { border: 1px solid var(--a-border-2); padding: 0.4rem 0.6rem; vertical-align: top; }

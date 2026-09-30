@@ -127,7 +127,7 @@
             <SeoPanel :form="form" path-prefix="/service/" :title-fallback="form.name" :desc-fallback="form.short_summary" :editing="!!editing" :original-slug="editing?.slug" :meta-warning="metaConflict ? describe(metaConflict) : ''" />
           </div>
 
-          <aside class="space-y-4">
+          <aside class="space-y-4 a-side-sticky">
             <div class="a-section !bg-transparent space-y-3">
               <label class="flex items-center justify-between gap-3 cursor-pointer">
                 <span>

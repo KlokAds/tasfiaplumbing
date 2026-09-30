@@ -92,6 +92,17 @@ class ContentHtml
                 }
                 $el->setAttribute('loading', 'lazy');
                 $el->setAttribute('decoding', 'async');
+                // A photo resized in the editor keeps its width. The style is built here from a
+                // number only, so nothing from the stored HTML reaches the style attribute.
+                $raw = trim($el->getAttribute('width'));
+                $width = ctype_digit($raw) ? (int) $raw : 0;
+                $el->removeAttribute('height');
+                if ($width >= 40 && $width <= 2000) {
+                    $el->setAttribute('width', (string) $width);
+                    $el->setAttribute('style', "width:{$width}px");
+                } else {
+                    $el->removeAttribute('width');
+                }
                 if (trim($el->getAttribute('alt')) === '' && $altFallback !== '') {
                     $el->setAttribute('alt', $altFallback);
                 }
@@ -160,6 +171,9 @@ class ContentHtml
                     } elseif ($i > 8) {
                         $fig->setAttribute('hidden', 'hidden');
                     }
+                    // Gallery tiles are sized by the grid, not by the editor width.
+                    $img->removeAttribute('style');
+                    $img->removeAttribute('width');
                     $fig->appendChild($img);
                     $grid->appendChild($fig);
                 }

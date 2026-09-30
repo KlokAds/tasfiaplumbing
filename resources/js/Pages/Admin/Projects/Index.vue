@@ -103,7 +103,7 @@
               <textarea v-model="form.summary" rows="3" maxlength="1000" class="admin-input" placeholder="2–3 sentences: the problem, the fix, how long it took."></textarea>
             </div>
           </div>
-          <div class="space-y-3">
+          <div class="space-y-3 a-side-sticky-md">
             <label class="admin-label">Photo {{ editing ? '' : '*' }}</label>
             <label class="a-dropzone aspect-[4/3]">
               <img v-if="preview || editing?.image" :src="preview || '/' + editing.image" class="w-full h-full object-cover" alt="" />

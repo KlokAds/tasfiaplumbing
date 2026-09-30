@@ -202,8 +202,8 @@
             <SeoPanel :form="form" path-prefix="/blogs/" :title-fallback="form.name" :desc-fallback="form.excerpt" :editing="!!editing" :original-slug="editing?.slug" :meta-warning="metaConflict ? describe(metaConflict) : ''" />
           </div>
 
-          <!-- Side column -->
-          <aside class="space-y-4">
+          <!-- Side column (stays in view while writing) -->
+          <aside class="space-y-4 a-side-sticky">
             <!-- Publishing -->
             <div class="rounded-xl border a-border p-4 space-y-3">
               <div class="flex items-center justify-between">

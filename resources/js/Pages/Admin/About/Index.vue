@@ -20,7 +20,7 @@
         </div>
       </section>
 
-      <aside class="space-y-4">
+      <aside class="space-y-4 a-side-sticky a-side-sticky-page">
         <section class="admin-card p-5">
           <p class="a-section-title mb-3">What a strong About page includes</p>
           <ul class="space-y-2 text-[13px]">
