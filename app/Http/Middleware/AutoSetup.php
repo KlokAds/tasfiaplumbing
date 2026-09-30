@@ -31,6 +31,14 @@ class AutoSetup
 
         $this->ensureAppKey();
 
+        // Fresh upload with no database yet: the installer asks for it (and closes itself afterwards).
+        if ($request->is('install')) {
+            return $next($request);
+        }
+        if (\App\Http\Controllers\InstallController::notConfigured() && !\App\Http\Controllers\InstallController::isLocked()) {
+            return redirect('/install');
+        }
+
         $state = $this->state();
         $signature = $this->migrationSignature();
 
@@ -38,6 +46,10 @@ class AutoSetup
             try {
                 DB::connection()->getPdo();
             } catch (\Throwable $e) {
+                if (!\App\Http\Controllers\InstallController::isLocked()) {
+                    return redirect('/install');
+                }
+
                 return response()->view('errors.setup', ['error' => $this->safeMessage($e->getMessage())], 503);
             }
 

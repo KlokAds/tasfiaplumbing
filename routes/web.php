@@ -41,6 +41,17 @@ use Illuminate\Support\Facades\Route;
 // Email "opened" pixel: marks that enquiry as read (signed link, so it cannot be guessed).
 Route::get('/mail/seen/{message}', [\App\Http\Controllers\MailSeenController::class, 'show'])->middleware('signed')->name('mail.seen');
 
+// Fresh upload only (closed for good once it has run): connect MySQL and load the website data.
+// These middlewares read the database, which is not available yet.
+$installWithout = [
+    \App\Http\Middleware\SiteAccess::class,
+    \App\Http\Middleware\UseLibraryFiles::class,
+    \App\Http\Middleware\PublishScheduledArticles::class,
+    \App\Http\Middleware\HandleInertiaRequests::class,
+];
+Route::get('/install', [\App\Http\Controllers\InstallController::class, 'show'])->withoutMiddleware($installWithout)->name('install');
+Route::post('/install', [\App\Http\Controllers\InstallController::class, 'store'])->withoutMiddleware($installWithout)->middleware('throttle:10,1')->name('install.store');
+
 // First run only (closed once a user exists): create the owner account.
 Route::get('/setup', [\App\Http\Controllers\SetupController::class, 'show'])->name('setup');
 Route::post('/setup', [\App\Http\Controllers\SetupController::class, 'store'])->middleware('throttle:10,1')->name('setup.store');
