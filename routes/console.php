@@ -9,8 +9,10 @@ Artisan::command('articles:publish-scheduled', function () {
     $this->info($n ? "Published {$n} scheduled article(s)." : 'Nothing due.');
 })->purpose('Publish approved articles whose scheduled time has passed');
 
-// Server cron: * * * * * cd /path/to/site && php artisan schedule:run >> /dev/null 2>&1
-Schedule::command('articles:publish-scheduled')->everyMinute()->withoutOverlapping();
+// Server cron: every minute, cron.php (see that file).
+// Scheduled work runs inside the scheduler process (Schedule::call), not as a separate
+// "php artisan ..." process: the host disables proc_open, so separate processes cannot start.
+Schedule::call(fn () => Artisan::call('articles:publish-scheduled'))->everyMinute()->name('articles:publish-scheduled')->withoutOverlapping();
 
 Artisan::command('google:sync {task? : reports, index or reviews; runs it now}', function (?string $task = null) {
     if (!\App\Support\Google\GoogleApi::connected()) {
@@ -32,7 +34,7 @@ Artisan::command('google:sync {task? : reports, index or reviews; runs it now}',
 })->purpose('Run the Google tasks that are due (reports, index check, reviews), as set in Admin → Insights → Google');
 
 // Checks every 5 minutes which Google task is due; how often each runs is set in the admin.
-Schedule::command('google:sync')->everyFiveMinutes()->withoutOverlapping(30);
+Schedule::call(fn () => Artisan::call('google:sync'))->everyFiveMinutes()->name('google:sync')->withoutOverlapping(30);
 
 // Lets Admin → System show whether the server cron is running.
 Schedule::call(fn () => \Illuminate\Support\Facades\Cache::forever('system.scheduler_seen', time()))->everyMinute()->name('scheduler-heartbeat');
