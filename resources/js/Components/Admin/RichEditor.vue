@@ -1,0 +1,251 @@
+<template>
+  <div class="rich-editor rounded-xl border a-border-2 a-panel overflow-hidden ">
+    <div class="sticky top-0 z-10 flex flex-wrap items-center gap-0.5 px-2 py-1.5 border-b a-border a-panel-2">
+      <!-- Text style: shows the style of the line the cursor is on; each option is drawn at its real size -->
+      <div class="relative" ref="styleMenu">
+        <button type="button" @click="styleOpen = !styleOpen" :disabled="source" class="h-8 min-w-[8.5rem] inline-flex items-center justify-between gap-2 rounded-md px-2.5 text-xs font-semibold border a-border a-panel hover:border-[var(--a-border-2)] disabled:opacity-50" :aria-expanded="styleOpen" title="Text style">
+          <span>{{ blockLabel }}</span>
+          <svg class="w-3.5 h-3.5 a-subtle" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 9l6 6 6-6" /></svg>
+        </button>
+        <div v-if="styleOpen" class="absolute left-0 top-full mt-1 z-30 w-64 rounded-xl border a-border a-panel p-1.5 shadow-xl">
+          <button v-for="o in blockOptions" :key="o.value" type="button" @mousedown.prevent="setBlock(o.value)"
+            :class="['w-full text-left rounded-lg px-3 py-1.5 flex items-center justify-between gap-3 hover:bg-[var(--a-panel-3)]', blockType === o.value && 'bg-[var(--a-accent-soft)]']">
+            <span :class="o.cls">{{ o.label }}</span>
+            <span class="text-[10px] font-mono a-subtle shrink-0">{{ o.tag }}</span>
+          </button>
+          <p class="px-3 pt-1.5 pb-1 text-[10.5px] a-subtle border-t a-border mt-1">H1 is the page title. Use H2 for sections, H3–H6 for points inside them.</p>
+        </div>
+      </div>
+      <span class="sep"></span>
+      <button type="button" v-for="b in markButtons" :key="b.name" @click="b.run" :class="btn(isActive(b.name))" :title="b.title" :disabled="source" v-html="b.icon"></button>
+      <span class="sep"></span>
+      <button type="button" v-for="b in blockButtons" :key="b.name" @click="b.run" :class="btn(isActive(b.name))" :title="b.title" :disabled="source" v-html="b.icon"></button>
+      <span class="sep"></span>
+      <button type="button" @click="toggleLinkBar" :class="btn(isActive('link'))" title="Link" :disabled="source" v-html="icons.link"></button>
+      <button type="button" @click="pickerOpen = true" :class="btn(false)" title="Insert image" :disabled="source" v-html="icons.image"></button>
+      <button type="button" @click="insertTable" :class="btn(isActive('table'))" title="Insert table" :disabled="source" v-html="icons.table"></button>
+      <span class="sep"></span>
+      <button type="button" @click="editor?.chain().focus().undo().run()" :class="btn(false)" title="Undo" :disabled="source" v-html="icons.undo"></button>
+      <button type="button" @click="editor?.chain().focus().redo().run()" :class="btn(false)" title="Redo" :disabled="source" v-html="icons.redo"></button>
+      <button type="button" @click="toggleSource" :class="[btn(source), 'ml-auto text-[11px] font-mono px-2 w-auto']" title="Edit HTML">&lt;/&gt;</button>
+    </div>
+
+    <div v-if="linkBar && !source" class="flex flex-wrap items-center gap-2 px-3 py-2 border-b a-border a-tint-warning">
+      <input ref="linkInput" v-model="linkUrl" @keydown.enter.prevent="applyLink" type="text" placeholder="/service/water-heater-repair or https://…" class="admin-input text-xs py-1.5 flex-1 min-w-[14rem]" />
+      <label class="flex items-center gap-1.5 text-xs a-muted"><input v-model="linkNewTab" type="checkbox" class="rounded a-border-2" /> New tab</label>
+      <button type="button" @click="applyLink" class="admin-btn-primary text-xs py-1.5 px-3">Apply</button>
+      <button v-if="isActive('link')" type="button" @click="removeLink" class="text-xs font-semibold a-text-danger">Remove</button>
+      <span class="w-full text-[11px] a-muted">Internal links (starting with /) are best for SEO: link articles to their service page.</span>
+    </div>
+
+    <div v-if="isActive('table') && !source" class="flex flex-wrap items-center gap-1 px-3 py-1.5 border-b a-border a-panel-2 text-xs">
+      <span class="font-semibold a-muted mr-1">Table:</span>
+      <button type="button" class="tbl" @click="editor.chain().focus().addRowAfter().run()">+ Row</button>
+      <button type="button" class="tbl" @click="editor.chain().focus().addColumnAfter().run()">+ Column</button>
+      <button type="button" class="tbl" @click="editor.chain().focus().deleteRow().run()">− Row</button>
+      <button type="button" class="tbl" @click="editor.chain().focus().deleteColumn().run()">− Column</button>
+      <button type="button" class="tbl" @click="editor.chain().focus().toggleHeaderRow().run()">Header row</button>
+      <button type="button" class="tbl a-text-danger" @click="editor.chain().focus().deleteTable().run()">Delete table</button>
+    </div>
+
+    <EditorContent v-show="!source" :editor="editor" class="rich-editor-content a-text" :style="{ minHeight }" />
+    <textarea v-if="source" v-model="sourceHtml" @input="emit('update:modelValue', sourceHtml)" class="w-full font-mono text-xs p-4 a-panel-2 a-muted outline-none" :style="{ minHeight }"></textarea>
+
+    <MediaPicker :show="pickerOpen" @close="pickerOpen = false" @insert="insertImage" />
+  </div>
+</template>
+
+<script setup>
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue';
+import { EditorContent, useEditor } from '@tiptap/vue-3';
+import StarterKit from '@tiptap/starter-kit';
+import Image from '@tiptap/extension-image';
+import { Table, TableRow, TableHeader, TableCell } from '@tiptap/extension-table';
+import Placeholder from '@tiptap/extension-placeholder';
+import MediaPicker from '@/Components/Admin/MediaPicker.vue';
+
+const props = defineProps({
+  modelValue: { type: String, default: '' },
+  placeholder: { type: String, default: 'Write here. Use Heading 2 for main sections, Heading 3 for sub-points.' },
+  minHeight: { type: String, default: '280px' },
+});
+const emit = defineEmits(['update:modelValue']);
+
+// The page H1 comes from the title, so any H1 inside legacy content becomes H2.
+const prepare = html => (html || '').replace(/<h1(\s|>)/gi, '<h2$1').replace(/<\/h1>/gi, '</h2>');
+
+const editor = useEditor({
+  content: prepare(props.modelValue),
+  extensions: [
+    StarterKit.configure({
+      heading: { levels: [2, 3, 4, 5, 6] },
+      codeBlock: false,
+      code: false,
+      link: { openOnClick: false, autolink: true, HTMLAttributes: { target: null, rel: null } },
+    }),
+    Image.configure({ allowBase64: false, HTMLAttributes: { loading: 'lazy' } }),
+    Table.configure({ resizable: false }),
+    TableRow,
+    TableHeader,
+    TableCell,
+    Placeholder.configure({ placeholder: props.placeholder }),
+  ],
+  onUpdate: ({ editor }) => {
+    emit('update:modelValue', editor.isEmpty ? '' : editor.getHTML());
+  },
+});
+
+watch(() => props.modelValue, (value) => {
+  if (!editor.value || source.value) return;
+  const current = editor.value.isEmpty ? '' : editor.value.getHTML();
+  if ((value || '') !== current) {
+    editor.value.commands.setContent(prepare(value), { emitUpdate: false });
+  }
+});
+
+onBeforeUnmount(() => editor.value?.destroy());
+
+const isActive = (name, attrs) => !!editor.value?.isActive(name, attrs);
+
+const blockOptions = [
+  { value: 'p', label: 'Paragraph', tag: 'P', cls: 'text-sm' },
+  { value: '2', label: 'Heading 2', tag: 'H2', cls: 'text-[1.2rem] font-bold' },
+  { value: '3', label: 'Heading 3', tag: 'H3', cls: 'text-[1.05rem] font-bold' },
+  { value: '4', label: 'Heading 4', tag: 'H4', cls: 'text-[0.95rem] font-bold' },
+  { value: '5', label: 'Heading 5', tag: 'H5', cls: 'text-[0.85rem] font-bold' },
+  { value: '6', label: 'Heading 6', tag: 'H6', cls: 'text-[0.75rem] font-bold uppercase tracking-wider' },
+];
+const blockType = computed(() => {
+  for (const level of [2, 3, 4, 5, 6]) if (isActive('heading', { level })) return String(level);
+  return 'p';
+});
+const blockLabel = computed(() => blockOptions.find((o) => o.value === blockType.value)?.label || 'Paragraph');
+const styleOpen = ref(false);
+const styleMenu = ref(null);
+function setBlock(value) {
+  const chain = editor.value.chain().focus();
+  value === 'p' ? chain.setParagraph().run() : chain.setHeading({ level: Number(value) }).run();
+  styleOpen.value = false;
+}
+const closeStyle = (e) => { if (styleOpen.value && styleMenu.value && !styleMenu.value.contains(e.target)) styleOpen.value = false; };
+document.addEventListener('mousedown', closeStyle);
+onBeforeUnmount(() => document.removeEventListener('mousedown', closeStyle));
+
+const icons = {
+  bold: '<b>B</b>',
+  italic: '<i class="font-serif">I</i>',
+  underline: '<span class="underline">U</span>',
+  strike: '<span class="line-through">S</span>',
+  bullet: '<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M9 6h11M9 12h11M9 18h11M4.5 6h.01M4.5 12h.01M4.5 18h.01"/></svg>',
+  ordered: '<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M10 6h10M10 12h10M10 18h10"/><text x="2" y="8" font-size="6" fill="currentColor" stroke="none">1</text><text x="2" y="14" font-size="6" fill="currentColor" stroke="none">2</text><text x="2" y="20" font-size="6" fill="currentColor" stroke="none">3</text></svg>',
+  quote: '<svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M7 7h4v4H9c0 2 1 3 2 3v2c-3 0-4-2-4-5V7zm7 0h4v4h-2c0 2 1 3 2 3v2c-3 0-4-2-4-5V7z"/></svg>',
+  hr: '<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M4 12h16"/></svg>',
+  link: '<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>',
+  image: '<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>',
+  table: '<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M3 5h18v14H3zM3 10h18M3 15h18M9 5v14M15 5v14"/></svg>',
+  undo: '<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 14L4 9l5-5M4 9h11a5 5 0 010 10h-3"/></svg>',
+  redo: '<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 14l5-5-5-5M20 9H9a5 5 0 000 10h3"/></svg>',
+};
+
+const markButtons = [
+  { name: 'bold', title: 'Bold', icon: icons.bold, run: () => editor.value.chain().focus().toggleBold().run() },
+  { name: 'italic', title: 'Italic', icon: icons.italic, run: () => editor.value.chain().focus().toggleItalic().run() },
+  { name: 'underline', title: 'Underline', icon: icons.underline, run: () => editor.value.chain().focus().toggleUnderline().run() },
+  { name: 'strike', title: 'Strikethrough', icon: icons.strike, run: () => editor.value.chain().focus().toggleStrike().run() },
+];
+const blockButtons = [
+  { name: 'bulletList', title: 'Bullet list', icon: icons.bullet, run: () => editor.value.chain().focus().toggleBulletList().run() },
+  { name: 'orderedList', title: 'Numbered list', icon: icons.ordered, run: () => editor.value.chain().focus().toggleOrderedList().run() },
+  { name: 'blockquote', title: 'Quote', icon: icons.quote, run: () => editor.value.chain().focus().toggleBlockquote().run() },
+  { name: 'horizontalRule', title: 'Divider', icon: icons.hr, run: () => editor.value.chain().focus().setHorizontalRule().run() },
+];
+
+function btn(active) {
+  return [
+    'w-8 h-8 inline-flex items-center justify-center rounded-md text-sm transition disabled:opacity-30',
+    active ? 'a-inverse' : 'a-muted  hover:bg-[var(--a-panel-3)] ',
+  ];
+}
+
+const linkBar = ref(false);
+const linkUrl = ref('');
+const linkNewTab = ref(false);
+const linkInput = ref(null);
+
+function toggleLinkBar() {
+  linkBar.value = !linkBar.value;
+  if (linkBar.value) {
+    const attrs = editor.value.getAttributes('link');
+    linkUrl.value = attrs.href || '';
+    linkNewTab.value = attrs.target === '_blank';
+    nextTick(() => linkInput.value?.focus());
+  }
+}
+function applyLink() {
+  const href = linkUrl.value.trim();
+  if (!href) return removeLink();
+  if (/^\s*javascript:/i.test(href)) return;
+  const external = /^https?:\/\//i.test(href);
+  editor.value.chain().focus().extendMarkRange('link').setLink({
+    href,
+    target: linkNewTab.value ? '_blank' : null,
+    rel: linkNewTab.value && external ? 'noopener' : null,
+  }).run();
+  linkBar.value = false;
+}
+function removeLink() {
+  editor.value.chain().focus().extendMarkRange('link').unsetLink().run();
+  linkBar.value = false;
+}
+
+const pickerOpen = ref(false);
+function insertImage({ src, alt }) {
+  editor.value.chain().focus().setImage({ src, alt }).run();
+}
+
+function insertTable() {
+  if (isActive('table')) return;
+  editor.value.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run();
+}
+
+const source = ref(false);
+const sourceHtml = ref('');
+function toggleSource() {
+  if (!source.value) {
+    sourceHtml.value = editor.value.isEmpty ? '' : editor.value.getHTML();
+    source.value = true;
+  } else {
+    editor.value.commands.setContent(prepare(sourceHtml.value), { emitUpdate: true });
+    source.value = false;
+  }
+}
+</script>
+
+<style scoped>
+.rich-editor:focus-within { border-color: var(--a-accent); box-shadow: 0 0 0 3px var(--a-ring); }
+.sep { width: 1px; height: 1.25rem; margin: 0 0.25rem; background: var(--a-border-2); }
+.tbl { padding: 0.2rem 0.5rem; border-radius: 0.375rem; font-weight: 600; color: var(--a-text-2); }
+.tbl:hover { background: var(--a-panel-3); }
+
+.rich-editor-content :deep(.tiptap) { padding: 1rem 1.25rem; outline: none; min-height: inherit; font-size: 0.9375rem; line-height: 1.7; color: var(--a-text); }
+.rich-editor-content :deep(.tiptap > * + *) { margin-top: 0.75em; }
+.rich-editor-content :deep(h2) { font-size: 1.4rem; font-weight: 700; line-height: 1.3; margin-top: 1.4em; letter-spacing: -0.01em; }
+.rich-editor-content :deep(h3) { font-size: 1.15rem; font-weight: 700; margin-top: 1.2em; }
+.rich-editor-content :deep(h4) { font-size: 1rem; font-weight: 700; margin-top: 1em; }
+.rich-editor-content :deep(h5) { font-size: 0.9rem; font-weight: 700; margin-top: 1em; }
+.rich-editor-content :deep(h6) { font-size: 0.78rem; font-weight: 700; margin-top: 1em; text-transform: uppercase; letter-spacing: 0.06em; color: var(--a-text-2); }
+.rich-editor-content :deep(h2), .rich-editor-content :deep(h3), .rich-editor-content :deep(h4), .rich-editor-content :deep(h5), .rich-editor-content :deep(h6) { color: var(--a-text); }
+.rich-editor-content :deep(ul) { list-style: disc; padding-left: 1.5rem; }
+.rich-editor-content :deep(ol) { list-style: decimal; padding-left: 1.5rem; }
+.rich-editor-content :deep(li p) { margin: 0.15em 0; }
+.rich-editor-content :deep(blockquote) { border-left: 3px solid var(--a-accent); padding-left: 1rem; color: var(--a-text-2); font-style: italic; }
+.rich-editor-content :deep(a) { color: var(--a-info-text); text-decoration: underline; }
+.rich-editor-content :deep(img) { max-width: 100%; height: auto; border-radius: 0.5rem; }
+.rich-editor-content :deep(img.ProseMirror-selectednode) { outline: 3px solid var(--a-accent); }
+.rich-editor-content :deep(hr) { border-color: var(--a-border-2); margin: 1.5em 0; }
+.rich-editor-content :deep(table) { width: 100%; border-collapse: collapse; table-layout: fixed; }
+.rich-editor-content :deep(th), .rich-editor-content :deep(td) { border: 1px solid var(--a-border-2); padding: 0.4rem 0.6rem; vertical-align: top; }
+.rich-editor-content :deep(th) { background: var(--a-panel-2); font-weight: 700; text-align: left; }
+.rich-editor-content :deep(.selectedCell) { background: var(--a-accent-soft); }
+.rich-editor-content :deep(p.is-editor-empty:first-child::before) { content: attr(data-placeholder); float: left; color: var(--a-text-3); pointer-events: none; height: 0; }
+</style>

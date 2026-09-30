@@ -1,0 +1,1 @@
+function e(e=``){return String(e).replace(/\s*[-–|]\s*(Tasfia\s+)?Plumb(ing|er)(\s+Service)?(\s+Singapore)?(\s+Team)?\s*$/i,``).replace(/\s*[-–|]\s*Tasfia(\s+\w+)?\s*$/i,``).trim()}export{e as t};

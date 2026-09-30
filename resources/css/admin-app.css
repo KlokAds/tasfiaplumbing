@@ -1,0 +1,11 @@
+/* Admin stylesheet (see app.css for the public site). */
+@import 'tailwindcss' source(none);
+@import '@fontsource-variable/figtree/wght.css';
+@import '@fontsource-variable/sora/wght.css';
+@import './tokens.css';
+@import './admin.css';
+
+@source '../js/Pages/Admin';
+@source '../js/Layouts/AdminLayout.vue';
+@source '../js/Components/Admin';
+@source '../js/Composables';
