@@ -5,6 +5,12 @@
 
     RewriteEngine On
 
+    # Uploaded photos are data, never code: refuse scripts inside upload and cache folders
+    RewriteRule ^(Admin|Images|Service\ Image|uploads|cache)/.*\.(php[0-9]?|phtml|phar|pl|py|cgi|sh|shtml|htaccess)$ - [F,NC,L]
+
+    # Hidden files (.env, .git, .htaccess ...) are never served; .well-known stays open for SSL checks
+    RewriteRule (^|/)\.(?!well-known/) - [F,L]
+
     # Handle Authorization Header
     RewriteCond %{HTTP:Authorization} .
     RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]

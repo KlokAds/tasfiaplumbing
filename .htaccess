@@ -1,0 +1,44 @@
+# =============================================================================
+# Tasfia Plumbing: the whole project is uploaded into public_html.
+# Only the /public folder is reachable from the web; .env, the code, storage,
+# vendor and database files can never be downloaded.
+# =============================================================================
+
+<IfModule mod_autoindex.c>
+    Options -Indexes
+</IfModule>
+DirectoryIndex index.php
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # 1. HTTPS only
+    RewriteCond %{HTTPS} !=on
+    RewriteCond %{HTTP:X-Forwarded-Proto} !=https
+    RewriteCond %{HTTP_HOST} !^(localhost|127\.0\.0\.1)(:\d+)?$ [NC]
+    RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+    # 2. Never show "/public" in an address
+    RewriteCond %{THE_REQUEST} \s/+public/ [NC]
+    RewriteRule ^public/(.*)$ /$1 [L,R=301,NE]
+
+    # 3. Serve everything from /public: its files directly, every other address through Laravel
+    RewriteCond %{REQUEST_URI} !^/public/
+    RewriteRule ^(.*)$ public/$1 [L]
+</IfModule>
+
+# Safety net in case rewriting is ever switched off: code folders answer 404 ...
+<IfModule mod_alias.c>
+    RedirectMatch 404 ^/(app|bootstrap|config|database|resources|routes|storage|tests|vendor|node_modules|\.git)(/|$)
+</IfModule>
+
+# ... and secret or project files are never served.
+<FilesMatch "(^\.env|^\.git|\.(sql|sqlite|sqlite3|log|bak|lock)$|^(artisan|composer\.json|package\.json|package-lock\.json|phpunit\.xml|vite\.config\.js|AGENTS\.md|CLAUDE\.md|README\.md)$)">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</FilesMatch>

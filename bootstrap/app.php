@@ -20,6 +20,7 @@ return Application::configure(basePath: dirname(__DIR__))
         // Runs first: app key, database check, automatic migrations, first-run owner setup.
         $middleware->prepend(\App\Http\Middleware\AutoSetup::class);
         $middleware->append(\App\Http\Middleware\HandleRedirects::class);
+        $middleware->append(\App\Http\Middleware\SecurityHeaders::class);
 
         $middleware->web(append: [
             \App\Http\Middleware\SiteAccess::class,
