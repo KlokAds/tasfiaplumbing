@@ -61,6 +61,14 @@ class User extends Authenticatable
         $this->notify(new \App\Notifications\AdminPasswordReset($token));
     }
 
+    /** Profile photo path, or null when the file is missing (the admin then shows the default avatar, never a broken link). */
+    public function photo(): ?string
+    {
+        $path = ltrim(str_replace('\\', '/', (string) $this->image), '/');
+
+        return $path !== '' && !str_contains($path, '..') && is_file(public_path($path)) ? $path : null;
+    }
+
     public function isSuperAdmin(): bool
     {
         return $this->hasRole(config('admin.super_role'));

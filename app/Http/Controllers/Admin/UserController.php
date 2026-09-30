@@ -22,7 +22,7 @@ class UserController extends Controller
             'name' => $u->name,
             'email' => $u->email,
             'job_title' => $u->job_title,
-            'image' => $u->image,
+            'image' => $u->photo(),
             'is_active' => (bool) $u->is_active,
             'role' => $u->roles->first()?->name,
             'articles' => $articleCounts[$u->id] ?? 0,

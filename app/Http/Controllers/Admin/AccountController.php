@@ -22,7 +22,7 @@ class AccountController extends Controller
                 'job_title' => $user->job_title,
                 'bio' => $user->bio,
                 'social_url' => $user->social_url,
-                'image' => $user->image,
+                'image' => $user->photo(),
                 'role' => config('admin.roles.' . $user->getRoleNames()->first() . '.label') ?? $user->getRoleNames()->first(),
                 'last_login_at' => $user->last_login_at?->toIso8601String(),
             ],

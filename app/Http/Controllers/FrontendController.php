@@ -304,7 +304,7 @@ class FrontendController extends Controller
             'blog' => $blog,
             // A generic "Admin" byline hurts trust; show the team name until a real author is set.
             'author' => $blog->author && !in_array(strtolower(trim($blog->author->name)), ['admin', 'administrator', 'super admin'], true)
-                ? $blog->author->only(['name', 'job_title', 'bio', 'image', 'social_url'])
+                ? ['image' => $blog->author->photo()] + $blog->author->only(['name', 'job_title', 'bio', 'social_url'])
                 : [
                     'name' => (!$blog->auth_name || in_array(strtolower(trim($blog->auth_name)), ['admin', 'administrator'], true))
                         ? (SiteSetting::get('business.brand_name') ?: config('app.name')) . ' team'

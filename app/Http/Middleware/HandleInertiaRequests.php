@@ -103,7 +103,7 @@ class HandleInertiaRequests extends Middleware
                 return $name ? (config("admin.roles.{$name}.label") ?? $name) : null;
             })(),
             'user' => [
-                'image' => $request->user()->image,
+                'image' => $request->user()->photo(),
                 'job_title' => $request->user()->job_title,
             ],
             'notifications' => (function () use ($request) {
