@@ -24,7 +24,7 @@
           <img :src="img(company.logo, 160)" alt="" width="48" height="48" class="w-10 h-10 sm:w-12 sm:h-12 shrink-0 object-contain dark:bg-white dark:rounded-full dark:p-0.5" />
           <span class="leading-tight min-w-0">
             <span class="block truncate text-[15px] min-[360px]:text-[17px] font-bold tracking-[-0.02em] s-heading" style="font-family: var(--font-display)">{{ company.name }}</span>
-            <span class="block truncate text-[12px] min-[360px]:text-[13px] s-subtle">Plumbing Service · Singapore</span>
+            <span class="block truncate text-[12px] min-[360px]:text-[13px] s-subtle">Singapore</span>
           </span>
         </Link>
 
@@ -205,7 +205,7 @@
               <img :src="img(company.footer_logo || company.logo, 160)" alt="" width="48" height="48" class="w-12 h-12 object-contain dark:bg-white dark:rounded-full dark:p-0.5" loading="lazy" />
               <span class="leading-tight">
                 <span class="block text-[17px] font-bold s-heading" style="font-family: var(--font-display)">{{ company.name }}</span>
-                <span class="block text-[13px] s-subtle">Plumbing Service · Singapore</span>
+                <span class="block text-[13px] s-subtle">Singapore</span>
               </span>
             </Link>
             <p v-if="company.summary" class="mt-5 text-[15px] s-muted leading-relaxed">{{ company.summary }}</p>

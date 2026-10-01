@@ -6,7 +6,7 @@
         <span class="w-16 h-16 rounded-full bg-white flex items-center justify-center p-1.5"><img src="/logo.png" alt="" class="w-full h-full object-contain" /></span>
         <span class="leading-tight">
           <span class="block text-[20px] font-semibold a-display">Tasfia Plumbing</span>
-          <span class="block text-[13px] text-white/55">Plumbing Service · Singapore</span>
+          <span class="block text-[13px] text-white/55">Singapore</span>
         </span>
       </div>
 
