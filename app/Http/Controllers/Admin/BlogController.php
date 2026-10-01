@@ -66,6 +66,7 @@ class BlogController extends Controller
         $dup = SeoAudit::duplicateTitles(BlogDetail::class);
 
         $blogs = $query->paginate(PerPage::get($request, 25))->withQueryString();
+        $this->loadEdits($blogs->getCollection()->modelKeys());
         $blogs->getCollection()->transform(fn (BlogDetail $b) => $this->row($b, $dup, $services, $user));
 
         $scope = fn ($q) => $canAll ? $q : $q->where('author_id', $user->id);
@@ -356,8 +357,39 @@ class BlogController extends Controller
         $row['author_name'] = $b->author?->name ?? $b->auth_name;
         $row['suggested_service'] = $b->primary_service_id ? null : $this->suggestService($b->name, $services);
         $row['can_delete'] = $user->can('articles.delete') || ($b->author_id === $user->id && in_array($b->status, [BlogDetail::DRAFT, BlogDetail::PENDING], true));
+        // For the "Edited" / "Changes waiting" badge in the list.
+        $edits = isset($this->edits['ids'][$b->getKey()]) ? $this->edits : $this->loadEdits([$b->getKey()]);
+        $row['pending_changes'] = isset($edits['pending'][$b->getKey()]);
+        $row['edited_at'] = $this->editedAt($b, $edits['approved'][$b->getKey()] ?? null)?->toIso8601String();
 
         return $row;
+    }
+
+    /** Pending edits and last approved edit per article, for one page of the list. */
+    private ?array $edits = null;
+
+    private function loadEdits(array $ids): array
+    {
+        $rows = ArticleRevision::whereIn('article_id', $ids)->whereIn('status', ['pending', 'approved'])
+            ->selectRaw('article_id, status, MAX(reviewed_at) as last_reviewed')->groupBy('article_id', 'status')->get();
+
+        return $this->edits = [
+            'ids' => array_flip($ids),
+            'pending' => $rows->where('status', 'pending')->pluck('article_id')->flip()->all(),
+            'approved' => $rows->where('status', 'approved')->pluck('last_reviewed', 'article_id')->all(),
+        ];
+    }
+
+    /**
+     * When the article itself last changed: its text (content_updated_at moves only on real
+     * changes, not on approve/publish) or an approved edit. Null if never changed after creation.
+     */
+    private function editedAt(BlogDetail $b, ?string $approvedEdit): ?Carbon
+    {
+        $created = $b->created_at;
+        return collect([$b->content_updated_at, $approvedEdit ? Carbon::parse($approvedEdit) : null])
+            ->filter(fn ($t) => $t && (!$created || $t->gt($created->copy()->addMinute())))
+            ->sortDesc()->first();
     }
 
     private function only(array $data): array

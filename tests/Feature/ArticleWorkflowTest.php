@@ -118,6 +118,28 @@ class ArticleWorkflowTest extends TestCase
         Notification::assertSentTo($editor, ArticleWorkflow::class, fn ($n) => $n->event === 'revision_approved');
     }
 
+    public function test_list_shows_a_waiting_edit_and_then_the_edit_date(): void
+    {
+        Notification::fake();
+        $owner = $this->user('super-admin');
+        $editor = $this->user('editor');
+        $this->travel(-3)->days();
+        $blog = BlogDetail::create(['name' => 'Live Guide', 'desc' => 'Original', 'status' => BlogDetail::PUBLISHED]);
+        $this->travelBack();
+
+        $row = fn () => $this->actingAs($owner)->get('/admin/blogs')->assertOk()->viewData('page')['props']['blogs']['data'][0];
+        $this->assertFalse($row()['pending_changes']);
+        $this->assertNull($row()['edited_at']);
+
+        $this->actingAs($editor)->post("/admin/blogs/{$blog->id}", $this->article(['name' => 'Live Guide', 'desc' => 'Changed', 'intent' => 'submit']))->assertRedirect();
+        $this->assertTrue($row()['pending_changes']);
+        $this->assertNull($row()['edited_at']);
+
+        $this->actingAs($owner)->post('/admin/revisions/' . ArticleRevision::firstOrFail()->id . '/approve')->assertRedirect();
+        $this->assertFalse($row()['pending_changes']);
+        $this->assertNotNull($row()['edited_at']);
+    }
+
     public function test_super_admin_can_schedule_directly_and_past_times_are_refused(): void
     {
         $owner = $this->user('super-admin');
