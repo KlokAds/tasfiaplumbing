@@ -109,7 +109,7 @@
                 <p class="text-xs a-subtle font-mono truncate">{{ b.public_path }}<span v-if="b.noindex" class="ml-2 a-text-warning font-sans font-semibold">noindex</span></p>
               </td>
               <td class="whitespace-nowrap">
-                <span :class="['a-badge', status(b).cls]">{{ status(b).label }}</span>
+                <span :class="['a-badge', status(b).cls]">{{ status(b).label }}</span> <ChangeBadge :created="b.created_at" :updated="b.updated_at" class="ml-1" />
                 <p v-if="b.status === 'scheduled' || (b.status === 'pending' && b.scheduled_at)" class="text-[11px] a-subtle mt-0.5">{{ b.status === 'pending' ? 'Wants ' : '' }}{{ when(b.scheduled_at) }}</p>
                 <p v-else-if="b.status === 'pending'" class="text-[11px] a-subtle mt-0.5">Sent {{ ago(b.submitted_at) }}</p>
               </td>
@@ -336,6 +336,7 @@
 </template>
 
 <script setup>
+import ChangeBadge from '@/Components/Admin/ChangeBadge.vue';
 import LibraryButton from '@/Components/Admin/LibraryButton.vue';
 import StickyBar from '@/Components/Admin/StickyBar.vue';
 import DatePicker from '@/Components/DatePicker.vue';

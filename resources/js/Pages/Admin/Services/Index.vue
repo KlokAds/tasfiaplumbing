@@ -51,7 +51,7 @@
                 <div class="flex items-center gap-3">
                   <img :src="s.image ? '/' + s.image : '/logo.png'" alt="" class="w-12 h-9 rounded-md object-cover a-panel-3 shrink-0" />
                   <div class="min-w-0">
-                    <button @click="openModal(s)" class="font-semibold truncate max-w-xs text-left hover:underline">{{ s.name }}</button>
+                    <button @click="openModal(s)" class="font-semibold truncate max-w-xs text-left hover:underline">{{ s.name }}</button> <ChangeBadge :created="s.created_at" :updated="s.updated_at" class="ml-2 shrink-0" />
                     <div class="flex items-center gap-1.5">
                       <span class="text-xs a-subtle a-mono truncate max-w-[14rem]">{{ s.public_path }}</span>
                       <span v-if="!s.is_active" class="a-badge">Hidden</span>
@@ -198,6 +198,7 @@
 </template>
 
 <script setup>
+import ChangeBadge from '@/Components/Admin/ChangeBadge.vue';
 import LibraryButton from '@/Components/Admin/LibraryButton.vue';
 import BulkBar from '@/Components/Admin/BulkBar.vue';
 import { useBulk } from '@/Composables/useBulk';

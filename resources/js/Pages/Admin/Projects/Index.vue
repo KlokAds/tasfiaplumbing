@@ -37,6 +37,7 @@
         </div>
         <div class="p-4 flex-1">
           <h3 class="text-sm font-bold line-clamp-2 leading-snug">{{ p.name }}</h3>
+          <ChangeBadge :created="p.created_at" :updated="p.updated_at" class="mt-1 self-start" />
           <p class="text-xs a-subtle mt-1">{{ [p.area || p.location?.name, p.property_type, p.completed_on && fmtDate(p.completed_on)].filter(Boolean).join(' · ') || 'No details yet' }}</p>
           <span :class="['a-badge mt-2', p.service ? '' : 'a-badge-warning']">{{ p.service?.name || 'No service' }}</span>
         </div>
@@ -129,6 +130,7 @@
 </template>
 
 <script setup>
+import ChangeBadge from '@/Components/Admin/ChangeBadge.vue';
 import BulkSelectAll from '@/Components/Admin/BulkSelectAll.vue';
 import LibraryButton from '@/Components/Admin/LibraryButton.vue';
 import BulkBar from '@/Components/Admin/BulkBar.vue';

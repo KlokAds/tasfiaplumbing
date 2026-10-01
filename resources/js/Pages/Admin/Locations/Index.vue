@@ -29,7 +29,7 @@
             <tr v-for="l in pager.rows.value" :key="l.id" :class="bulk.has(l.id) && 'a-row-selected'">
               <td class="w-10 !pr-0"><input type="checkbox" :checked="bulk.has(l.id)" @change="bulk.toggle(l.id)" :aria-label="`Select`" /></td>
               <td>
-                <button @click="openModal(l)" class="font-semibold hover:underline">{{ l.name }}</button>
+                <button @click="openModal(l)" class="font-semibold hover:underline">{{ l.name }}</button> <ChangeBadge :created="l.created_at" :updated="l.updated_at" class="ml-2" />
                 <span v-if="l.is_featured" class="a-badge a-badge-success ml-1.5">In menu</span>
                 <span v-if="!l.is_active" class="a-badge ml-1.5">Hidden</span>
                 <p class="text-xs a-subtle a-mono">{{ l.public_path }}</p>
@@ -162,6 +162,7 @@
 </template>
 
 <script setup>
+import ChangeBadge from '@/Components/Admin/ChangeBadge.vue';
 import LibraryButton from '@/Components/Admin/LibraryButton.vue';
 import BulkBar from '@/Components/Admin/BulkBar.vue';
 import { useBulk } from '@/Composables/useBulk';
