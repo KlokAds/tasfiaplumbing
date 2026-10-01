@@ -20,7 +20,7 @@ class ImageUrlTest extends TestCase
     {
         $srcset = ResponsiveImage::srcset('Admin/Blog/Details/Water heater replace.jpg', 640);
 
-        $this->assertStringContainsString('/cache/img/320/Admin/Blog/Details/Water%20heater%20replace.jpg.webp 320w', $srcset);
+        $this->assertStringContainsString('/cache/w/320/Admin/Blog/Details/Water%20heater%20replace.jpg.webp 320w', $srcset);
         foreach (explode(', ', $srcset) as $entry) {
             $this->assertCount(2, explode(' ', $entry), $entry);
         }

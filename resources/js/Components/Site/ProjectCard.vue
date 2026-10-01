@@ -14,6 +14,7 @@
 </template>
 
 <script setup>
+import { monthYear } from '@/utils/fmt';
 import { computed } from 'vue';
 import { Link } from '@inertiajs/vue3';
 import { img, srcset } from '@/utils/img';
@@ -22,6 +23,6 @@ const props = defineProps({ project: { type: Object, required: true }, showServi
 const details = computed(() => [
   props.project.area || props.project.location?.name,
   props.project.property_type,
-  props.project.completed_on && new Date(props.project.completed_on).toLocaleDateString('en-SG', { month: 'short', year: 'numeric' }),
+  props.project.completed_on && monthYear(props.project.completed_on),
 ].filter(Boolean).join(' · '));
 </script>

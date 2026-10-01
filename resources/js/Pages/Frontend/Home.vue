@@ -201,6 +201,7 @@
 </template>
 
 <script setup>
+import { shortDate, monthYear } from '@/utils/fmt';
 import { computed, nextTick, onMounted, reactive, ref } from 'vue';
 import { Link, usePage } from '@inertiajs/vue3';
 import FrontendLayout from '@/Layouts/FrontendLayout.vue';
@@ -265,6 +266,6 @@ const badgeIcons = [
 ];
 
 
-const date = (d) => (d ? new Date(d).toLocaleDateString('en-SG', { day: 'numeric', month: 'short', year: 'numeric' }) : '');
-const month = (d) => new Date(d).toLocaleDateString('en-SG', { month: 'short', year: 'numeric' });
+const date = (d) => (d ? shortDate(d) : '');
+const month = (d) => monthYear(d);
 </script>

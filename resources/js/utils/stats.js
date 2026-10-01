@@ -1,3 +1,4 @@
+import { groupDigits } from './fmt';
 // Icons (24px stroke paths) and helpers for the counter strips and value cards.
 export const icons = {
   project: 'M9 12l2 2 4-4M4 6a2 2 0 012-2h12a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V6z',
@@ -28,7 +29,7 @@ export function statsFrom(counters = [], max = 4) {
   return counters.slice(0, max).map((c) => {
     const raw = String(c.c_count ?? '').trim();
     const n = Number(raw.replace(/[,+\s]/g, ''));
-    const value = raw && Number.isFinite(n) && /^[\d,\s]+\+?$/.test(raw) ? n.toLocaleString('en-SG') + '+' : raw;
+    const value = raw && Number.isFinite(n) && /^[\d,\s]+\+?$/.test(raw) ? groupDigits(n) + '+' : raw;
     const label = String(c.c_title ?? '').replace(/[!.]+$/, '').trim();
     return { id: c.id, value, label, icon: pick(label) };
   }).filter((c) => c.value && c.label);

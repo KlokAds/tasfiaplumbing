@@ -7,7 +7,7 @@
     <p v-if="service.short_summary" class="mt-2 text-[15.5px] leading-relaxed s-muted line-clamp-3">{{ service.short_summary }}</p>
     <span class="mt-auto pt-6">
       <span class="pt-5 border-t s-border flex items-center justify-between gap-3 text-[15px]">
-        <span v-if="service.from_price" class="s-subtle">From <strong class="s-heading">S${{ Number(service.from_price).toLocaleString() }}</strong></span>
+        <span v-if="service.from_price" class="s-subtle">From <strong class="s-heading">S${{ groupDigits(service.from_price) }}</strong></span>
         <span v-else class="s-subtle">{{ service.response_time || 'Free quote' }}</span>
         <span class="font-semibold s-accent group-hover:translate-x-1 transition-transform">Details →</span>
       </span>
@@ -16,6 +16,7 @@
 </template>
 
 <script setup>
+import { groupDigits } from '@/utils/fmt';
 import { Link } from '@inertiajs/vue3';
 import { serviceIcon } from '@/utils/serviceIcon';
 

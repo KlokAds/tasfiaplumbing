@@ -67,8 +67,36 @@ Route::get('/locations/{slug}', [FrontendController::class, 'locationDetail'])->
 Route::permanentRedirect('/articles', '/blogs');
 Route::get('/search', [\App\Http\Controllers\SearchController::class, 'index'])->middleware('throttle:60,1')->name('search');
 Route::get('/search/suggest', [\App\Http\Controllers\SearchController::class, 'suggest'])->middleware('throttle:120,1')->name('search.suggest');
-Route::get('/cache/img/{width}/{path}', [\App\Http\Controllers\ImageController::class, 'show'])
+Route::get('/cache/w/{width}/{path}', [\App\Http\Controllers\ImageController::class, 'show'])
     ->whereNumber('width')->where('path', '.*')->middleware('throttle:300,1')->name('image.resized')
+    // An image needs no session or cookies, and a response with cookies is never kept by the CDN.
+    ->withoutMiddleware([
+        \Illuminate\Cookie\Middleware\EncryptCookies::class,
+        \Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse::class,
+        \Illuminate\Session\Middleware\StartSession::class,
+        \Illuminate\View\Middleware\ShareErrorsFromSession::class,
+        \Illuminate\Foundation\Http\Middleware\PreventRequestForgery::class,
+        \App\Http\Middleware\SiteAccess::class,
+        \App\Http\Middleware\UseLibraryFiles::class,
+        \App\Http\Middleware\PublishScheduledArticles::class,
+        \App\Http\Middleware\HandleInertiaRequests::class,
+    ]);
+Route::get('/cache/img/{width}/{path}', [\App\Http\Controllers\ImageController::class, 'legacy'])
+    ->whereNumber('width')->where('path', '.*')->middleware('throttle:300,1')->name('image.resized.legacy')
+    // An image needs no session or cookies, and a response with cookies is never kept by the CDN.
+    ->withoutMiddleware([
+        \Illuminate\Cookie\Middleware\EncryptCookies::class,
+        \Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse::class,
+        \Illuminate\Session\Middleware\StartSession::class,
+        \Illuminate\View\Middleware\ShareErrorsFromSession::class,
+        \Illuminate\Foundation\Http\Middleware\PreventRequestForgery::class,
+        \App\Http\Middleware\SiteAccess::class,
+        \App\Http\Middleware\UseLibraryFiles::class,
+        \App\Http\Middleware\PublishScheduledArticles::class,
+        \App\Http\Middleware\HandleInertiaRequests::class,
+    ]);
+Route::get('/cache/im/{width}/{path}', [\App\Http\Controllers\ImageController::class, 'legacy'])
+    ->whereNumber('width')->where('path', '.*')->middleware('throttle:300,1')->name('image.resized.legacy2')
     // An image needs no session or cookies, and a response with cookies is never kept by the CDN.
     ->withoutMiddleware([
         \Illuminate\Cookie\Middleware\EncryptCookies::class,

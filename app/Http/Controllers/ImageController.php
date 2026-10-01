@@ -3,7 +3,8 @@
 namespace App\Http\Controllers;
 
 /**
- * Responsive WebP copies of uploaded images: /cache/img/{width}/{path}.webp
+ * Responsive WebP copies of uploaded images: /cache/w/{width}/{path}.webp
+ * (/cache/img/... and /cache/im/... are older folders; their links redirect here.)
  *
  * The first request builds the file inside public/, so every later request is served
  * directly by the web server as a static file (no PHP). Only a fixed set of widths and
@@ -13,6 +14,25 @@ class ImageController extends Controller
 {
     public const WIDTHS = [96, 160, 320, 480, 640, 800, 1024, 1280, 1600, 1920];
     private const ROOTS = ['Admin/', 'uploads/', 'images/'];
+    /** Folder under public/ for the copies. */
+    public const DIR = 'cache/w';
+    /** Older folders, still served if a file is there and cleaned with the current one. */
+    private const OLD_DIRS = ['cache/img', 'cache/im'];
+    /**
+     * WebP qualities tried in turn: 68 for most photos; a busy, noisy photo that is still heavy
+     * (over MAX_BYTES_PER_PIXEL) is saved again at a lower quality, where the loss does not show.
+     */
+    private const QUALITIES = [68, 55, 45];
+    private const MAX_BYTES_PER_PIXEL = 0.25;
+
+    /** Old links (/cache/img/..., /cache/im/...) whose file is not on disk: send them to the current folder. */
+    public function legacy(int $width, string $path)
+    {
+        abort_unless(in_array($width, self::WIDTHS, true), 404);
+        abort_if(str_contains($path, '..'), 404);
+
+        return redirect('/' . self::DIR . '/' . $width . '/' . ltrim($path, '/'), 301);
+    }
 
     public function show(int $width, string $path)
     {
@@ -27,7 +47,7 @@ class ImageController extends Controller
         $source = public_path($sourceRel);
         abort_unless(is_file($source) && str_starts_with(realpath($source), realpath(public_path())), 404);
 
-        $target = public_path("cache/img/{$width}/{$path}");
+        $target = public_path(self::DIR . "/{$width}/{$path}");
         if (!is_file($target)) {
             if (!$this->build($source, $target, $width)) {
                 return response()->file($source, ['Cache-Control' => 'public, max-age=86400']);
@@ -48,9 +68,11 @@ class ImageController extends Controller
             return;
         }
         foreach (self::WIDTHS as $w) {
-            $file = public_path("cache/img/{$w}/{$path}.webp");
-            if (is_file($file)) {
-                @unlink($file);
+            foreach ([self::DIR, ...self::OLD_DIRS] as $dir) {
+                $file = public_path("{$dir}/{$w}/{$path}.webp");
+                if (is_file($file)) {
+                    @unlink($file);
+                }
             }
         }
     }
@@ -103,7 +125,14 @@ class ImageController extends Controller
             return false;
         }
         $tmp = $target . '.' . bin2hex(random_bytes(4)) . '.tmp';
-        $ok = imagewebp($out, $tmp, 78);
+        $ok = false;
+        foreach (self::QUALITIES as $quality) {
+            $ok = imagewebp($out, $tmp, $quality);
+            clearstatcache(true, $tmp);
+            if (!$ok || filesize($tmp) <= $newW * $newH * self::MAX_BYTES_PER_PIXEL) {
+                break;
+            }
+        }
         imagedestroy($img);
         imagedestroy($out);
         if (!$ok) {
