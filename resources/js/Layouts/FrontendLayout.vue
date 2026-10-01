@@ -192,7 +192,8 @@
       </div>
     </header>
 
-    <main id="main" class="flex-1">
+    <!-- At least one screen tall: the footer starts below the fold, so content that renders a frame later never pushes it (no layout shift) -->
+    <main id="main" class="flex-1 min-h-screen">
       <slot />
     </main>
 
