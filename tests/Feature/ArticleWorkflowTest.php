@@ -45,8 +45,11 @@ class ArticleWorkflowTest extends TestCase
             // The approval email shows the SEO score and each finding.
             $html = $n->toMail($owner)->render();
 
-            return str_contains($html, 'SEO score') && str_contains($html, $n->seo['score'] . '</span>')
-                && (empty($n->seo['issues']) || str_contains($html, e($n->seo['issues'][0]['message'])));
+            return str_contains($html, 'SEO checklist') && str_contains($html, $n->seo['score'] . '</span>')
+                && (empty($n->seo['issues']) || str_contains($html, e($n->seo['issues'][0]['message'])))
+                // ...and the editor's four scores (SEO, AEO, GEO, E-E-A-T).
+                && collect($n->seo['pillars'] ?? [])->pluck('label')->all() === ['SEO', 'AEO', 'GEO', 'E-E-A-T']
+                && str_contains($html, '>E-E-A-T</p>');
         });
         Notification::assertNotSentTo($writer, ArticleWorkflow::class);
         $this->actingAs($writer)->post("/admin/blogs/{$blog->id}/approve", ['mode' => 'now'])->assertForbidden();

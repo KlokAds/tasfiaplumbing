@@ -15,7 +15,10 @@
 @endif
 @if (!empty($seo))
 
-SEO score: {{ $seo['score'] }}/100 ({{ $seo['words'] }} words, {{ $seo['errors'] }} errors, {{ $seo['warnings'] }} suggestions)
+SEO checklist: {{ $seo['score'] }}/100 ({{ $seo['words'] }} words, {{ $seo['errors'] }} errors, {{ $seo['warnings'] }} suggestions)
+@if (!empty($seo['pillars']))
+Content scores: {{ collect($seo['pillars'])->map(fn ($p) => $p['label'] . ' ' . $p['score'])->join(' · ') }}
+@endif
 @forelse ($seo['issues'] as $issue)
 - {{ $issue['level'] === 'error' ? 'Error' : 'Suggestion' }}: {{ $issue['message'] }}
 @empty

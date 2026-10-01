@@ -95,13 +95,32 @@
                                                                 <span style="font-size:34px;font-weight:800;line-height:1;color:{{ $scColor }};">{{ $sc }}</span><span style="font-size:14px;font-weight:700;color:#64748b;">/100</span>
                                                             </td>
                                                             <td style="vertical-align:middle;">
-                                                                <p style="margin:0;font-size:12px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;">SEO score</p>
+                                                                <p style="margin:0;font-size:12px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;">SEO checklist</p>
                                                                 <p style="margin:3px 0 0;font-size:15px;font-weight:700;color:{{ $scColor }};">{{ $scLabel }}</p>
                                                                 <p style="margin:3px 0 0;font-size:13px;color:#64748b;">{{ number_format($seo['words']) }} words · {{ $seo['errors'] }} {{ $seo['errors'] === 1 ? 'error' : 'errors' }} · {{ $seo['warnings'] }} {{ $seo['warnings'] === 1 ? 'suggestion' : 'suggestions' }}</p>
                                                             </td>
                                                         </tr></table>
                                                     </td>
                                                 </tr>
+                                                @if (!empty($seo['pillars']))
+                                                    {{-- SEO, AEO, GEO and E-E-A-T, the same scores as in the editor --}}
+                                                    <tr>
+                                                        <td style="padding:12px 14px;border-top:1px solid #eef0f3;">
+                                                            <p style="margin:0 4px 8px;font-size:12px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;">Content scores (same as in the editor)</p>
+                                                            <table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr>
+                                                                @foreach ($seo['pillars'] as $p)
+                                                                    @php [$pc, $pb] = $p['score'] >= 80 ? ['#15803d', '#f0fdf4'] : ($p['score'] >= 60 ? ['#b45309', '#fffbeb'] : ['#b91c1c', '#fef2f2']); @endphp
+                                                                    <td style="width:25%;padding:0 4px;vertical-align:top;">
+                                                                        <div style="border-radius:10px;background:{{ $pb }};padding:10px 6px;text-align:center;" title="{{ $p['name'] }}">
+                                                                            <p style="margin:0;font-size:11px;font-weight:700;color:#64748b;letter-spacing:.04em;">{{ $p['label'] }}</p>
+                                                                            <p style="margin:2px 0 0;font-size:20px;font-weight:800;line-height:1.1;color:{{ $pc }};">{{ $p['score'] }}</p>
+                                                                        </div>
+                                                                    </td>
+                                                                @endforeach
+                                                            </tr></table>
+                                                        </td>
+                                                    </tr>
+                                                @endif
                                                 @forelse ($seo['issues'] as $issue)
                                                     <tr>
                                                         <td style="padding:10px 18px;border-top:1px solid #eef0f3;font-size:14px;line-height:1.5;color:#1e293b;">

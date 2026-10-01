@@ -109,11 +109,29 @@ class ArticleNotifier
                 'words' => SeoAudit::wordCount($blog->desc),
                 'issues' => collect($result['issues'])->sortBy(fn ($i) => $i['level'] === 'error' ? 0 : 1)
                     ->map(fn ($i) => ['level' => $i['level'], 'message' => $i['message']])->values()->all(),
+                // The editor's four scores: SEO, answer engines (AEO), AI search (GEO) and trust (E-E-A-T).
+                'pillars' => self::pillars($blog),
             ];
         } catch (\Throwable $e) {
             Log::warning('SEO report for article email failed', ['article' => $blog->getKey(), 'error' => $e->getMessage()]);
 
             return null;
+        }
+    }
+
+    /** [['key' => 'aeo', 'label' => 'AEO', 'name' => 'Answer engines (AEO)', 'score' => 80], …] or [] if it cannot be worked out. */
+    private static function pillars(BlogDetail $blog): array
+    {
+        try {
+            $short = ['seo' => 'SEO', 'aeo' => 'AEO', 'geo' => 'GEO', 'eeat' => 'E-E-A-T'];
+
+            return collect(ContentQuality::forArticle($blog)['pillars'])
+                ->map(fn ($p, $key) => ['key' => $key, 'label' => $short[$key] ?? strtoupper($key), 'name' => $p['label'], 'score' => (int) $p['score']])
+                ->values()->all();
+        } catch (\Throwable $e) {
+            Log::warning('Content scores for article email failed', ['article' => $blog->getKey(), 'error' => $e->getMessage()]);
+
+            return [];
         }
     }
 
