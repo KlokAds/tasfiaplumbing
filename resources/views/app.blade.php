@@ -60,7 +60,7 @@
             <script>window.__trackEvents = true;</script>
         @endif
         @if ($tawkId)
-            {{-- Tawk.to chat loads after the first interaction (or 10 s) so it never slows the page. --}}
+            {{-- Tawk.to chat loads after the first interaction (or 20 s) so it never slows the page. --}}
             <script>
                 (function () {
                     var done = false;
@@ -81,7 +81,7 @@
                         document.head.appendChild(s);
                     }
                     ['scroll', 'pointerdown', 'keydown', 'touchstart'].forEach(function (e) { addEventListener(e, load, { once: true, passive: true }); });
-                    addEventListener('load', function () { setTimeout(load, 10000); });
+                    addEventListener('load', function () { setTimeout(load, 20000); });
                 })();
             </script>
         @endif
@@ -119,7 +119,7 @@
                         @endif
                     };
                     ['scroll', 'pointerdown', 'keydown', 'touchstart'].forEach(function (e) { addEventListener(e, load, { once: true, passive: true }); });
-                    addEventListener('load', function () { setTimeout(load, 3000); });
+                    addEventListener('load', function () { setTimeout(load, 10000); });
                 })();
             </script>
         @endif

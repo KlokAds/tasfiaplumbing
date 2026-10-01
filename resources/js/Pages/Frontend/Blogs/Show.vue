@@ -179,12 +179,17 @@ const slugify = t => t.toLowerCase().replace(/<[^>]*>/g, '').replace(/&[a-z]+;/g
 const parsed = computed(() => {
   const toc = [];
   const used = new Set();
-  const html = (props.blog.desc || '').replace(/<h([23])([^>]*)>([\s\S]*?)<\/h\1>/gi, (m, level, attrs, inner) => {
-    const text = inner.replace(/<[^>]*>/g, '').replace(/&amp;/g, '&').trim();
+  const html = (props.blog.desc || '')
+    // A link with nothing to read inside (only spaces or empty tags, no image) is dropped, keeping what was inside.
+    .replace(/<a\b[^>]*>((?:\s|&nbsp;|\u00a0|<(?!img\b)[^>]*>)*)<\/a>/gi, '$1')
+    .replace(/<h([23])([^>]*)>([\s\S]*?)<\/h\1>/gi, (m, level, attrs, inner) => {
+    const text = inner.replace(/<[^>]*>/g, '').replace(/&amp;/g, '&').replace(/&nbsp;|\u00a0/g, ' ').trim();
+    if (!text && !/<img\b/i.test(inner)) return '';
     let id = slugify(text) || 'section';
     while (used.has(id)) id += '-2';
     used.add(id);
-    if (level === '2') toc.push({ id, text });
+    // Empty headings (left over from the editor) stay out of the table of contents.
+    if (level === '2' && text) toc.push({ id, text });
     return /\sid=/.test(attrs) ? m : `<h${level}${attrs} id="${id}">${inner}</h${level}>`;
   });
   return { html, toc };

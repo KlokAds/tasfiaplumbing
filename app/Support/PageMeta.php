@@ -76,7 +76,11 @@ class PageMeta
         }
 
         $title = trim((string) $title) ?: $brand;
-        if ($suffix && !Str::contains(Str::lower($title), Str::lower($brand))) {
+        // A title that already names the brand ("… | Tasfia Engineering Services") gets no second brand suffix.
+        $brandCore = trim(preg_replace('/\s+(singapore|sg|pte\.?\s*ltd\.?)$/i', '', $brand));
+        // The suffix is only added while the full title still fits Google's ~60 characters.
+        if ($suffix && !Str::contains(Str::lower($title), Str::lower($brandCore ?: $brand))
+            && mb_strlen(rtrim($title) . ' ' . ltrim($suffix)) <= (int) config('seo.audit.title_max', 60)) {
             $title = rtrim($title) . ' ' . ltrim($suffix);
         }
 

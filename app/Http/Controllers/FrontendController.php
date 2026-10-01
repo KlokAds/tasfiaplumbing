@@ -33,7 +33,7 @@ class FrontendController extends Controller
     public function index()
     {
         $hero = HomeHero::orderBy('id')->first();
-        ResponsiveImage::preload($hero?->img);
+        // The home page shows no hero photo (text and the quote form), so nothing is preloaded here.
         $services = $this->liveServices()->with(['prices' => fn ($q) => $q->where('is_active', true)])->take(6)->get(self::CARD);
 
         return Inertia::render('Frontend/Home', [
