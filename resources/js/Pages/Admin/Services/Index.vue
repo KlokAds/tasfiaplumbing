@@ -41,7 +41,7 @@
               <th class="text-center">FAQs</th>
               <th class="text-center">Articles</th>
               <th>SEO</th>
-              <th></th>
+              <th class="text-right">Actions</th>
             </tr>
           </thead>
           <tbody>

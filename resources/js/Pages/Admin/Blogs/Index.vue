@@ -102,22 +102,24 @@
               <th>Service</th>
               <th class="text-center">Words</th>
               <th>SEO</th>
-              <th></th>
+              <th class="text-right">Actions</th>
             </tr>
           </thead>
           <tbody>
             <tr v-for="b in blogs.data" :key="b.id">
               <td v-if="permissions.edit_all || permissions.delete"><input v-model="selected" type="checkbox" :value="b.id" class="rounded" /></td>
-              <td class="max-w-md">
-                <button @click="openModal(b)" class="font-semibold text-left line-clamp-1 hover:underline">{{ b.name }}</button>
-                <p class="text-xs a-subtle font-mono truncate">{{ b.public_path }}<span v-if="b.noindex" class="ml-2 a-text-warning font-sans font-semibold">noindex</span></p>
+              <td>
+                <div class="max-w-[18rem]">
+                  <button @click="openModal(b)" class="font-semibold text-left line-clamp-2 hover:underline" :title="b.name">{{ b.name }}</button>
+                  <p class="text-xs a-subtle font-mono truncate">{{ b.public_path }}<span v-if="b.noindex" class="ml-2 a-text-warning font-sans font-semibold">noindex</span></p>
+                </div>
               </td>
               <td class="whitespace-nowrap">
                 <span :class="['a-badge', status(b).cls]">{{ status(b).label }}</span> <ChangeBadge :created="b.created_at" :updated="b.edited_at" :pending="b.pending_changes" class="ml-1" />
                 <p v-if="b.status === 'scheduled' || (b.status === 'pending' && b.scheduled_at)" class="text-[11px] a-subtle mt-0.5">{{ b.status === 'pending' ? 'Wants ' : '' }}{{ when(b.scheduled_at) }}</p>
                 <p v-else-if="b.status === 'pending'" class="text-[11px] a-subtle mt-0.5">Sent {{ ago(b.submitted_at) }}</p>
               </td>
-              <td class="whitespace-nowrap a-muted">{{ b.author_name || '—' }}</td>
+              <td class="a-muted"><span class="block max-w-[11rem] truncate" :title="b.author_name">{{ b.author_name || '—' }}</span></td>
               <td>
                 <span v-if="b.primary_service" class="a-muted">{{ b.primary_service.name }}</span>
                 <div v-else class="text-xs">
@@ -162,10 +164,11 @@
           <p class="mt-1 whitespace-pre-line">{{ editing.review_note }}</p>
           <p class="mt-1 text-xs a-muted">Make the changes, then submit for approval again.</p>
         </div>
-        <div v-else-if="liveEditNeedsApproval" class="rounded-xl border a-border a-panel-2 px-4 py-3 text-sm">
-          <p class="font-semibold">This article is live</p>
-          <p class="a-muted">Your changes are sent for approval. The live page does not change until they are approved.</p>
-        </div>
+        <p v-else-if="liveEditNeedsApproval" class="flex items-start gap-2 text-sm a-muted">
+          <svg class="w-4 h-4 mt-0.5 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M12 8h.01M11 12h1v4h1" /></svg>
+          <span v-if="editing?.pending_changes">Changes you sent earlier are still waiting for approval. The live page stays as it is until an admin approves.</span>
+          <span v-else>Editing a live article: when you submit, an admin approves the changes before they go live.</span>
+        </p>
         <div v-else-if="editing?.status === 'pending' && !permissions.publish" class="rounded-xl border a-border a-panel-2 px-4 py-3 text-sm">
           <p class="font-semibold">Waiting for approval</p>
           <p class="a-muted">You can still edit it. “Save draft” takes it out of the review queue.</p>

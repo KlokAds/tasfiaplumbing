@@ -111,7 +111,7 @@ class BlogController extends Controller
                     // (no scripts, event handlers or pasted styles), so a submitted draft cannot run code.
                     ->map(fn ($r) => ['id' => $r->id, 'article' => $r->article, 'user' => $r->user?->name, 'payload' => ['desc' => \App\Support\ContentHtml::render((string) ($r->payload['desc'] ?? ''), (string) ($r->payload['name'] ?? ''))] + (array) $r->payload, 'created_at' => $r->created_at->toIso8601String()])
                 : [],
-            'myRevisions' => ArticleRevision::where('user_id', $user->id)->whereIn('status', ['pending', 'rejected'])->with('article:id,name')->latest()->take(10)->get(['id', 'article_id', 'status', 'note', 'created_at']),
+            'myRevisions' => $this->openRevisions($user),
             'editBlog' => $request->filled('edit') && ($b = BlogDetail::with('faqs')->find($request->integer('edit'))) && $this->canEdit($user, $b)
                 ? $this->row($b, $dup, $services, $user)
                 : null,
@@ -382,6 +382,31 @@ class BlogController extends Controller
         $row['edited_at'] = $this->editedAt($b, $edits['approved'][$b->getKey()] ?? null)?->toIso8601String();
 
         return $row;
+    }
+
+    /**
+     * The writer's edits waiting for approval, and rejected edits that still need action. A rejection
+     * drops off once the article was changed after it, or the writer has sent a newer edit since.
+     */
+    private function openRevisions(User $user)
+    {
+        $revisions = ArticleRevision::where('user_id', $user->id)->whereIn('status', ['pending', 'rejected'])
+            ->with('article:id,name,content_updated_at')->latest()->take(30)
+            ->get(['id', 'article_id', 'status', 'note', 'created_at', 'reviewed_at']);
+        $latestPerArticle = ArticleRevision::where('user_id', $user->id)
+            ->whereIn('article_id', $revisions->pluck('article_id')->unique())
+            ->selectRaw('article_id, MAX(id) as latest_id')->groupBy('article_id')->pluck('latest_id', 'article_id');
+
+        return $revisions->reject(function (ArticleRevision $r) use ($latestPerArticle) {
+            if ($r->status !== 'rejected') {
+                return false;
+            }
+            $changed = $r->article?->content_updated_at;
+
+            return !$r->article
+                || ($latestPerArticle[$r->article_id] ?? $r->id) !== $r->id
+                || ($changed && $r->reviewed_at && $changed->gt($r->reviewed_at));
+        })->take(10)->values();
     }
 
     /** Pending edits and last approved edit per article, for one page of the list. */

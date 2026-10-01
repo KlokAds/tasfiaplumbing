@@ -14,7 +14,7 @@
     <div class="admin-card overflow-hidden">
       <div class="overflow-x-auto">
         <table class="a-table">
-          <thead><tr><th>Page</th><th>Search result preview</th><th class="w-24">Score</th><th></th></tr></thead>
+          <thead><tr><th>Page</th><th>Search result preview</th><th class="w-24">Score</th><th class="text-right">Actions</th></tr></thead>
           <tbody>
             <tr v-for="p in sorted" :key="p.key">
               <td class="whitespace-nowrap">

@@ -111,7 +111,7 @@
               <p class="text-xs a-subtle">{{ [r.job, r.location, r.review_date && new Date(r.review_date).toLocaleDateString('en-SG', { month: 'short', year: 'numeric' })].filter(Boolean).join(' · ') || 'No details' }}</p>
               <p class="mt-1.5 text-[13px] a-muted line-clamp-3">{{ strip(r.desc) }}</p>
             </div>
-            <div class="flex flex-col sm:flex-row items-end sm:items-start gap-1 shrink-0">
+            <div class="a-row-actions flex flex-col sm:flex-row items-end sm:items-start shrink-0">
               <button v-if="can('reviews.edit')" @click="openModal(r)" class="a-btn-ghost a-btn-sm">Edit</button>
               <button v-if="can('reviews.delete')" @click="remove(r)" class="a-btn-ghost a-danger a-btn-sm">Delete</button>
             </div>

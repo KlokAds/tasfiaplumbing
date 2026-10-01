@@ -41,7 +41,7 @@
           <p class="text-xs a-subtle mt-1">{{ [p.area || p.location?.name, p.property_type, p.completed_on && fmtDate(p.completed_on)].filter(Boolean).join(' · ') || 'No details yet' }}</p>
           <span :class="['a-badge mt-2', p.service ? '' : 'a-badge-warning']">{{ p.service?.name || 'No service' }}</span>
         </div>
-        <div class="px-3 py-2 border-t a-border flex justify-end gap-1">
+        <div class="a-row-actions px-3 py-2 border-t a-border flex justify-end">
           <button v-if="can('projects.edit')" @click="openModal(p)" class="a-btn-ghost a-btn-sm">Edit</button>
           <button v-if="can('projects.delete')" @click="remove(p)" class="a-btn-ghost a-danger a-btn-sm">Delete</button>
         </div>

@@ -52,7 +52,7 @@
         </header>
         <div class="overflow-x-auto">
           <table class="a-table">
-            <thead><tr><th>Page</th><th class="w-24">Score</th><th>Issues</th><th class="w-20"></th></tr></thead>
+            <thead><tr><th>Page</th><th class="w-24">Score</th><th>Issues</th><th class="w-20 text-right">Actions</th></tr></thead>
             <tbody>
               <tr v-for="item in items.data" :key="item.type + item.id">
                 <td class="max-w-xs">

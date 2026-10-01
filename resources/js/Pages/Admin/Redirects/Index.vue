@@ -45,7 +45,7 @@
                   <th>Type</th>
                   <th class="text-right">Hits</th>
                   <th>Source</th>
-                  <th></th>
+                  <th class="text-right">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -86,7 +86,7 @@
                   <th class="text-right">Hits</th>
                   <th>Last seen</th>
                   <th>Came from</th>
-                  <th></th>
+                  <th class="text-right">Actions</th>
                 </tr>
               </thead>
               <tbody>

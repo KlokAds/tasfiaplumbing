@@ -280,6 +280,23 @@
     .admin-ui .a-btn-sm { padding: 0.36rem 0.7rem; font-size: 0.78rem; border-radius: 8px; }
     .admin-ui .a-btn-icon { padding: 0.45rem; }
 
+    /* Row actions (View / Edit / Delete in a table's last column, or a card footer):
+       small outlined buttons that line up the same on every row. */
+    .admin-ui .a-table td:last-child { white-space: nowrap; }
+    .admin-ui :is(.a-table td:last-child, .a-row-actions) > .a-btn-ghost.a-btn-sm {
+        min-width: 3.6rem; padding: 0.36rem 0.75rem;
+        border-color: var(--a-border-2); background: var(--a-panel); color: var(--a-text-2);
+    }
+    .admin-ui .a-table td:last-child > * + * { margin-left: 0.3rem; }
+    .admin-ui .a-row-actions { gap: 0.3rem; }
+    .admin-ui :is(.a-table td:last-child, .a-row-actions) > .a-btn-ghost.a-btn-sm:hover {
+        background: var(--a-panel-3); color: var(--a-text); border-color: color-mix(in srgb, var(--a-border-2) 60%, var(--a-text-3));
+    }
+    .admin-ui :is(.a-table td:last-child, .a-row-actions) > .a-btn-ghost.a-btn-sm:is(.a-danger, [class*='a-text-danger']) { color: var(--a-danger-text); }
+    .admin-ui :is(.a-table td:last-child, .a-row-actions) > .a-btn-ghost.a-btn-sm:is(.a-danger, [class*='a-text-danger']):hover {
+        background: var(--a-danger-soft); border-color: color-mix(in srgb, var(--a-danger-text) 45%, transparent);
+    }
+
     /* Segmented control (view switchers, theme) */
     .admin-ui .a-seg { display: inline-flex; padding: 3px; gap: 2px; border-radius: 10px; background: var(--a-panel-3); border: 1px solid var(--a-border); }
     .admin-ui .a-seg > * { white-space: nowrap; padding: 0.35rem 0.7rem; border-radius: 7px; font-size: 0.78rem; font-weight: 600; color: var(--a-text-2); }

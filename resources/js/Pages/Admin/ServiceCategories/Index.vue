@@ -35,7 +35,7 @@
           <span v-for="s in c.services" :key="s.id" class="a-badge">{{ s.name }}</span>
           <span v-if="!c.services.length" class="text-xs a-text-warning">No services assigned yet</span>
         </div>
-        <div class="mt-auto pt-4 flex gap-1">
+        <div class="a-row-actions mt-auto pt-4 flex">
           <a :href="c.public_path" target="_blank" class="a-btn-ghost a-btn-sm">View</a>
           <button v-if="can('categories.edit')" @click="openModal(c)" class="a-btn-ghost a-btn-sm">Edit</button>
           <button v-if="can('categories.delete')" @click="remove(c)" class="a-btn-ghost a-danger a-btn-sm">Delete</button>

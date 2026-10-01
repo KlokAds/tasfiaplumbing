@@ -146,6 +146,23 @@ class ArticleWorkflowTest extends TestCase
         $this->assertSame(1, $count('new')); // added 3 days ago
     }
 
+    public function test_a_rejected_edit_stops_showing_once_the_article_changed(): void
+    {
+        Notification::fake();
+        $owner = $this->user('super-admin');
+        $editor = $this->user('editor');
+        $blog = BlogDetail::create(['name' => 'Live Guide', 'desc' => 'Original', 'status' => BlogDetail::PUBLISHED]);
+        $mine = fn () => collect($this->actingAs($editor)->get('/admin/blogs')->viewData('page')['props']['myRevisions'])->where('status', 'rejected');
+
+        $this->actingAs($editor)->post("/admin/blogs/{$blog->id}", $this->article(['name' => 'Live Guide', 'desc' => 'Changed', 'intent' => 'submit']))->assertRedirect();
+        $this->actingAs($owner)->post('/admin/revisions/' . ArticleRevision::firstOrFail()->id . '/reject', ['note' => 'Fix the score'])->assertRedirect();
+        $this->assertCount(1, $mine());
+
+        $this->travel(5)->minutes();
+        $blog->fresh()->update(['desc' => 'Fixed by the admin']);
+        $this->assertCount(0, $mine());
+    }
+
     public function test_super_admin_can_schedule_directly_and_past_times_are_refused(): void
     {
         $owner = $this->user('super-admin');

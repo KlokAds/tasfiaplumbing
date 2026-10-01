@@ -23,7 +23,7 @@
       <div v-else class="overflow-x-auto">
         <table class="a-table">
           <thead>
-            <tr><th class="w-10 !pr-0"><input type="checkbox" :checked="bulk.all.value" :indeterminate.prop="bulk.some.value" @change="bulk.toggleAll()" aria-label="Select all" /></th><th>Area</th><th>Region</th><th>Property types</th><th class="text-center">Services</th><th class="text-center">Words</th><th class="text-center">FAQs</th><th>SEO</th><th></th></tr>
+            <tr><th class="w-10 !pr-0"><input type="checkbox" :checked="bulk.all.value" :indeterminate.prop="bulk.some.value" @change="bulk.toggleAll()" aria-label="Select all" /></th><th>Area</th><th>Region</th><th>Property types</th><th class="text-center">Services</th><th class="text-center">Words</th><th class="text-center">FAQs</th><th>SEO</th><th class="text-right">Actions</th></tr>
           </thead>
           <tbody>
             <tr v-for="l in pager.rows.value" :key="l.id" :class="bulk.has(l.id) && 'a-row-selected'">

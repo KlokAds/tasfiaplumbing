@@ -157,7 +157,7 @@
         </header>
         <div class="overflow-x-auto">
           <table class="a-table">
-            <thead><tr><th>Customer</th><th>Subject</th><th>Received</th><th></th></tr></thead>
+            <thead><tr><th>Customer</th><th>Subject</th><th>Received</th><th class="text-right">Actions</th></tr></thead>
             <tbody>
               <tr v-for="m in recentMessages" :key="m.id">
                 <td>

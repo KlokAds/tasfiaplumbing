@@ -32,7 +32,7 @@
             <p class="font-semibold">{{ f.question }}</p>
             <p class="text-sm a-muted mt-1 whitespace-pre-line line-clamp-3">{{ f.answer }}</p>
           </div>
-          <div class="shrink-0 flex gap-1">
+          <div class="a-row-actions shrink-0 flex">
             <button v-if="can('faqs.edit')" @click="openModal(f)" class="a-btn-ghost a-btn-sm">Edit</button>
             <button v-if="can('faqs.delete')" @click="remove(f)" class="a-btn-ghost a-danger a-btn-sm">Delete</button>
           </div>

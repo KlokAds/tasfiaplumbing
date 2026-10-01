@@ -11,7 +11,7 @@
     <div class="admin-card overflow-hidden">
       <div class="overflow-x-auto">
         <table class="a-table">
-          <thead><tr><th class="w-10 !pr-0"><input type="checkbox" :checked="bulk.all.value" :indeterminate.prop="bulk.some.value" @change="bulk.toggleAll()" aria-label="Select all" /></th><th>Name</th><th>Role</th><th>Status</th><th class="text-center">Articles</th><th>Last sign-in</th><th></th></tr></thead>
+          <thead><tr><th class="w-10 !pr-0"><input type="checkbox" :checked="bulk.all.value" :indeterminate.prop="bulk.some.value" @change="bulk.toggleAll()" aria-label="Select all" /></th><th>Name</th><th>Role</th><th>Status</th><th class="text-center">Articles</th><th>Last sign-in</th><th class="text-right">Actions</th></tr></thead>
           <tbody>
             <tr v-for="u in pager.rows.value" :key="u.id" :class="bulk.has(u.id) && 'a-row-selected'">
               <td class="w-10 !pr-0"><input v-if="u.id !== me" type="checkbox" :checked="bulk.has(u.id)" @change="bulk.toggle(u.id)" aria-label="Select" /></td>

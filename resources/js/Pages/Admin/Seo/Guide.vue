@@ -6,13 +6,14 @@
     </PageHeader>
 
     <div class="grid grid-cols-1 xl:grid-cols-[15rem_1fr] gap-6">
-      <nav class="admin-card p-2 h-fit xl:sticky xl:top-20" aria-label="Guide sections">
-        <a v-for="s in sections" :key="s.id" :href="`#${s.id}`" class="guide-toc">{{ s.label }}</a>
+      <nav class="admin-card p-2 h-fit flex xl:flex-col gap-1 overflow-x-auto a-side-sticky a-side-sticky-page guide-nav" aria-label="Guide sections">
+        <a v-for="s in sections" :key="s.id" :href="`#${s.id}`" @click.prevent="jump(s.id)"
+          :class="['guide-toc', active === s.id && 'on']" :aria-current="active === s.id ? 'true' : null">{{ s.label }}</a>
       </nav>
 
       <div class="space-y-6 min-w-0 guide">
         <!-- This week's plan -->
-        <section id="plan" class="admin-card p-5 sm:p-6">
+        <section id="plan" class="admin-card p-5 sm:p-6 scroll-mt-32">
           <h2>This week's plan</h2>
           <p>Made by the daily scan. Do these in order; the scan picks new ones as you finish them.</p>
 
@@ -68,7 +69,7 @@
         </section>
 
         <!-- Live scan -->
-        <section id="now" class="admin-card p-5 sm:p-6">
+        <section id="now" class="admin-card p-5 sm:p-6 scroll-mt-32">
           <h2>Gaps across the site</h2>
           <p>Every live article and service checked against the rules below. Fix the items at the top first: they cost the most points across the most pages.</p>
           <div class="flex flex-wrap gap-2 mt-4">
@@ -115,7 +116,7 @@
         </section>
 
         <!-- Scores -->
-        <section id="scores" class="admin-card p-5 sm:p-6">
+        <section id="scores" class="admin-card p-5 sm:p-6 scroll-mt-32">
           <h2>How pages are scored</h2>
           <p>Every article and service page gets four scores out of 100. You see them in the editor sidebar, in the approval email and in SEO Health. Aim for <b>80 or more</b> in each one.</p>
           <div class="grid sm:grid-cols-2 gap-3 mt-4">
@@ -128,7 +129,7 @@
         </section>
 
         <!-- Article -->
-        <section id="article" class="admin-card p-5 sm:p-6">
+        <section id="article" class="admin-card p-5 sm:p-6 scroll-mt-32">
           <h2>Writing an article</h2>
           <p>One article answers one question people search for. Use this outline. Each block below is a part of the page, in order.</p>
           <ol class="guide-outline mt-4">
@@ -145,7 +146,7 @@
         </section>
 
         <!-- Direct answer -->
-        <section id="answer" class="admin-card p-5 sm:p-6">
+        <section id="answer" class="admin-card p-5 sm:p-6 scroll-mt-32">
           <h2>The direct answer</h2>
           <p>The <b>Direct answer / excerpt</b> field (articles) and the <b>Direct answer</b> field (services) is the text Google AI Overviews and ChatGPT quote most. It must answer the question on its own, without the rest of the page.</p>
           <div class="grid md:grid-cols-2 gap-3 mt-4">
@@ -171,7 +172,7 @@
         </section>
 
         <!-- SEO fields -->
-        <section id="fields" class="admin-card p-5 sm:p-6">
+        <section id="fields" class="admin-card p-5 sm:p-6 scroll-mt-32">
           <h2>The SEO fields</h2>
           <p>These fields are in the SEO panel of every article, service, location and category.</p>
           <div class="mt-4 space-y-3">
@@ -185,7 +186,7 @@
         </section>
 
         <!-- Service pages -->
-        <section id="service" class="admin-card p-5 sm:p-6">
+        <section id="service" class="admin-card p-5 sm:p-6 scroll-mt-32">
           <h2>Service pages</h2>
           <p>A service page is where people book. It must answer: what is it, how much, how fast, what guarantee, where. Aim for at least <b>{{ rules.min_words?.service }} words</b> and <b>{{ rules.min_faqs?.service }} FAQs</b>.</p>
           <div class="mt-4 space-y-3">
@@ -198,7 +199,7 @@
         </section>
 
         <!-- Location pages -->
-        <section id="location" class="admin-card p-5 sm:p-6">
+        <section id="location" class="admin-card p-5 sm:p-6 scroll-mt-32">
           <h2>Location pages</h2>
           <p>Each area page must be truly about that area. Pages that only swap the area name are treated as duplicates and do not rank. Aim for at least <b>{{ rules.min_words?.location }} words</b> and <b>{{ rules.min_faqs?.location }} FAQs</b>.</p>
           <ul class="ticks mt-4">
@@ -207,7 +208,7 @@
         </section>
 
         <!-- Other pages -->
-        <section id="other" class="admin-card p-5 sm:p-6">
+        <section id="other" class="admin-card p-5 sm:p-6 scroll-mt-32">
           <h2>Other pages and settings</h2>
           <p>These pages are not scored one by one, but Google and AI search read them to decide whether to trust the whole site.</p>
           <div class="mt-4 grid md:grid-cols-2 gap-3">
@@ -224,7 +225,7 @@
         </section>
 
         <!-- All checks -->
-        <section id="checks" class="admin-card p-5 sm:p-6">
+        <section id="checks" class="admin-card p-5 sm:p-6 scroll-mt-32">
           <h2>Every check behind the scores</h2>
           <p>This is the full list the editor uses. Heavier checks (weight 3) move the score most.</p>
           <div class="flex gap-2 mt-4">
@@ -244,7 +245,7 @@
         </section>
 
         <!-- Never -->
-        <section id="never" class="admin-card p-5 sm:p-6">
+        <section id="never" class="admin-card p-5 sm:p-6 scroll-mt-32">
           <h2>Never do this</h2>
           <ul class="crosses">
             <li v-for="t in never" :key="t">{{ t }}</li>
@@ -252,7 +253,7 @@
         </section>
 
         <!-- Publish checklist -->
-        <section id="publish" class="admin-card p-5 sm:p-6">
+        <section id="publish" class="admin-card p-5 sm:p-6 scroll-mt-32">
           <h2>Before you press Publish</h2>
           <ul class="checklist">
             <li v-for="(t, i) in publishList" :key="i">
@@ -267,7 +268,7 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { Link, router } from '@inertiajs/vue3';
 import AdminLayout from '@/Layouts/AdminLayout.vue';
 import PageHeader from '@/Components/Admin/PageHeader.vue';
@@ -282,6 +283,28 @@ const props = defineProps({
 });
 
 const checkType = ref('article');
+
+// ---------- Table of contents: highlight the section in view, smooth jump on click ----------
+const active = ref('plan');
+let observer;
+function jump(id) {
+  active.value = id;
+  document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  history.replaceState(history.state, '', `#${id}`);
+}
+onMounted(() => {
+  const visible = new Map();
+  observer = new IntersectionObserver((entries) => {
+    entries.forEach((e) => (e.isIntersecting ? visible.set(e.target.id, e.boundingClientRect.top) : visible.delete(e.target.id)));
+    // The topmost section that reaches the upper part of the screen is the one being read.
+    const first = sections.find((s) => visible.has(s.id));
+    if (first) active.value = first.id;
+  }, { rootMargin: '-128px 0px -55% 0px' });
+  sections.forEach((s) => { const el = document.getElementById(s.id); if (el) observer.observe(el); });
+  const hash = location.hash.slice(1);
+  if (sections.some((s) => s.id === hash)) active.value = hash;
+});
+onBeforeUnmount(() => observer?.disconnect());
 
 // ---------- Live scan ----------
 const scanTypes = [{ key: 'article', label: 'Articles' }, { key: 'service', label: 'Service pages' }];
@@ -447,8 +470,10 @@ const publishList = computed(() => [
 <style scoped>
 .guide h2 { font-size: 1.25rem; font-weight: 700; margin-bottom: .5rem; }
 .guide p, .guide li { font-size: 15px; line-height: 1.65; }
-.guide-toc { display: block; padding: .5rem .75rem; border-radius: .5rem; font-size: 14px; font-weight: 500; }
-.guide-toc:hover { background: var(--a-hover, rgba(0, 0, 0, .05)); }
+.guide-toc { display: block; padding: .5rem .75rem; border-radius: .5rem; font-size: 14px; font-weight: 500; white-space: nowrap; color: var(--a-text-2); transition: background-color 120ms ease, color 120ms ease; }
+.guide-toc:hover { background: var(--a-panel-3); color: var(--a-text); }
+.guide-toc.on { background: var(--a-accent-soft); color: var(--a-accent); font-weight: 600; box-shadow: inset 3px 0 0 var(--a-accent); }
+@media (min-width: 1280px) { .guide-toc { white-space: normal; } }
 .guide-outline { counter-reset: s; display: flex; flex-direction: column; gap: .75rem; }
 .guide-outline li { counter-increment: s; position: relative; padding: .875rem 1rem .875rem 3.25rem; border: 1px solid var(--a-border, #e5e7eb); border-radius: .75rem; }
 .guide-outline li::before { content: counter(s); position: absolute; left: 1rem; top: .875rem; width: 1.6rem; height: 1.6rem; border-radius: 999px; display: grid; place-items: center; font-size: 13px; font-weight: 700; background: var(--a-accent-soft, #e8f0fe); color: var(--a-accent, #1d4ed8); }
@@ -469,4 +494,8 @@ const publishList = computed(() => [
 .tone-good { background: rgba(22, 163, 74, .1); color: #15803d; }
 .tone-mid { background: rgba(217, 119, 6, .12); color: #b45309; }
 .tone-bad { background: rgba(220, 38, 38, .1); color: #b91c1c; }
+</style>
+<style>
+/* Below the slim sticky page header (not scoped: the sticky rule lives in admin.css). */
+@media (min-width: 1280px) { .admin-ui .guide-nav { --a-sticky-top: 7.5rem; --a-sticky-room: 9rem; } }
 </style>
