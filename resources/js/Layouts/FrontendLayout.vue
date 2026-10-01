@@ -272,8 +272,7 @@
 
     <!-- WhatsApp (desktop): labelled pill -->
     <a v-if="company.whatsapp" :href="whatsappUrl" target="_blank" rel="noopener"
-      :class="company.chat ? 'left-6' : 'right-6'"
-      class="hidden lg:inline-flex fixed z-40 bottom-6 items-center gap-2.5 rounded-full bg-[#15803d] hover:bg-[#166534] text-white pl-4 pr-5 py-3 text-[15px] font-semibold shadow-[0_12px_30px_-10px_rgba(21,128,61,0.7)] transition-colors">
+      class="right-6 hidden lg:inline-flex fixed z-40 bottom-6 items-center gap-2.5 rounded-full bg-[#15803d] hover:bg-[#166534] text-white pl-4 pr-5 py-3 text-[15px] font-semibold shadow-[0_12px_30px_-10px_rgba(21,128,61,0.7)] transition-colors">
       <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path :d="icons.whatsapp" /></svg>
       WhatsApp us
     </a>

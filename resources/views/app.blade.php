@@ -67,8 +67,8 @@
                     function load() {
                         if (done) return; done = true;
                         window.Tawk_API = window.Tawk_API || {}; window.Tawk_LoadStart = new Date();
-                        // Keep the chat bubble above the mobile action bar.
-                        Tawk_API.customStyle = { visibility: { mobile: { position: 'br', xOffset: 12, yOffset: 84 }, desktop: { position: 'br', xOffset: 20, yOffset: 20 } } };
+                        // Keep the chat bubble above the mobile action bar, and above the WhatsApp button on desktop (both bottom right).
+                        Tawk_API.customStyle = { visibility: { mobile: { position: 'br', xOffset: 12, yOffset: 84 }, desktop: { position: 'br', xOffset: 20, yOffset: 92 } } };
                         // Chat events for GTM: chat started, and the visitor's first message as a lead (same event as the old site).
                         var push = function (event) { (window.dataLayer = window.dataLayer || []).push({ event: event, page_path: location.pathname }); };
                         Tawk_API.onChatStarted = function () { push('tawkto_chat_start'); };
