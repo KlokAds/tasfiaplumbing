@@ -127,6 +127,7 @@ class ArticleWorkflowTest extends TestCase
         $blog = BlogDetail::create(['name' => 'Live Guide', 'desc' => 'Original', 'status' => BlogDetail::PUBLISHED]);
         $this->travelBack();
 
+        $count = fn (string $changed) => count($this->actingAs($owner)->get('/admin/blogs?changed=' . $changed)->assertOk()->viewData('page')['props']['blogs']['data']);
         $row = fn () => $this->actingAs($owner)->get('/admin/blogs')->assertOk()->viewData('page')['props']['blogs']['data'][0];
         $this->assertFalse($row()['pending_changes']);
         $this->assertNull($row()['edited_at']);
@@ -134,10 +135,15 @@ class ArticleWorkflowTest extends TestCase
         $this->actingAs($editor)->post("/admin/blogs/{$blog->id}", $this->article(['name' => 'Live Guide', 'desc' => 'Changed', 'intent' => 'submit']))->assertRedirect();
         $this->assertTrue($row()['pending_changes']);
         $this->assertNull($row()['edited_at']);
+        $this->assertSame(1, $count('waiting'));
+        $this->assertSame(0, $count('edited'));
 
         $this->actingAs($owner)->post('/admin/revisions/' . ArticleRevision::firstOrFail()->id . '/approve')->assertRedirect();
         $this->assertFalse($row()['pending_changes']);
         $this->assertNotNull($row()['edited_at']);
+        $this->assertSame(0, $count('waiting'));
+        $this->assertSame(1, $count('edited'));
+        $this->assertSame(1, $count('new')); // added 3 days ago
     }
 
     public function test_super_admin_can_schedule_directly_and_past_times_are_refused(): void

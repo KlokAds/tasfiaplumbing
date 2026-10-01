@@ -266,6 +266,7 @@ const groups = computed(() => {
       ] },
     ] },
     { label: 'SEO', items: [
+      { label: 'Writing guide', icon: 'doc', tabs: [{ label: 'Writing guide', href: '/admin/seo/guide' }] },
       { label: 'SEO Health', icon: 'pulse', tabs: [{ label: 'SEO Health', href: '/admin/seo/health', can: 'seo_health.view' }] },
       { label: 'Page SEO', icon: 'search', tabs: [{ label: 'Page SEO', href: '/admin/page-seo', can: 'page_seo.view' }] },
       { label: 'Redirects & 404s', icon: 'arrow', badge: c.open_404s, tabs: [{ label: 'Redirects', href: '/admin/redirects', can: 'redirects.view' }] },

@@ -104,7 +104,7 @@
             <div>
               <label class="admin-label">Direct answer</label>
               <textarea v-model="form.short_summary" rows="2" maxlength="500" placeholder="e.g. Water heater repair in Singapore usually costs S$80–S$250. Same-day service islandwide, 90-day warranty." class="admin-input"></textarea>
-              <p class="a-help">Shown at the top of the page. This is the line Google AI Overviews and ChatGPT quote most.</p>
+              <p class="a-help">Shown at the top of the page. This is the line Google AI Overviews and ChatGPT quote most. <a href="/admin/seo/guide#service" target="_blank" class="underline">Service page guide</a></p>
             </div>
 
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">

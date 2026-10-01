@@ -22,7 +22,7 @@ const time = (v) => {
 };
 const label = (t) => {
   const d = new Date(t);
-  return `${d.getDate()} ${MONTHS[d.getMonth()]}${d.getFullYear() !== new Date().getFullYear() ? ` ${d.getFullYear()}` : ''}`;
+  return `${d.getDate()} ${MONTHS[d.getMonth()]} '${String(d.getFullYear()).slice(-2)}`;
 };
 
 const badge = computed(() => {

@@ -15,6 +15,7 @@ use App\Http\Controllers\Admin\PriceController;
 use App\Http\Controllers\Admin\RedirectController;
 use App\Http\Controllers\Admin\RoleController;
 use App\Http\Controllers\Admin\SeoHealthController;
+use App\Http\Controllers\Admin\SeoGuideController;
 use App\Http\Controllers\Admin\SeoSettingController;
 use App\Http\Controllers\Admin\ServiceCategoryController;
 use App\Http\Controllers\Admin\SystemUpdateController;
@@ -278,6 +279,8 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', \App\Http\Middleware
     Route::post('/media/download-zip', [MediaController::class, 'downloadZip'])->middleware(['can:media.view', 'throttle:10,1'])->name('media.download-zip');
 
     // ---------------- SEO ----------------
+    // Open to every admin user: writers need it most.
+    Route::get('/seo/guide', [SeoGuideController::class, 'index'])->name('seo.guide');
     Route::get('/seo/health', [SeoHealthController::class, 'index'])->middleware('can:seo_health.view')->name('seo.health');
 
     Route::get('/page-seo', [PageSeoController::class, 'index'])->middleware('can:page_seo.view')->name('page-seo.index');

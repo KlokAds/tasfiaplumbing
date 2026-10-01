@@ -36,6 +36,21 @@ Artisan::command('google:sync {task? : reports, index or reviews; runs it now}',
 // Checks every 5 minutes which Google task is due; how often each runs is set in the admin.
 Schedule::call(fn () => Artisan::call('google:sync'))->everyFiveMinutes()->name('google:sync')->withoutOverlapping(30);
 
+Artisan::command('content:scan {--email : Also email the weekly plan to everyone who approves articles}', function () {
+    $scan = \App\Support\ContentScan::refresh();
+    $a = $scan['types']['article'];
+    $this->info("Scanned {$a['total']} articles and {$scan['types']['service']['total']} services; " . count($scan['plan']['articles']) . ' articles planned for this week.');
+    if ($this->option('email')) {
+        $to = \App\Support\ArticleNotifier::publishers();
+        \Illuminate\Support\Facades\Notification::send($to, new \App\Notifications\WeeklyContentPlan($scan));
+        $this->info('Emailed the plan to ' . $to->count() . ' people.');
+    }
+})->purpose('Scan every article and service and build the content plan shown in Admin → Writing guide');
+
+// Every morning: fresh scores and plan in the Writing guide. Friday: the plan is also emailed.
+Schedule::call(fn () => Artisan::call('content:scan'))->dailyAt('05:30')->name('content:scan')->withoutOverlapping(60);
+Schedule::call(fn () => Artisan::call('content:scan', ['--email' => true]))->weeklyOn(5, '08:30')->name('content:scan-email')->withoutOverlapping(60);
+
 // Lets Admin → System show whether the server cron is running.
 Schedule::call(fn () => \Illuminate\Support\Facades\Cache::forever('system.scheduler_seen', time()))->everyMinute()->name('scheduler-heartbeat');
 

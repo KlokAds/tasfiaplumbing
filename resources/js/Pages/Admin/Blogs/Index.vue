@@ -68,6 +68,10 @@
           <option value="">Any SEO state</option>
           <option v-for="(label, key) in filterOptions" :key="key" :value="key">{{ label }}</option>
         </SelectBox>
+        <SelectBox v-model="filterForm.changed" @change="go({ changed: filterForm.changed, page: '' })" class="admin-input lg:max-w-[16rem]">
+          <option value="">New or edited: any</option>
+          <option v-for="(label, key) in changeOptions" :key="key" :value="key">{{ label }}</option>
+        </SelectBox>
         <SelectBox v-model="filterForm.service" @change="go({ service: filterForm.service, page: '' })" class="admin-input lg:max-w-[16rem]">
           <option value="">Any service</option>
           <option v-for="s in services" :key="s.id" :value="s.id">{{ s.name }}</option>
@@ -178,7 +182,7 @@
             </div>
 
             <div>
-              <label class="admin-label">Direct answer / excerpt <span class="font-normal a-subtle">(1–2 lines with the price range; AI engines quote this)</span></label>
+              <label class="admin-label">Direct answer / excerpt <span class="font-normal a-subtle">(1–2 lines with the price range; AI engines quote this)</span> <a href="/admin/seo/guide#answer" target="_blank" class="font-normal underline a-muted">How to write it</a></label>
               <textarea v-model="form.excerpt" rows="2" maxlength="500" class="admin-input text-sm"></textarea>
             </div>
 
@@ -364,6 +368,7 @@ const props = defineProps({
   services: Array,
   filters: Object,
   filterOptions: Object,
+  changeOptions: { type: Object, default: () => ({}) },
   unlinkedCount: Number,
   counts: { type: Object, default: () => ({}) },
   revisions: { type: Array, default: () => [] },
@@ -439,6 +444,7 @@ const filterForm = reactive({
   search: props.filters?.search || '',
   filter: props.filters?.filter || '',
   service: props.filters?.service || '',
+  changed: props.filters?.changed || '',
 });
 function go(patch) {
   const params = { ...props.filters, ...patch };

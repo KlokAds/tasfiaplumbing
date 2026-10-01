@@ -26,6 +26,13 @@ class BlogController extends Controller
         'noindex' => 'Noindex',
     ];
 
+    /** The badges in the list, as filters. */
+    public const CHANGES = [
+        'new' => 'New (added in the last 30 days)',
+        'edited' => 'Edited after it was added',
+        'waiting' => 'Changes waiting for approval',
+    ];
+
     private const CONTENT_FIELDS = [
         'name', 'slug', 'primary_service_id', 'excerpt', 'desc', 'focus_keyword',
         'meta_title', 'meta_desc', 'canonical', 'noindex', 'image',
@@ -62,6 +69,17 @@ class BlogController extends Controller
             default => null,
         };
 
+        $revisions = fn (string $status) => fn ($q) => $q->selectRaw('1')->from('article_revisions')
+            ->whereColumn('article_revisions.article_id', 'blog_details.id')->where('article_revisions.status', $status);
+        match ($request->input('changed')) {
+            'new' => $query->where('created_at', '>=', now()->subDays(30)),
+            // Same rule as the badge: the text changed after it was added, or an edit was approved.
+            'edited' => $query->where(fn ($q) => $q->whereColumn('content_updated_at', '>', 'created_at')->orWhereExists($revisions('approved')))
+                ->reorder()->orderByDesc('content_updated_at'),
+            'waiting' => $query->whereExists($revisions('pending')),
+            default => null,
+        };
+
         $services = ServiceDetail::orderBy('order')->get(['id', 'name', 'slug']);
         $dup = SeoAudit::duplicateTitles(BlogDetail::class);
 
@@ -74,8 +92,9 @@ class BlogController extends Controller
         return Inertia::render('Admin/Blogs/Index', [
             'blogs' => $blogs,
             'services' => $services,
-            'filters' => $request->only(['search', 'filter', 'service', 'tab', 'per_page']),
+            'filters' => $request->only(['search', 'filter', 'service', 'tab', 'per_page', 'changed']),
             'filterOptions' => self::FILTERS,
+            'changeOptions' => self::CHANGES,
             'counts' => [
                 'all' => $scope(BlogDetail::query())->count(),
                 'mine' => BlogDetail::where('author_id', $user->id)->count(),

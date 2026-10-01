@@ -91,7 +91,7 @@
                                                 <tr>
                                                     <td style="padding:16px 18px;background:{{ $scBg }};border-radius:12px 12px 0 0;">
                                                         <table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr>
-                                                            <td style="width:96px;vertical-align:middle;">
+                                                            <td style="width:118px;padding-right:14px;vertical-align:middle;white-space:nowrap;">
                                                                 <span style="font-size:34px;font-weight:800;line-height:1;color:{{ $scColor }};">{{ $sc }}</span><span style="font-size:14px;font-weight:700;color:#64748b;">/100</span>
                                                             </td>
                                                             <td style="vertical-align:middle;">
@@ -106,13 +106,13 @@
                                                     {{-- SEO, AEO, GEO and E-E-A-T, the same scores as in the editor --}}
                                                     <tr>
                                                         <td style="padding:12px 14px;border-top:1px solid #eef0f3;">
-                                                            <p style="margin:0 4px 8px;font-size:12px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;">Content scores (same as in the editor)</p>
+                                                            <p style="margin:0 4px 2px;font-size:12px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;">Content scores</p><p style="margin:0 4px 10px;font-size:13px;color:#64748b;">Same as in the article editor</p>
                                                             <table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr>
                                                                 @foreach ($seo['pillars'] as $p)
                                                                     @php [$pc, $pb] = $p['score'] >= 80 ? ['#15803d', '#f0fdf4'] : ($p['score'] >= 60 ? ['#b45309', '#fffbeb'] : ['#b91c1c', '#fef2f2']); @endphp
-                                                                    <td style="width:25%;padding:0 4px;vertical-align:top;">
-                                                                        <div style="border-radius:10px;background:{{ $pb }};padding:10px 6px;text-align:center;" title="{{ $p['name'] }}">
-                                                                            <p style="margin:0;font-size:11px;font-weight:700;color:#64748b;letter-spacing:.04em;">{{ $p['label'] }}</p>
+                                                                    <td style="width:25%;padding:0 3px;vertical-align:top;">
+                                                                        <div style="border-radius:10px;background:{{ $pb }};padding:10px 2px;text-align:center;" title="{{ $p['name'] }}">
+                                                                            <p style="margin:0;font-size:11px;font-weight:700;color:#64748b;white-space:nowrap;">{{ $p['label'] }}</p>
                                                                             <p style="margin:2px 0 0;font-size:20px;font-weight:800;line-height:1.1;color:{{ $pc }};">{{ $p['score'] }}</p>
                                                                         </div>
                                                                     </td>
