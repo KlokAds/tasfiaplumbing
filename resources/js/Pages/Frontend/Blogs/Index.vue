@@ -13,9 +13,11 @@
 
     <section class="section-y s-bg-alt">
       <div class="container-app">
-        <div v-if="services.length" class="flex gap-2 mb-8 overflow-x-auto pb-1" style="scrollbar-width: none">
-          <Link href="/blogs" :class="['chip shrink-0', !filters.service && 'chip-on']">All topics</Link>
-          <Link v-for="s in services" :key="s.id" :href="`/blogs?service=${s.slug}`" :class="['chip shrink-0', filters.service === s.slug && 'chip-on']">{{ s.name }}</Link>
+        <!-- Topics: one scrolling row on a phone, wrapped lines on wider screens (nothing cut off) -->
+        <div v-if="services.length" class="flex gap-2 mb-8 overflow-x-auto pb-1 md:flex-wrap md:overflow-visible" style="scrollbar-width: none">
+          <Link href="/blogs" :class="['chip shrink-0 text-sm px-3.5 py-1.5', !filters.service && 'chip-on']">All topics</Link>
+          <Link v-for="(s, i) in services" :key="s.id" :href="`/blogs?service=${s.slug}`" :class="['chip shrink-0 text-sm px-3.5 py-1.5', filters.service === s.slug && 'chip-on', i >= TOPICS_SHOWN && !allTopics && 'md:hidden']">{{ s.name }}</Link>
+          <button v-if="services.length > TOPICS_SHOWN" type="button" @click="allTopics = !allTopics" class="chip shrink-0 text-sm px-3.5 py-1.5 hidden md:inline-flex">{{ allTopics ? 'Fewer topics' : `+ ${services.length - TOPICS_SHOWN} more topics` }}</button>
         </div>
 
         <p v-if="filters.search" class="mb-6 s-muted">{{ blogs.total }} result(s) for “{{ filters.search }}” · <Link href="/blogs" class="link">Clear</Link></p>
@@ -46,6 +48,9 @@ import ArticleCard from '@/Components/Site/ArticleCard.vue';
 import SitePagination from '@/Components/Site/SitePagination.vue';
 
 const props = defineProps({ blogs: Object, filters: { type: Object, default: () => ({}) }, services: { type: Array, default: () => [] }, breadcrumb: Object });
+// Desktop shows the first topics and a button for the rest (a phone scrolls the whole row).
+const TOPICS_SHOWN = 10;
+const allTopics = ref(props.services.findIndex((s) => s.slug === props.filters.service) >= TOPICS_SHOWN);
 const q = ref(props.filters?.search || '');
 function search() {
   router.get('/blogs', { ...(q.value ? { search: q.value } : {}), ...(props.filters.service ? { service: props.filters.service } : {}) }, { preserveState: true });
