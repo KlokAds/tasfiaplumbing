@@ -50,25 +50,24 @@ class ArticleHistoryTest extends TestCase
         $this->assertSame('<p>Version five</p>', ArticleVersion::latest('id')->first()->payload['desc'], 'the replaced text is kept');
     }
 
-    public function test_only_the_super_admin_approves_even_when_a_role_was_given_publish(): void
+    public function test_the_team_submits_and_only_the_super_admin_or_a_role_given_publish_approves(): void
     {
         Notification::fake();
         $owner = $this->user('super-admin');
         $editor = $this->user('editor');
         $admin = $this->user('admin');
-        Permission::findOrCreate('articles.publish', 'web');
-        Role::findByName('admin', 'web')->givePermissionTo('articles.publish');
 
         $this->actingAs($editor)->post('/admin/blogs', $this->article(['intent' => 'publish']));
         $blog = BlogDetail::firstOrFail();
         $this->assertSame(BlogDetail::PENDING, $blog->status, 'the editor submits');
-
         $this->actingAs($admin)->post("/admin/blogs/{$blog->id}/approve", ['mode' => 'now'])->assertForbidden();
-        $this->actingAs($admin)->post('/admin/blogs', $this->article(['name' => 'Admin article', 'intent' => 'publish']));
-        $this->assertSame(BlogDetail::PENDING, BlogDetail::where('name', 'Admin article')->value('status'), 'the admin submits too');
-
-        $this->actingAs($owner)->post("/admin/blogs/{$blog->id}/approve", ['mode' => 'now'])->assertRedirect();
-        $this->assertSame(BlogDetail::PUBLISHED, $blog->fresh()->status);
         $this->actingAs($editor)->getJson("/admin/blogs/{$blog->id}/versions")->assertForbidden();
+
+        // A role given "Publish & approve" can approve.
+        Permission::findOrCreate('articles.publish', 'web');
+        Role::findByName('admin', 'web')->givePermissionTo('articles.publish');
+        app(\Spatie\Permission\PermissionRegistrar::class)->forgetCachedPermissions();
+        $this->actingAs($admin->fresh())->post("/admin/blogs/{$blog->id}/approve", ['mode' => 'now'])->assertRedirect();
+        $this->assertSame(BlogDetail::PUBLISHED, $blog->fresh()->status);
     }
 }

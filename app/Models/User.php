@@ -13,9 +13,7 @@ use Spatie\Permission\Traits\HasRoles;
 
 class User extends Authenticatable
 {
-    use HasApiTokens, HasFactory, Notifiable, HasRoles {
-        HasRoles::hasPermissionTo as protected roleHasPermissionTo;
-    }
+    use HasApiTokens, HasFactory, Notifiable, HasRoles;
 
     /**
      * The attributes that are mass assignable.
@@ -76,17 +74,6 @@ class User extends Authenticatable
     public function scopeVisible($query)
     {
         return $query->where('is_hidden', false);
-    }
-
-    /** Approving and publishing articles is the Super Admin's alone, whatever a role was given. */
-    public function hasPermissionTo($permission, $guardName = null): bool
-    {
-        $name = is_string($permission) ? $permission : ($permission->name ?? null);
-        if ($name === 'articles.publish') {
-            return $this->isSuperAdmin();
-        }
-
-        return $this->roleHasPermissionTo($permission, $guardName);
     }
 
     public function isSuperAdmin(): bool
