@@ -48,7 +48,7 @@
                 </tbody>
               </table>
             </div>
-            <Link href="/pricing" class="mt-3 inline-block text-[15px] link">See the full price list →</Link>
+            <Link v-if="$page.props.hasPrices" href="/pricing" class="mt-3 inline-block text-[15px] link">See the full price list →</Link>
           </section>
 
           <!-- Content -->

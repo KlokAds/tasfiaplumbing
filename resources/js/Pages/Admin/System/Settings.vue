@@ -221,7 +221,7 @@
     <!-- API keys: every key, token and password in one place (Super Admin only, App\Support\ApiKeys) -->
     <section v-if="apiKeys" v-show="tab === 'keys'" class="admin-card overflow-hidden">
       <header class="a-card-head"><div><h3 class="a-card-title">API keys</h3><p class="a-card-sub">Every key, token and password the website uses, in one place. Saved encrypted and never shown again (only the last 4 characters). Only a Super Admin can change them, and every change is emailed to the main admin mailbox.</p></div></header>
-      <ul class="divide-y a-divide">
+      <ul class="a-divide">
         <li v-for="k in apiKeys" :key="k.name" class="px-5 py-4 grid lg:grid-cols-[1fr_auto] gap-3 lg:items-center">
           <div class="min-w-0 text-sm">
             <p class="font-semibold">{{ k.label }}
@@ -253,7 +253,7 @@
     <!-- Server health -->
     <section v-show="tab === 'server'" class="admin-card overflow-hidden">
       <header class="a-card-head"><div><h3 class="a-card-title">Server check</h3><p class="a-card-sub">What the live server needs for everything to work. Red items are for your developer or hosting.</p></div></header>
-      <ul class="divide-y a-divide">
+      <ul class="a-divide">
         <li v-for="c in serverChecks" :key="c.label" class="px-5 py-3.5 flex items-start gap-3">
           <span :class="['mt-0.5 w-5 h-5 shrink-0 rounded-full grid place-items-center text-[11px] font-bold text-white', c.ok ? 'bg-emerald-600' : c.warn ? 'bg-amber-500' : 'bg-red-600']">{{ c.ok ? '✓' : '!' }}</span>
           <div class="min-w-0">

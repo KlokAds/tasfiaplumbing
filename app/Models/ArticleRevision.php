@@ -8,7 +8,7 @@ class ArticleRevision extends Model
 {
     protected $fillable = ['article_id', 'user_id', 'payload', 'status', 'note', 'reviewed_by', 'reviewed_at'];
 
-    protected $casts = ['payload' => 'array', 'reviewed_at' => 'datetime', 'reminded_at' => 'datetime', 'source_check' => 'array'];
+    protected $casts = ['payload' => 'array', 'reviewed_at' => 'datetime', 'reminded_at' => 'datetime', 'source_check' => 'array', 'quality_check' => 'array'];
 
     public function article()
     {

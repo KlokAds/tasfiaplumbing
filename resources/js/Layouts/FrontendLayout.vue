@@ -86,7 +86,7 @@
               </div>
               <div class="relative mt-5 space-y-2">
                 <Link href="/services" class="btn btn-sm w-full bg-white !text-[#0f3f8a] hover:bg-[#e9f2fe]" @click="open = null">All {{ serviceCount }} services</Link>
-                <Link href="/pricing" class="btn btn-light btn-sm w-full" @click="open = null">Price list</Link>
+                <Link v-if="hasPrices" href="/pricing" class="btn btn-light btn-sm w-full" @click="open = null">Price list</Link>
               </div>
             </div>
 
@@ -147,7 +147,7 @@
                 </div>
                 <div class="p-3 grid grid-cols-2 gap-2 border-t s-border">
                   <Link href="/services" class="btn btn-secondary btn-sm" @click="mobileOpen = false">All services</Link>
-                  <Link href="/pricing" class="btn btn-secondary btn-sm" @click="mobileOpen = false">Price list</Link>
+                  <Link v-if="hasPrices" href="/pricing" class="btn btn-secondary btn-sm" @click="mobileOpen = false">Price list</Link>
                 </div>
               </div>
             </div>
@@ -229,7 +229,7 @@
             <p class="text-[13px] font-semibold uppercase tracking-[0.1em] s-subtle">Company</p>
             <ul class="mt-5 space-y-3 text-[15px]">
               <li v-for="l in footerCompany" :key="l.href"><Link :href="l.href" class="s-muted hover:text-[var(--s-heading)]">{{ l.label }}</Link></li>
-              <li><Link href="/pricing" class="s-muted hover:text-[var(--s-heading)]">Price list</Link></li>
+              <li v-if="hasPrices"><Link href="/pricing" class="s-muted hover:text-[var(--s-heading)]">Price list</Link></li>
             </ul>
           </nav>
 
@@ -336,12 +336,14 @@ const primaryBefore = [
   { label: 'Home', href: '/' },
   { label: 'About', href: '/about' },
 ];
-const primaryAfter = [
-  { label: 'Pricing', href: '/pricing' },
+// Price list links are shown only once there are prices (HandleInertiaRequests: hasPrices).
+const hasPrices = computed(() => !!page.props.hasPrices);
+const primaryAfter = computed(() => [
+  ...(hasPrices.value ? [{ label: 'Pricing', href: '/pricing' }] : []),
   { label: 'Projects', href: '/projects' },
   { label: 'Articles', href: '/blogs' },
   { label: 'Contact', href: '/contact' },
-];
+]);
 const footerCompany = [
   { label: 'About us', href: '/about' },
   { label: 'Our projects', href: '/projects' },

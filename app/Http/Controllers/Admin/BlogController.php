@@ -14,6 +14,7 @@ use App\Models\ServiceDetail;
 use App\Models\User;
 use App\Support\ArticleNotifier;
 use App\Support\SeoAudit;
+use App\Support\WritingCheck;
 use Carbon\Carbon;
 use App\Support\TitleGuard;
 use Illuminate\Http\Request;
@@ -27,6 +28,7 @@ class BlogController extends Controller
         'no_service' => 'Not linked to a service',
         'no_meta' => 'Missing meta title or description',
         'noindex' => 'Noindex',
+        'no_keyword' => 'No focus keyword',
     ];
 
     /** The badges in the list, as filters. */
@@ -73,6 +75,7 @@ class BlogController extends Controller
             'no_service' => $query->whereNull('primary_service_id'),
             'no_meta' => $query->where(fn ($q) => $q->whereNull('meta_title')->orWhere('meta_title', '')->orWhereNull('meta_desc')->orWhere('meta_desc', '')),
             'noindex' => $query->where('noindex', true),
+            'no_keyword' => $query->where(fn ($q) => $q->whereNull('focus_keyword')->orWhere('focus_keyword', '')),
             default => null,
         };
 
@@ -117,7 +120,7 @@ class BlogController extends Controller
                 ? ArticleRevision::with(['article:id,name,slug', 'user:id,name'])->where('status', 'pending')->latest()->get()
                     // The preview is rendered as HTML in admin: clean it exactly like the public page does
                     // (no scripts, event handlers or pasted styles), so a submitted draft cannot run code.
-                    ->map(fn ($r) => ['id' => $r->id, 'article' => $r->article, 'user' => $r->user?->name, 'payload' => ['desc' => \App\Support\ContentHtml::render((string) ($r->payload['desc'] ?? ''), (string) ($r->payload['name'] ?? ''))] + (array) $r->payload, 'created_at' => $r->created_at->toIso8601String(), 'source_check' => $r->source_check])
+                    ->map(fn ($r) => ['id' => $r->id, 'article' => $r->article, 'user' => $r->user?->name, 'payload' => ['desc' => \App\Support\ContentHtml::render((string) ($r->payload['desc'] ?? ''), (string) ($r->payload['name'] ?? ''))] + (array) $r->payload, 'created_at' => $r->created_at->toIso8601String(), 'source_check' => $r->source_check, 'quality_check' => $r->quality_check])
                 : [],
             'myRevisions' => $this->openRevisions($user),
             // Approvers choose an article's author and the default author (byline, schema, E-E-A-T).
@@ -152,6 +155,7 @@ class BlogController extends Controller
             $blog->image = $request->file('image')->store('Admin/Blog/Details', 'uploads');
         }
         $blog->save();
+        $blog->forceFill(['quality_check' => $this->writingCheck($blog, $request)])->saveQuietly();
         $blog->syncFaqs($request->input('faqs'));
         Draft::discard($user->id, 'article', 0);
         SeoAudit::flush();
@@ -177,20 +181,23 @@ class BlogController extends Controller
         // A live article edited by someone who cannot publish: queue the change, keep the live page as it is.
         if ($blog->status === BlogDetail::PUBLISHED && !$user->can('articles.publish')) {
             $payload = $this->only($data) + ['faqs' => $this->faqRows($request->input('faqs'))];
+            $existing = ArticleRevision::where('article_id', $blog->id)->where('user_id', $user->id)->where('status', 'pending')->first();
             if ($image) {
                 $payload['image'] = $image;
-            } elseif ($earlier = ArticleRevision::where('article_id', $blog->id)->where('user_id', $user->id)->where('status', 'pending')->first()?->payload) {
-                if (!empty($earlier['image'])) {
-                    $payload['image'] = $earlier['image'];
-                }
+            } elseif (!empty($existing?->payload['image'])) {
+                $payload['image'] = $existing->payload['image'];
             }
+            $pasted = (int) ($existing?->quality_check['pasted']['chars'] ?? 0) + max(0, $request->integer('pasted_chars'));
             $revision = ArticleRevision::updateOrCreate(
                 ['article_id' => $blog->id, 'user_id' => $user->id, 'status' => 'pending'],
                 ['payload' => $payload],
             );
+            $revision->forceFill(['quality_check' => WritingCheck::run((string) ($payload['desc'] ?? ''), $blog->id, $pasted)])->saveQuietly();
             Draft::discard($user->id, 'article', $blog->id);
             if ($revision->wasRecentlyCreated) {
                 ArticleNotifier::revisionSubmitted($revision->load('article'), $user);
+            } else {
+                ArticleNotifier::updatedAfterSubmit($revision->load('article'), $user);
             }
 
             return redirect()->back()->with('success', 'Changes sent for approval. The live article stays unchanged until a Super Admin approves them.');
@@ -218,10 +225,14 @@ class BlogController extends Controller
         }
         $this->applyStatus($blog, $intent, $user);
         $blog->save();
+        $blog->forceFill(['quality_check' => $this->writingCheck($blog, $request)])->saveQuietly();
         $blog->syncFaqs($request->input('faqs'));
         Draft::discard($user->id, 'article', $blog->id);
         SeoAudit::flush();
         $this->notifyTransition($blog, $oldStatus, $user);
+        if ($oldStatus === BlogDetail::PENDING && $blog->status === BlogDetail::PENDING && !$user->can('articles.publish')) {
+            ArticleNotifier::updatedAfterSubmit($blog, $user); // the writer changed it while it waits
+        }
         ArticleHistory::record($blog, $before, $user, $revision ? 'change_approved' : 'edit');
         if ($revision && in_array($blog->status, [BlogDetail::PUBLISHED, BlogDetail::SCHEDULED], true)) {
             $revision->update(['status' => 'approved', 'reviewed_by' => $user->id, 'reviewed_at' => now(), 'note' => 'Edited by the reviewer before approval.']);
@@ -399,6 +410,32 @@ class BlogController extends Controller
         return redirect()->back()->with('success', "{$n} article(s) linked to the service.");
     }
 
+    /**
+     * Fill many empty focus keywords at once (Articles → select → "Set focus keywords"). Only empty ones
+     * are filled; the text and everything else stay as they are.
+     */
+    public function bulkFocusKeywords(Request $request)
+    {
+        $data = $request->validate([
+            'items' => 'required|array|min:1|max:500',
+            'items.*.id' => 'required|integer|exists:blog_details,id',
+            'items.*.keyword' => 'nullable|string|max:120',
+        ]);
+
+        $n = 0;
+        foreach ($data['items'] as $item) {
+            $keyword = trim(preg_replace('/\s+/', ' ', (string) ($item['keyword'] ?? '')));
+            if ($keyword === '') {
+                continue;
+            }
+            $n += BlogDetail::whereKey($item['id'])->where(fn ($q) => $q->whereNull('focus_keyword')->orWhere('focus_keyword', ''))
+                ->update(['focus_keyword' => mb_strtolower($keyword)]);
+        }
+        SeoAudit::flush();
+
+        return redirect()->back()->with('success', "Focus keyword saved on {$n} article(s).");
+    }
+
     public function destroy(Request $request, BlogDetail $blog)
     {
         $user = $request->user();
@@ -457,6 +494,21 @@ class BlogController extends Controller
         $blog->status = $status;
     }
 
+    /**
+     * The free writing check (App\Support\WritingCheck) of an article that waits for approval. Pasted
+     * characters add up over every save; other articles only keep that count.
+     */
+    private function writingCheck(BlogDetail $blog, Request $request): ?array
+    {
+        $earlier = $blog->quality_check ?: [];
+        $pasted = (int) ($earlier['pasted']['chars'] ?? 0) + max(0, $request->integer('pasted_chars'));
+        if ($blog->status === BlogDetail::PENDING) {
+            return WritingCheck::run((string) $blog->desc, $blog->id, $pasted);
+        }
+
+        return $pasted || $earlier ? ['pasted' => ['chars' => $pasted, 'percent' => WritingCheck::pastedPercent($pasted, (string) $blog->desc)]] + $earlier : null;
+    }
+
     private function notifyTransition(BlogDetail $blog, ?string $old, User $user): void
     {
         if ($blog->status === BlogDetail::PENDING && $old !== BlogDetail::PENDING) {
@@ -500,6 +552,7 @@ class BlogController extends Controller
             $row['revision_id'] = $revision->id;
             $row['revision_by'] = $revision->user?->name;
             $row['source_check'] = $revision->source_check;
+            $row['quality_check'] = $revision->quality_check;
         }
 
         return $row;
@@ -509,13 +562,14 @@ class BlogController extends Controller
     {
         $row = $b->toArray();
         if (!$user->can('articles.publish')) {
-            unset($row['source_check']); // for approvers only
+            unset($row['source_check'], $row['quality_check']); // for approvers only
         }
         $row['seo'] = SeoAudit::article($b, $dup);
         $row['word_count'] = SeoAudit::wordCount($b->desc);
         $row['public_path'] = $b->publicPath();
         $row['author_name'] = $b->author?->name ?? $b->auth_name;
         $row['suggested_service'] = $b->primary_service_id ? null : $this->suggestService($b->name, $services);
+        $row['suggested_keyword'] = filled($b->focus_keyword) ? null : \App\Support\FocusKeyword::suggest((string) $b->name);
         $row['can_delete'] = $user->can('articles.delete') || ($b->author_id === $user->id && in_array($b->status, [BlogDetail::DRAFT, BlogDetail::PENDING], true));
         // For the "Edited" / "Changes waiting" badge in the list.
         $edits = isset($this->edits['ids'][$b->getKey()]) ? $this->edits : $this->loadEdits([$b->getKey()]);
@@ -623,6 +677,7 @@ class BlogController extends Controller
             'faqs.*.question' => 'nullable|string|max:500',
             'faqs.*.answer' => 'nullable|string|max:3000',
             'author_id' => 'nullable|exists:users,id',
+            'pasted_chars' => 'nullable|integer|min:0|max:10000000',
         ], ['scheduled_at.after' => 'The publish time must be in the future.']);
 
         // The "From our jobs" prompts must be replaced with real details before an article goes for approval or live.
@@ -634,6 +689,13 @@ class BlogController extends Controller
             && ($found = \App\Support\TemplateText::inArticle($data + ['faqs' => $request->input('faqs', [])]))) {
             throw \Illuminate\Validation\ValidationException::withMessages(['desc' => \App\Support\TemplateText::message($found)]);
         }
+
+        // New articles (not live yet) need first-hand experience: the "What we see on real jobs" section.
+        $isNew = !$ignoreId || BlogDetail::whereKey($ignoreId)->whereIn('status', [BlogDetail::DRAFT, BlogDetail::PENDING])->exists();
+        if (in_array($request->input('intent'), ['submit', 'publish'], true) && $isNew && WritingCheck::jobNotesMissing((string) ($data['desc'] ?? ''))) {
+            throw \Illuminate\Validation\ValidationException::withMessages(['desc' => 'New articles need the “What we see on real jobs” section with at least 25 words of real detail from your jobs (button “+ Add From our jobs”). It is what makes an article rank: first-hand experience.']);
+        }
+        unset($data['pasted_chars']);
 
         if (blank($data['slug'] ?? null)) {
             unset($data['slug']);

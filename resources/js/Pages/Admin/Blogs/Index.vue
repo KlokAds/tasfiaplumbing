@@ -45,6 +45,7 @@
             <p class="text-sm font-semibold truncate">{{ r.article?.name }}</p>
             <p class="text-xs a-subtle">Edited by {{ r.user || 'unknown' }} · {{ ago(r.created_at) }}</p>
             <SourceCheckBadge :result="r.source_check" :on="sourceCheck.on" class="mt-1" />
+            <WritingCheckBadges :check="r.quality_check" class="mt-1" />
           </div>
           <div class="flex flex-wrap gap-2 sm:shrink-0">
             <button @click="previewRevision = r" class="a-btn-ghost a-btn-sm">Preview</button>
@@ -114,6 +115,7 @@
           <option v-for="s in services" :key="s.id" :value="s.id">{{ s.name }}</option>
         </SelectBox>
         <button v-if="permissions.edit_all" @click="bulkAssign" :disabled="!bulkService" class="admin-btn-primary a-btn-sm">Assign</button>
+        <button v-if="permissions.edit_all" @click="openKeywords" class="admin-btn-secondary a-btn-sm">Set focus keywords</button>
         <button v-if="permissions.delete" @click="bulkDelete" class="a-btn-danger a-btn-sm">Delete selected</button>
         <button @click="selected = []" class="a-btn-ghost a-btn-sm ml-auto">Clear</button>
       </div>
@@ -146,6 +148,7 @@
                 <p v-if="b.status === 'scheduled' || (b.status === 'pending' && b.scheduled_at)" class="text-[11px] a-subtle mt-0.5">{{ b.status === 'pending' ? 'Wants ' : '' }}{{ when(b.scheduled_at) }}</p>
                 <p v-else-if="b.status === 'pending'" class="text-[11px] a-subtle mt-0.5">Sent {{ ago(b.submitted_at) }}</p>
                 <SourceCheckBadge v-if="permissions.publish && b.status === 'pending'" :result="b.source_check" :on="sourceCheck.on" class="mt-1 max-w-[22rem]" />
+                <WritingCheckBadges v-if="permissions.publish && b.status === 'pending'" :check="b.quality_check" class="mt-1 max-w-[22rem]" />
               </td>
               <td class="a-muted"><span class="block max-w-[11rem] truncate" :title="b.author_name">{{ b.author_name || '—' }}</span></td>
               <td>
@@ -213,6 +216,7 @@
         </div>
 
         <SourceCheckBadge v-if="permissions.publish && (editing?.revision_id || editing?.status === 'pending')" :result="editing.source_check" :on="sourceCheck.on" detailed />
+        <WritingCheckBadges v-if="permissions.publish && (editing?.revision_id || editing?.status === 'pending')" :check="editing.quality_check" detailed />
 
         <div class="grid grid-cols-1 xl:grid-cols-[1fr_20rem] gap-6">
           <!-- Main column -->
@@ -234,12 +238,17 @@
                 <label class="admin-label">Article body *</label>
                 <span :class="['text-[11px] font-mono', words < 600 ? 'a-text-danger' : 'a-text-success']">{{ words }} words{{ words < 600 ? ' · aim for 600+' : '' }}</span>
               </div>
-              <RichEditor v-model="form.desc" min-height="420px" />
+              <RichEditor v-model="form.desc" min-height="420px" @paste="(n) => { pastedChars += n; }" />
               <p v-if="form.errors.desc" class="a-error">{{ form.errors.desc }}</p>
               <!-- Template text left in (same rules as App\Support\TemplateText): it cannot be submitted or published -->
               <div v-if="templateFound.length" class="mt-3 rounded-xl border px-4 py-3 text-sm" style="border-color: rgba(220,38,38,.45); background: rgba(220,38,38,.07)">
                 <p class="font-bold a-text-danger">Template text left in the article</p>
                 <p class="a-muted">Found: <b>{{ templateFound.join(', ') }}</b>. Put in the real prices, times and places. Until then it can be saved as a draft, but not submitted or published.</p>
+              </div>
+              <!-- AI-style phrases (same list as App\Support\WritingCheck): a hint, not a block -->
+              <div v-if="aiFound.length" class="mt-3 rounded-xl border px-4 py-3 text-sm" style="border-color: rgba(217,119,6,.5); background: rgba(217,119,6,.08)">
+                <p class="font-bold a-text-warning">Reads like AI-generated text</p>
+                <p class="a-muted">Found: <b>{{ aiFound.map((p) => `“${p}”`).join(', ') }}</b>. Say it plainly, the way you would explain it to a customer. The approver sees this list.</p>
               </div>
               <!-- First-hand experience (E-E-A-T): a section with prompts the writer replaces with real job details -->
               <div class="mt-3 rounded-xl border px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-3 justify-between"
@@ -253,12 +262,12 @@
                     <p class="text-sm font-bold">
                       <template v-if="hasJobsSection && !hasJobsPrompts">“From our jobs” section added</template>
                       <template v-else-if="hasJobsPrompts">Fill in the “From our jobs” section</template>
-                      <template v-else>Add first-hand experience</template>
+                      <template v-else>Add first-hand experience{{ jobsRequired ? ' (required)' : '' }}</template>
                     </p>
                     <p class="text-[13px] a-muted">
                       <template v-if="hasJobsSection && !hasJobsPrompts">It shows on the page as a “From our jobs” card and counts for E-E-A-T.</template>
                       <template v-else-if="hasJobsPrompts">Replace each [Replace: …] note with real details from a job. Until then the article can be saved as a draft but not submitted or published.</template>
-                      <template v-else>One click adds “What we see on real jobs” with three guided lines: where you see it, a recent job, your advice. It raises the E-E-A-T score.</template>
+                      <template v-else>{{ jobsRequired ? 'New articles cannot be submitted without it. ' : '' }}One click adds “What we see on real jobs” with three guided lines: where you see it, a recent job, your advice. It raises the E-E-A-T score.</template>
                     </p>
                   </div>
                 </div>
@@ -362,6 +371,22 @@
     </Modal>
 
     <!-- ============ Approve ============ -->
+    <!-- Set focus keywords (approvers): a keyword suggested from each title, checked and edited before saving -->
+    <Modal :show="!!keywordRows" title="Set focus keywords" subtitle="Suggested from each title. Check and edit them, clear any you do not want, then save. Only empty focus keywords are filled." width="4xl" @close="keywordRows = null">
+      <div v-if="keywordRows" class="space-y-3">
+        <p v-if="!keywordRows.length" class="text-sm a-muted">All selected articles already have a focus keyword.</p>
+        <div v-for="row in keywordRows" :key="row.id" class="grid sm:grid-cols-[minmax(0,1fr)_22rem] gap-2 sm:items-center">
+          <p class="text-sm min-w-0 truncate" :title="row.name">{{ row.name }}</p>
+          <input v-model="row.keyword" type="text" maxlength="120" class="admin-input text-sm" :aria-label="`Focus keyword for ${row.name}`" />
+        </div>
+        <p class="text-sm a-muted">A good focus keyword is what a customer types into Google: the job, plus “singapore” when people search for it that way. Each article should have its own.</p>
+        <div class="flex justify-end gap-2 pt-2">
+          <button type="button" @click="keywordRows = null" class="a-btn-ghost">Cancel</button>
+          <button type="button" @click="saveKeywords" :disabled="!keywordRows.some((r) => r.keyword.trim())" class="admin-btn-primary">Save {{ keywordRows.filter((r) => r.keyword.trim()).length }} keywords</button>
+        </div>
+      </div>
+    </Modal>
+
     <Modal :show="!!approving" title="Approve article" :subtitle="approving?.name" width="lg" @close="approving = null">
       <form @submit.prevent="submitApprove" class="space-y-4">
         <label class="flex items-start gap-3 p-3 rounded-xl border a-border cursor-pointer">
@@ -454,6 +479,7 @@
     <Modal :show="!!previewRevision" :title="previewRevision?.payload?.name || 'Changes'" :subtitle="`Proposed by ${previewRevision?.user || 'unknown'}`" width="4xl" @close="previewRevision = null">
       <div v-if="previewRevision" class="space-y-4">
         <SourceCheckBadge :result="previewRevision.source_check" :on="sourceCheck.on" detailed />
+        <WritingCheckBadges :check="previewRevision.quality_check" detailed />
         <p v-if="previewRevision.payload.excerpt" class="text-sm a-muted">{{ previewRevision.payload.excerpt }}</p>
         <div class="preview-html rounded-xl border a-border p-4 max-h-[60vh] overflow-y-auto a-scroll" v-html="previewRevision.payload.desc"></div>
         <div class="flex justify-end gap-2 pt-3 border-t a-border">
@@ -469,6 +495,7 @@
 <script setup>
 import ChangeBadge from '@/Components/Admin/ChangeBadge.vue';
 import SourceCheckBadge from '@/Components/Admin/SourceCheckBadge.vue';
+import WritingCheckBadges from '@/Components/Admin/WritingCheckBadges.vue';
 import LibraryButton from '@/Components/Admin/LibraryButton.vue';
 import StickyBar from '@/Components/Admin/StickyBar.vue';
 import DatePicker from '@/Components/DatePicker.vue';
@@ -599,6 +626,20 @@ function bulkAssign() {
     onSuccess: () => { selected.value = []; bulkService.value = ''; },
   });
 }
+// ---------- Focus keywords for many articles at once ----------
+const keywordRows = ref(null);
+function openKeywords() {
+  keywordRows.value = props.blogs.data
+    .filter((b) => selected.value.includes(b.id) && !b.focus_keyword)
+    .map((b) => ({ id: b.id, name: b.name, keyword: b.suggested_keyword || '' }));
+}
+function saveKeywords() {
+  const items = keywordRows.value.filter((r) => r.keyword.trim()).map((r) => ({ id: r.id, keyword: r.keyword.trim() }));
+  router.post('/admin/blogs-bulk/focus-keywords', { items }, {
+    preserveScroll: true,
+    onSuccess: () => { keywordRows.value = null; selected.value = []; },
+  });
+}
 function assignOne(b, serviceId) {
   router.post('/admin/blogs-bulk/assign-service', { ids: [b.id], service_id: serviceId }, { preserveScroll: true });
 }
@@ -658,6 +699,29 @@ const templateFound = computed(() => {
 const JOBS_SECTION = '<h2>What we see on real jobs</h2><p><strong>Where we see it most:</strong> [Replace: e.g. “On HDB and condo jobs, we often find …”]</p><p><strong>A recent job:</strong> [Replace: the area and building type (no names), the problem, what our technician found on site, what we did and how long it took.]</p><p><strong>Our advice:</strong> [Replace: e.g. “We recommend …”, an early warning sign, when to call a professional.]</p><p>[Replace: add a before/after photo from the job with a caption, or delete this line.]</p>';
 const hasJobsSection = computed(() => /What we see on real jobs/i.test(form.desc || ''));
 const hasJobsPrompts = computed(() => (form.desc || '').includes('[Replace:'));
+// New articles need the section (App\Support\WritingCheck::jobNotesMissing); live articles only get the hint.
+const jobsRequired = computed(() => !editing.value || ['draft', 'pending'].includes(editing.value.status));
+
+// Same list as App\Support\WritingCheck::AI_PHRASES.
+const AI_PHRASES = [
+  "in today's fast-paced world", "in today's world", "in today's digital age", 'in the ever-evolving', 'ever-changing landscape',
+  'delve into', 'delves into', 'delve deeper', "let's dive", 'dive into the world', 'dive deep into',
+  "it's important to note", 'it is important to note', "it's worth noting", 'it is worth noting', "it's crucial to",
+  'plays a crucial role', 'plays a vital role', 'plays a pivotal role', 'a testament to', 'stands as a testament',
+  'navigate the complexities', 'navigating the world of', 'unlock the potential', 'unlock the secrets', 'unleash the',
+  'elevate your', 'look no further', 'game-changer', 'game changer', 'a myriad of', 'a plethora of', 'rich tapestry',
+  'embark on a journey', 'embark on your', 'in the realm of', 'the world of home', 'seamlessly integrate',
+  'whether you are a seasoned', "whether you're a seasoned", 'in conclusion,', 'to sum up,', 'all in all,',
+  'when it comes to the world of', 'cutting-edge', 'state-of-the-art', 'second to none', 'peace of mind knowing',
+  'we hope this guide', 'we hope this article', 'this comprehensive guide', 'ultimate guide',
+];
+const aiFound = computed(() => {
+  const text = (form.desc || '').replace(/<[^>]*>/g, ' ').replace(/[’‘]/g, "'").toLowerCase();
+  return [...new Set(AI_PHRASES.filter((p) => text.includes(p)).map((p) => p.replace(/,$/, '')))].slice(0, 10);
+});
+
+// Characters pasted into the text since the last save; the server adds them up (approvers see the share).
+const pastedChars = ref(0);
 function addJobsSection() { form.desc = (form.desc || '') + JOBS_SECTION; }
 const hasServiceLink = computed(() => /\/services?\//.test(form.desc || ''));
 
@@ -782,12 +846,12 @@ async function save(intent) {
   form
     .transform(d => {
       const { schedule_mode, ...rest } = d;
-      return { ...rest, intent, revision_id: editing.value?.revision_id || '', ...(props.permissions.publish ? { author_id: authorPick.value || '' } : {}), scheduled_at: schedule_mode === 'schedule' ? toIso(d.scheduled_at) : '' };
+      return { ...rest, intent, pasted_chars: pastedChars.value, revision_id: editing.value?.revision_id || '', ...(props.permissions.publish ? { author_id: authorPick.value || '' } : {}), scheduled_at: schedule_mode === 'schedule' ? toIso(d.scheduled_at) : '' };
     })
     .post(url, {
       forceFormData: true,
       preserveScroll: true,
-      onSuccess: () => { autosave.clear(); closeModal(); },
+      onSuccess: () => { pastedChars.value = 0; autosave.clear(); closeModal(); },
       onFinish: () => { busy.value = ''; },
     });
 }

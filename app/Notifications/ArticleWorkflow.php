@@ -12,6 +12,7 @@ use Illuminate\Notifications\Notification;
  *
  * $event: submitted | approved | scheduled | published | rejected
  *         | revision_submitted | revision_approved | revision_rejected
+ *         | updated | revision_updated (changed after submitting, at most once an hour)
  */
 class ArticleWorkflow extends Notification
 {
@@ -149,6 +150,26 @@ class ArticleWorkflow extends Notification
                 ],
                 'button' => 'Review the changes',
                 'next' => ['Approve to replace the live content with the new version, or reject with a note.'],
+            ],
+            'updated' => [
+                'subject' => "Updated after submission: {$this->title}",
+                'short' => "{$by} changed an article waiting for approval",
+                'lines' => [
+                    "{$by} changed {$t} after submitting it. It is still waiting for your approval.",
+                    'The scores below are for the latest version.',
+                ],
+                'button' => 'Review the latest version',
+                'next' => ['You get this at most once an hour per article, so small fixes do not flood your inbox.'],
+            ],
+            'revision_updated' => [
+                'subject' => "Updated after submission: changes to {$this->title}",
+                'short' => "{$by} updated changes waiting for approval",
+                'lines' => [
+                    "{$by} updated the changes to the published article {$t} after sending them.",
+                    'The live page has **not** changed. The latest edits wait for your approval.',
+                ],
+                'button' => 'Review the changes',
+                'next' => ['You get this at most once an hour per article, so small fixes do not flood your inbox.'],
             ],
             'revision_approved' => [
                 'subject' => "Changes are live: {$this->title}",

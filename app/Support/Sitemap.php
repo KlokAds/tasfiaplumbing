@@ -17,7 +17,9 @@ class Sitemap
     public static function urls(): Collection
     {
         $indexable = fn ($q) => $q->where('is_active', true)->where('noindex', false)->whereNull('canonical');
-        $urls = collect(self::STATIC)->map(fn ($p) => ['loc' => $p, 'lastmod' => null, 'type' => 'Page', 'title' => null]);
+        $static = collect(self::STATIC)
+            ->reject(fn ($p) => $p === '/pricing' && !\App\Models\Price::where('is_active', true)->exists()); // no prices yet
+        $urls = $static->values()->map(fn ($p) => ['loc' => $p, 'lastmod' => null, 'type' => 'Page', 'title' => null]);
 
         foreach (ServiceCategory::where($indexable)->get(['name', 'slug', 'updated_at', 'content_updated_at']) as $c) {
             $urls->push(['loc' => $c->publicPath(), 'lastmod' => $c->content_updated_at ?? $c->updated_at, 'type' => 'Category', 'title' => $c->name]);

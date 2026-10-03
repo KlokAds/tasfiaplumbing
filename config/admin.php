@@ -59,6 +59,10 @@ return [
     // maintenance account (App\Support\ReviewReminder), at most once per this many hours each.
     'review_reminder_hours' => 12,
 
+    // New articles need the "What we see on real jobs" section (25+ words) before they are
+    // submitted or published (App\Support\WritingCheck::jobNotesMissing).
+    'require_job_notes' => true,
+
     // Byline on articles that have no author of their own and no default author: the team.
     'team_byline' => [
         'title' => 'Plumbing specialists, Singapore',

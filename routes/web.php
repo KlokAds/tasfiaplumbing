@@ -201,6 +201,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', \App\Http\Middleware
         Route::post('/blogs-default-author', [BlogController::class, 'defaultAuthor'])->name('blogs.default-author');
     });
     Route::post('/blogs-bulk/assign-service', [BlogController::class, 'bulkAssignService'])->middleware('can:articles.edit_all')->name('blogs.bulk-service');
+    Route::post('/blogs-bulk/focus-keywords', [BlogController::class, 'bulkFocusKeywords'])->middleware('can:articles.edit_all')->name('blogs.bulk-keywords');
 
     Route::get('/services', [ServiceController::class, 'index'])->middleware('can:services.view')->name('services.index');
     Route::post('/services', [ServiceController::class, 'store'])->middleware('can:services.create')->name('services.store');

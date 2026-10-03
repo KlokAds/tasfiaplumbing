@@ -21,7 +21,34 @@ class ArticleNotifier
     {
         self::send(self::publishers($by), new ArticleWorkflow(
             'submitted', $blog->name, self::adminUrl($blog, 'review'), $by->name, null, self::when($blog->scheduled_at),
-            seo: self::seoReport($blog),
+            seo: self::seoReport($blog, null, $blog->quality_check),
+        ));
+    }
+
+    /**
+     * The writer changed an article or a change after submitting it: the approvers hear about it,
+     * at most once an hour per item, so a writer fixing typos does not fill their inbox.
+     */
+    public static function updatedAfterSubmit(BlogDetail|ArticleRevision $item, User $by): void
+    {
+        $isChange = $item instanceof ArticleRevision;
+        if (!\Illuminate\Support\Facades\Cache::add('article-updated:' . ($isChange ? 'r' : 'a') . $item->getKey(), 1, now()->addHour())) {
+            return;
+        }
+        if ($isChange) {
+            $proposed = clone $item->article;
+            $proposed->forceFill(array_intersect_key((array) $item->payload, $proposed->getAttributes()));
+            self::send(self::publishers($by), new ArticleWorkflow(
+                'revision_updated', $item->article->name, url('/admin/blogs?tab=review'), $by->name,
+                seo: self::seoReport($proposed, $item->payload['faqs'] ?? null, $item->quality_check),
+                changes: ArticleChanges::between($item->article, (array) $item->payload),
+            ));
+
+            return;
+        }
+        self::send(self::publishers($by), new ArticleWorkflow(
+            'updated', $item->name, self::adminUrl($item, 'review'), $by->name, null, self::when($item->scheduled_at),
+            seo: self::seoReport($item, null, $item->quality_check),
         ));
     }
 
@@ -54,7 +81,7 @@ class ArticleNotifier
 
         self::send(self::publishers($by), new ArticleWorkflow(
             'revision_submitted', $revision->article->name, url('/admin/blogs?tab=review'), $by->name,
-            seo: self::seoReport($proposed, $revision->payload['faqs'] ?? null),
+            seo: self::seoReport($proposed, $revision->payload['faqs'] ?? null, $revision->quality_check),
             changes: ArticleChanges::between($revision->article, (array) $revision->payload),
         ));
     }
@@ -118,7 +145,7 @@ class ArticleNotifier
      * score and its SEO, AEO, GEO and E-E-A-T parts), the SEO errors, and every check that
      * fails with what to do. $faqs: the FAQs of a change waiting for approval.
      */
-    public static function seoReport(BlogDetail $blog, ?array $faqs = null): ?array
+    public static function seoReport(BlogDetail $blog, ?array $faqs = null, ?array $writing = null): ?array
     {
         try {
             $title = Str::lower(trim($blog->meta_title ?: $blog->name));
@@ -129,15 +156,17 @@ class ArticleNotifier
             $short = ['seo' => 'SEO', 'aeo' => 'AEO', 'geo' => 'GEO', 'eeat' => 'E-E-A-T'];
 
             $errors = collect($audit['issues'])->where('level', 'error')->map(fn ($i) => ['level' => 'error', 'message' => $i['message']]);
+            // The free writing check first: AI-style phrases, duplicate text, pasted text.
+            $writingIssues = collect(WritingCheck::issues($writing))->map(fn ($m) => ['level' => 'warning', 'message' => $m]);
             $tips = collect($quality['pillars'])->flatMap(fn ($p, $key) => collect($p['checks'])->reject(fn ($c) => $c['ok'])
                 ->map(fn ($c) => ['level' => 'warning', 'message' => ($short[$key] ?? strtoupper($key)) . ': ' . $c['label'] . '. ' . $c['tip']]));
 
             return [
                 'score' => (int) $quality['score'],
                 'errors' => $errors->count(),
-                'warnings' => $tips->count(),
+                'warnings' => $tips->count() + $writingIssues->count(),
                 'words' => SeoAudit::wordCount($blog->desc),
-                'issues' => $errors->concat($tips)->values()->all(),
+                'issues' => $errors->concat($writingIssues)->concat($tips)->values()->all(),
                 'pillars' => collect($quality['pillars'])
                     ->map(fn ($p, $key) => ['key' => $key, 'label' => $short[$key] ?? strtoupper($key), 'name' => $p['label'], 'score' => (int) $p['score']])
                     ->values()->all(),

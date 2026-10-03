@@ -34,6 +34,7 @@ class BlogDetail extends Model
         'scheduled_at' => 'datetime',
         'reminded_at' => 'datetime',
         'source_check' => 'array',
+        'quality_check' => 'array',
     ];
 
     protected static function booted(): void

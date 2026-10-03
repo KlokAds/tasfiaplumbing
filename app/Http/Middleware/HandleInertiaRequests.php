@@ -40,6 +40,7 @@ class HandleInertiaRequests extends Middleware
             'serviceCategories' => $nav['serviceCategories'],
             'topLocations' => $nav['topLocations'],
             'footerTopServices' => $nav['footerTopServices'],
+            'hasPrices' => $nav['hasPrices'] ?? false,
             'auth' => [
                 'user' => $request->user() ? [
                     'id' => $request->user()->id,
@@ -232,10 +233,12 @@ class HandleInertiaRequests extends Middleware
                     'serviceCategories' => $groups->all(),
                     'topLocations' => $locations,
                     'footerTopServices' => $services->take(6)->map(fn ($s) => ['name' => $s->name, 'href' => $s->publicPath()])->values()->all(),
+                    // Price list links are only shown once there are prices to show.
+                    'hasPrices' => \App\Models\Price::where('is_active', true)->exists(),
                 ];
             });
         } catch (\Throwable $e) {
-            return $memo = ['serviceCategories' => [], 'topLocations' => [], 'footerTopServices' => []];
+            return $memo = ['serviceCategories' => [], 'topLocations' => [], 'footerTopServices' => [], 'hasPrices' => false];
         }
     }
 }

@@ -2,7 +2,7 @@
   <FrontendLayout>
     <PageHero :title="breadcrumb?.s_bread_name || 'Our services'" eyebrow="Services" lead="Plumbing repairs and installations for HDB flats, condos, landed homes and businesses across Singapore. Every service page shows real prices."
       :image="breadcrumb?.s_bread_image ? '/' + breadcrumb.s_bread_image : null" :crumbs="[{ label: 'Services' }]">
-      <Link href="/pricing" class="btn btn-secondary hidden lg:inline-flex">See the price list</Link>
+      <Link v-if="$page.props.hasPrices" href="/pricing" class="btn btn-secondary hidden lg:inline-flex">See the price list</Link>
     </PageHero>
 
     <div v-if="categories.length > 1" class="sticky top-20 z-30 border-b s-border" style="background: color-mix(in srgb, var(--s-bg) 94%, transparent); backdrop-filter: blur(10px)">

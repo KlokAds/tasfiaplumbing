@@ -73,6 +73,9 @@ class PageMeta
                 $canonical = $page?->canonical;
                 $noindex = (bool) $page?->noindex;
             }
+            if ($route === 'pricing' && !rescue(fn () => \App\Models\Price::where('is_active', true)->exists(), false, false)) {
+                $noindex = true; // no prices yet: services "on request" only
+            }
         }
 
         $title = trim((string) $title) ?: $brand;
