@@ -121,7 +121,9 @@ import { usePaged } from '@/Composables/usePaged';
 import Modal from '@/Components/Admin/Modal.vue';
 import SeoPanel from '@/Components/Admin/SeoPanel.vue';
 import SeoScore from '@/Components/Admin/SeoScore.vue';
-import RichEditor from '@/Components/Admin/RichEditor.vue';
+import { defineAsyncComponent } from 'vue';
+// The editor is the largest script: it loads when an editor is opened, not with the list.
+const RichEditor = defineAsyncComponent(() => import('@/Components/Admin/RichEditor.vue'));
 import PageHeader from '@/Components/Admin/PageHeader.vue';
 import { usePermissions } from '@/Composables/usePermissions';
 
