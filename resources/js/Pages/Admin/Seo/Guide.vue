@@ -85,7 +85,7 @@
 
             <div v-if="scanType === 'article' && scan.authors?.length" class="mt-4 rounded-xl border a-border p-4 warn">
               <p class="font-bold">Writers without a job title or bio</p>
-              <p class="a-muted">One fix per person lifts E-E-A-T on all their articles. Each writer fills these in under <Link href="/admin/account" class="underline">My account</Link>.</p>
+              <p class="a-muted">One fix per person lifts E-E-A-T on all their articles. Each writer fills these in under <Link href="/admin/account" class="underline">My account</Link>, or the Super Admin does it in <Link href="/admin/users" class="underline">Team</Link>. Articles without an author show the Default author chosen on the Articles page, else the team with its own title and bio.</p>
               <ul class="mt-2 space-y-1">
                 <li v-for="a in scan.authors" :key="a.name"><b>{{ a.name }}</b> · {{ fmt(a.articles) }} live {{ a.articles === 1 ? 'article' : 'articles' }} · missing {{ [!a.job_title && 'job title', !a.bio && 'bio'].filter(Boolean).join(' and ') }}</li>
               </ul>
@@ -385,6 +385,7 @@ const outline = computed(() => [
   { part: 'Price section', where: 'H2 + table', rule: 'An H2 written as a question, then a table: job, price range in S$, time needed. Only real prices from the Price list.', example: `How much does ${svcLower.value} cost in Singapore?` },
   { part: 'Signs or causes', where: 'H2 + bullet list', rule: 'What the reader sees at home and what causes it. A bullet list is easy for answer engines to lift.', example: `Signs you need ${svcLower.value}` },
   { part: 'How your team does it', where: 'H2 + numbered steps', rule: 'The real steps your team follows, plus one real job: area, property type, what you found, what you did. This is the "experience" in E-E-A-T.', example: `On a recent HDB job in ${loc.value}, our technician found [what you found] and [what you did, how long it took].` },
+  { part: 'What we see on real jobs', where: 'Button “+ Add From our jobs section”', rule: 'Press the button under the article body. It adds this H2 with three labelled lines: where you see the problem most, one recent real job (area and building type, no names), and your advice, plus a photo line. Replace every [Replace: …] note with real details; an article cannot be submitted or published while one is left. On the page it shows as a "From our jobs" card. This is the strongest "experience" signal for E-E-A-T.', example: `A recent job: a customer in ${loc.value} called us because … On site, our technician found … and we … in about an hour. Our advice: we recommend …` },
   { part: 'Rules and safety', where: 'H2 + official link', rule: 'Where a rule applies (HDB renovation, PUB, SCDF fire doors, BCA, NEA), say it in one line and link to the official page.' },
   { part: 'Repair or replace / how to choose', where: 'H2', rule: 'Help the reader decide. Real numbers beat adjectives: lifespan in years, cost difference, time.' },
   { part: 'Call to action', where: 'Last paragraph', rule: 'Name the business, link to the service page and say how to book (WhatsApp, phone, form).' },

@@ -21,7 +21,7 @@ use Illuminate\Support\Facades\Cache;
 class ContentHtml
 {
     /** Bump when the output changes, so cached pages are rebuilt. */
-    private const VERSION = 5;
+    private const VERSION = 6;
 
     private const DROP_TAGS = ['script', 'style', 'iframe', 'object', 'embed', 'form', 'input', 'button', 'meta', 'link'];
     private const KEEP_ATTRS = [
@@ -131,6 +131,7 @@ class ContentHtml
 
         self::fixHeadings($doc, $root);
         self::buildGalleries($doc, $root);
+        self::wrapJobNotes($doc, $root);
 
         $out = '';
         foreach (iterator_to_array($root->childNodes) as $child) {
@@ -166,6 +167,30 @@ class ContentHtml
     }
 
     /** Two or more image-only blocks in a row become one responsive grid. */
+    /**
+     * "What we see on real jobs" (the first-hand experience section added from the editor) and
+     * everything up to the next H2 go into <section class="job-notes">, shown as a card.
+     */
+    private static function wrapJobNotes(DOMDocument $doc, DOMElement $root): void
+    {
+        foreach (iterator_to_array($root->childNodes) as $node) {
+            if (!($node instanceof DOMElement) || strtolower($node->tagName) !== 'h2' || !preg_match('/what we see on real jobs/i', $node->textContent)) {
+                continue;
+            }
+            $section = $doc->createElement('section');
+            $section->setAttribute('class', 'job-notes');
+            $root->insertBefore($section, $node);
+            $next = $node;
+            do {
+                $after = $next->nextSibling;
+                $section->appendChild($next);
+                $next = $after;
+            } while ($next && !($next instanceof DOMElement && strtolower($next->tagName) === 'h2'));
+
+            return;
+        }
+    }
+
     private static function buildGalleries(DOMDocument $doc, DOMElement $root): void
     {
         $run = [];

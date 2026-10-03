@@ -104,4 +104,10 @@ class ReviewerEditsTest extends TestCase
         $this->actingAs($writer)->post('/admin/blogs', $this->article(['intent' => 'submit', 'desc' => $desc]))->assertSessionHasErrors('desc');
         $this->actingAs($writer)->post('/admin/blogs', $this->article(['intent' => 'draft', 'desc' => $desc]))->assertSessionHasNoErrors();
     }
+
+    public function test_the_from_our_jobs_section_shows_as_a_card_on_the_page(): void
+    {
+        $html = \App\Support\ContentHtml::render('<p>Intro</p><h2>What we see on real jobs</h2><p><strong>A recent job:</strong> a shop in Bedok.</p><h2>FAQs</h2><p>End</p>');
+        $this->assertMatchesRegularExpression('#<section class="job-notes"><h2[^>]*>What we see on real jobs</h2><p><strong>A recent job:</strong> a shop in Bedok.</p></section><h2#', $html);
+    }
 }
