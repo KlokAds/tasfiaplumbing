@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Admin;
 use App\Support\PerPage;
 use App\Http\Controllers\Controller;
 use App\Models\ArticleRevision;
+use App\Models\ArticleVersion;
+use App\Support\ArticleHistory;
 use App\Models\BlogDetail;
 use App\Models\Draft;
 use App\Models\ServiceDetail;
@@ -195,6 +197,7 @@ class BlogController extends Controller
 
         $oldPath = $blog->publicPath();
         $oldStatus = $blog->status;
+        $before = $oldStatus === BlogDetail::PUBLISHED ? ArticleHistory::snapshot($blog) : null;
         $blog->fill($this->only($data));
         if ($revision && !$image && !empty($revision->payload['image'])) {
             $image = $revision->payload['image']; // the writer's new picture, unless the publisher chose another
@@ -209,6 +212,7 @@ class BlogController extends Controller
         Draft::discard($user->id, 'article', $blog->id);
         SeoAudit::flush();
         $this->notifyTransition($blog, $oldStatus, $user);
+        ArticleHistory::record($blog, $before, $user, $revision ? 'change_approved' : 'edit');
         if ($revision && in_array($blog->status, [BlogDetail::PUBLISHED, BlogDetail::SCHEDULED], true)) {
             $revision->update(['status' => 'approved', 'reviewed_by' => $user->id, 'reviewed_at' => now(), 'note' => 'Edited by the reviewer before approval.']);
             ArticleNotifier::revisionReviewed($revision->load('article', 'user'), $user, true);
@@ -275,18 +279,70 @@ class BlogController extends Controller
         abort_unless($revision->status === 'pending', 422);
         $blog = $revision->article;
         $payload = $revision->payload;
+        $before = $blog->status === BlogDetail::PUBLISHED ? ArticleHistory::snapshot($blog) : null;
 
         $blog->fill(collect($payload)->only(self::CONTENT_FIELDS)->all());
         $blog->reviewed_by = $request->user()->id;
         $blog->reviewed_at = now();
         $blog->save();
         $blog->syncFaqs($payload['faqs'] ?? []);
+        ArticleHistory::record($blog, $before, $request->user(), 'change_approved');
 
         $revision->update(['status' => 'approved', 'reviewed_by' => $request->user()->id, 'reviewed_at' => now()]);
         SeoAudit::flush();
         ArticleNotifier::revisionReviewed($revision, $request->user(), true);
 
         return redirect()->back()->with('success', "Changes to \"{$blog->name}\" are now live.");
+    }
+
+    /** The last three live versions of an article, for the History panel (older ones stay stored). */
+    public function versions(BlogDetail $blog)
+    {
+        $current = ArticleHistory::snapshot($blog);
+
+        return response()->json([
+            'current' => $current + ['text' => self::plain($current['desc'] ?? '')],
+            'versions' => ArticleVersion::with('user:id,name')->where('article_id', $blog->id)->latest('id')->limit(3)->get()
+                ->map(fn (ArticleVersion $v) => [
+                    'id' => $v->id,
+                    'event' => $v->event,
+                    'by' => $v->user?->name,
+                    'at' => $v->created_at->toIso8601String(),
+                    'payload' => $v->payload,
+                    'text' => self::plain($v->payload['desc'] ?? ''),
+                    // Shown as HTML in admin: cleaned like the public page (no scripts or pasted styles).
+                    'html' => \App\Support\ContentHtml::render((string) ($v->payload['desc'] ?? ''), (string) ($v->payload['name'] ?? '')),
+                ]),
+        ]);
+    }
+
+    /** Put an earlier version live again; the text it replaces is kept as a version too. */
+    public function restoreVersion(Request $request, ArticleVersion $version)
+    {
+        $blog = $version->article;
+        $before = ArticleHistory::snapshot($blog);
+        $payload = $version->payload;
+        $oldPath = $blog->publicPath();
+
+        $blog->fill(collect($payload)->only(self::CONTENT_FIELDS)->all());
+        $blog->reviewed_by = $request->user()->id;
+        $blog->reviewed_at = now();
+        $blog->save();
+        $blog->syncFaqs($payload['faqs'] ?? []);
+        ArticleHistory::record($blog, $before, $request->user(), 'restore');
+        SeoAudit::flush();
+
+        $message = "Restored the version from {$version->created_at->timezone(config('admin.timezone'))->format('j M Y, g:i a')}. The text it replaced is in History.";
+        if ($oldPath !== $blog->publicPath()) {
+            $message .= " URL changed: {$oldPath} now 301-redirects to {$blog->publicPath()}.";
+        }
+
+        return redirect()->back()->with('success', $message);
+    }
+
+    private static function plain(string $html): string
+    {
+        return trim(preg_replace('/\s+/u', ' ', html_entity_decode(strip_tags(str_replace(['</p>', '<br>', '</li>', '</h2>', '</h3>'], ' ', $html)), ENT_QUOTES | ENT_HTML5, 'UTF-8')));
     }
 
     public function rejectRevision(Request $request, ArticleRevision $revision)

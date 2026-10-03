@@ -75,15 +75,11 @@ class ArticleNotifier
         ));
     }
 
-    /** Everyone who can approve: Super Admins plus any role given articles.publish. */
+    /** Everyone who can approve: the Super Admins (no other role approves articles). */
     public static function publishers(?User $except = null): Collection
     {
         $users = User::visible()->role(config('admin.super_role'))->get();
-        try {
-            $users = $users->merge(User::visible()->permission('articles.publish')->get());
-        } catch (\Throwable $e) {
-            // permission not seeded yet
-        }
+
 
         return $users->unique('id')
             ->filter(fn (User $u) => $u->is_active !== false && $u->id !== $except?->id)

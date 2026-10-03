@@ -159,6 +159,11 @@
           <button type="button" @click="autosave.undoRestore()" class="admin-btn-secondary a-btn-sm shrink-0">Discard changes</button>
         </div>
 
+        <!-- Earlier live versions (Super Admin) -->
+        <div v-if="permissions.publish && editing?.id && editing.status === 'published'" class="flex justify-end -mb-2">
+          <button type="button" @click="openHistory(editing)" class="a-btn-ghost a-btn-sm">History (last 3 versions)</button>
+        </div>
+
         <!-- Context: why the buttons are what they are -->
         <div v-if="editing?.review_note && editing.status === 'draft'" class="rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm">
           <p class="font-semibold">Sent back by the reviewer</p>
@@ -335,6 +340,55 @@
     </Modal>
 
     <!-- ============ Revision preview ============ -->
+    <!-- History: the last three live versions -->
+    <Modal :show="!!history" :title="history ? `History: ${history.name}` : ''" subtitle="The last three live versions. Restoring one keeps the current text here too." width="3xl" @close="history = null">
+      <div v-if="history" class="space-y-3">
+        <p v-if="history.loading" class="text-sm a-muted">Loading…</p>
+        <p v-else-if="!history.versions.length" class="text-sm a-muted">No earlier versions yet. From now on, each change to the live article keeps the version it replaces.</p>
+        <ul v-else class="divide-y a-border rounded-xl border">
+          <li v-for="v in history.versions" :key="v.id" class="px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div class="min-w-0">
+              <p class="text-sm font-semibold">{{ when(v.at) }}</p>
+              <p class="text-xs a-subtle">Replaced by {{ v.by || 'unknown' }} · {{ ({ edit: 'edit', change_approved: 'approved change', restore: 'restore' })[v.event] || v.event }} · {{ changedFields(v).join(', ') || 'no visible change' }}</p>
+            </div>
+            <button type="button" @click="viewVersion = v" class="admin-btn-secondary a-btn-sm shrink-0">Check / restore</button>
+          </li>
+        </ul>
+      </div>
+    </Modal>
+
+    <!-- One version compared with the live article -->
+    <Modal :show="!!viewVersion" :title="viewVersion?.payload?.name || 'Version'" :subtitle="viewVersion ? `Live until ${when(viewVersion.at)}` : ''" width="5xl" @close="viewVersion = null">
+      <div v-if="viewVersion" class="space-y-4">
+        <div v-if="changedFields(viewVersion).length" class="rounded-xl border a-border overflow-hidden">
+          <table class="w-full text-sm">
+            <thead class="a-panel-2"><tr><th class="text-left px-3 py-2">Changed</th><th class="text-left px-3 py-2">This version</th><th class="text-left px-3 py-2">Live now</th></tr></thead>
+            <tbody>
+              <tr v-for="f in changedFields(viewVersion).filter(f => f !== 'Text' && f !== 'FAQs')" :key="f" class="border-t a-border align-top">
+                <td class="px-3 py-2 font-semibold">{{ f }}</td>
+                <td class="px-3 py-2 break-words">{{ fieldValue(viewVersion.payload, f) }}</td>
+                <td class="px-3 py-2 break-words">{{ fieldValue(history.current, f) }}</td>
+              </tr>
+              <tr v-if="changedFields(viewVersion).includes('FAQs')" class="border-t a-border"><td class="px-3 py-2 font-semibold">FAQs</td><td class="px-3 py-2">{{ (viewVersion.payload.faqs || []).length }} questions</td><td class="px-3 py-2">{{ (history.current.faqs || []).length }} questions</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div>
+          <p class="text-sm font-semibold mb-1">Text: <span class="a-text-danger line-through">removed since</span> · <span class="font-semibold" style="color: var(--a-success, #15803d)">added since</span></p>
+          <div class="rounded-xl border a-border p-4 max-h-[50vh] overflow-y-auto a-scroll text-sm leading-relaxed">
+            <template v-if="textDiff">
+              <template v-for="(part, i) in textDiff" :key="i"><span v-if="part.t === '='">{{ part.w }} </span><del v-else-if="part.t === '-'" class="a-text-danger">{{ part.w }} </del><ins v-else class="no-underline font-semibold" style="color: var(--a-success, #15803d); text-decoration: none">{{ part.w }} </ins></template>
+            </template>
+            <div v-else class="preview-html" v-html="viewVersion.html"></div>
+          </div>
+        </div>
+        <div class="flex justify-end gap-2">
+          <button type="button" @click="viewVersion = null" class="admin-btn-secondary">Close</button>
+          <button type="button" @click="restoreVersion(viewVersion)" class="admin-btn-primary">Restore this version</button>
+        </div>
+      </div>
+    </Modal>
+
     <Modal :show="!!previewRevision" :title="previewRevision?.payload?.name || 'Changes'" :subtitle="`Proposed by ${previewRevision?.user || 'unknown'}`" width="4xl" @close="previewRevision = null">
       <div v-if="previewRevision" class="space-y-4">
         <p v-if="previewRevision.payload.excerpt" class="text-sm a-muted">{{ previewRevision.payload.excerpt }}</p>
@@ -714,6 +768,65 @@ async function approveRevision(r) {
     tone: 'primary',
   });
   if (ok) router.post(`/admin/revisions/${r.id}/approve`, {}, { preserveScroll: true, onSuccess: () => { previewRevision.value = null; } });
+}
+
+// ---------- History (Super Admin): the last three live versions, compare, restore ----------
+const history = ref(null);
+const viewVersion = ref(null);
+async function openHistory(b) {
+  history.value = { name: b.name, loading: true, versions: [], current: {} };
+  try {
+    const { data } = await window.axios.get(`/admin/blogs/${b.id}/versions`);
+    history.value = { name: b.name, loading: false, versions: data.versions, current: data.current };
+  } catch (e) {
+    history.value = { name: b.name, loading: false, versions: [], current: {} };
+  }
+}
+const FIELD_LABELS = { name: 'Title', slug: 'URL', excerpt: 'Excerpt', meta_title: 'Meta title', meta_desc: 'Meta description', focus_keyword: 'Focus keyword', canonical: 'Canonical', noindex: 'Noindex', image: 'Image', primary_service_id: 'Service' };
+function changedFields(v) {
+  const cur = history.value?.current || {};
+  const out = Object.entries(FIELD_LABELS).filter(([k]) => String(v.payload[k] ?? '') !== String(cur[k] ?? '')).map(([, label]) => label);
+  if ((v.text || '') !== (cur.text || '')) out.push('Text');
+  if (JSON.stringify(v.payload.faqs || []) !== JSON.stringify(cur.faqs || [])) out.push('FAQs');
+  return out;
+}
+function fieldValue(p, label) {
+  const key = Object.keys(FIELD_LABELS).find(k => FIELD_LABELS[k] === label);
+  const val = p?.[key];
+  if (key === 'primary_service_id') return props.services.find(s => s.id === Number(val))?.name || '—';
+  if (key === 'noindex') return val ? 'Yes' : 'No';
+  return val === null || val === undefined || val === '' ? '—' : String(val);
+}
+// Word-by-word comparison of the text (skipped for very long articles: the preview shows instead).
+const textDiff = computed(() => {
+  if (!viewVersion.value || !history.value) return null;
+  const a = (viewVersion.value.text || '').split(' ').filter(Boolean);
+  const b = (history.value.current.text || '').split(' ').filter(Boolean);
+  if (a.length * b.length > 6000000) return null;
+  const m = a.length, n = b.length, dp = Array.from({ length: m + 1 }, () => new Uint16Array(n + 1));
+  for (let i = m - 1; i >= 0; i--) for (let j = n - 1; j >= 0; j--) dp[i][j] = a[i] === b[j] ? dp[i + 1][j + 1] + 1 : Math.max(dp[i + 1][j], dp[i][j + 1]);
+  const out = []; let i = 0, j = 0;
+  while (i < m && j < n) {
+    if (a[i] === b[j]) { out.push({ t: '=', w: a[i] }); i++; j++; }
+    else if (dp[i + 1][j] >= dp[i][j + 1]) out.push({ t: '-', w: a[i++] });
+    else out.push({ t: '+', w: b[j++] });
+  }
+  while (i < m) out.push({ t: '-', w: a[i++] });
+  while (j < n) out.push({ t: '+', w: b[j++] });
+  return out;
+});
+async function restoreVersion(v) {
+  const ok = await confirmDialog({
+    title: 'Restore this version?',
+    message: `The live article goes back to the version from ${when(v.at)}. The current text is kept in History, so you can switch back.`,
+    confirmText: 'Restore',
+    tone: 'primary',
+  });
+  if (!ok) return;
+  router.post(`/admin/versions/${v.id}/restore`, {}, {
+    preserveScroll: true,
+    onSuccess: () => { viewVersion.value = null; history.value = null; closeModal(); },
+  });
 }
 
 /** Open a writer's pending changes to a live article in the editor, to correct them before approving. */

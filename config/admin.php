@@ -19,7 +19,8 @@ return [
     'modules' => [
         'Content' => [
             'articles' => ['label' => 'Articles', 'help' => 'Blog posts and cost guides', 'actions' => [
-                'create' => 'Write own', 'edit_all' => "Edit everyone's", 'delete' => 'Delete', 'publish' => 'Publish, schedule & approve',
+                // Publishing and approving is not a role permission: only the Super Admin does it.
+                'create' => 'Write own', 'edit_all' => "Edit everyone's", 'delete' => 'Delete',
             ]],
             'services' => ['label' => 'Services', 'help' => 'Service pages', 'actions' => $crud],
             'categories' => ['label' => 'Service categories', 'actions' => $crud],
@@ -57,7 +58,7 @@ return [
 
     'roles' => [
         'super-admin' => ['label' => 'Super Admin', 'description' => 'Owner. Everything, including publishing, users and system updates.'],
-        'admin' => ['label' => 'Admin', 'description' => 'Runs the site day to day. Cannot publish articles, manage the team or update the system.'],
+        'admin' => ['label' => 'Admin', 'description' => 'Runs the site day to day. Articles go to the Super Admin for approval. Cannot manage the team or update the system.'],
         'editor' => ['label' => 'Editor', 'description' => 'Content team: services, catalog, website pages and all articles. Articles still need approval. Cannot delete.'],
         'writer' => ['label' => 'Writer', 'description' => 'Writes own articles and submits them for approval.'],
     ],

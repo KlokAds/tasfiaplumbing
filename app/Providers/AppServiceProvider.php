@@ -23,8 +23,13 @@ class AppServiceProvider extends ServiceProvider
             \App\Support\SystemSettings::applyUrl();
         }
 
-        Gate::before(function (User $user) {
+        Gate::before(function (User $user, string $ability) {
             try {
+                // Approving and publishing articles is the Super Admin's alone, whatever a role was given.
+                if ($ability === 'articles.publish') {
+                    return $user->isSuperAdmin();
+                }
+
                 return $user->isSuperAdmin() ? true : null;
             } catch (\Throwable $e) {
                 return null;
