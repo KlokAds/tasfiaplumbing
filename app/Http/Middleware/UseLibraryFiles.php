@@ -32,9 +32,11 @@ class UseLibraryFiles
                 }
                 $path = MediaLibrary::normalize(base64_decode(strtr($m[1], '-_', '+/')));
                 $full = $path ? realpath(public_path($path)) : false;
-                $root = realpath(public_path(MediaLibrary::ROOT));
+                // Inside the library folder or an old website's folder (realpath: no ../ tricks).
+                $inside = $full && collect(MediaLibrary::roots())
+                    ->contains(fn ($r) => ($root = realpath(public_path($r))) && str_starts_with($full, $root . DIRECTORY_SEPARATOR));
                 $ext = strtolower(pathinfo((string) $path, PATHINFO_EXTENSION));
-                if (!$full || !$root || !str_starts_with($full, $root . DIRECTORY_SEPARATOR) || !is_file($full) || !in_array($ext, MediaLibrary::LISTED_EXTENSIONS, true)) {
+                if (!$inside || !is_file($full) || !in_array($ext, MediaLibrary::LISTED_EXTENSIONS, true)) {
                     $request->files->remove($key); // not a library file: ignore it
                     continue;
                 }

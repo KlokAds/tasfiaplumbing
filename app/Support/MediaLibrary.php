@@ -23,6 +23,12 @@ class MediaLibrary
     // Legacy SVGs are listed and protected, but new SVG uploads are refused (they can carry scripts).
     public const LISTED_EXTENSIONS = [...self::ALLOWED_EXTENSIONS, 'svg'];
 
+    /**
+     * Folders the old websites used (frontend/…, images/…). Their pictures are listed, can be picked
+     * and their use is tracked, but they are never deleted, moved or renamed here (only inside ROOT).
+     */
+    public const LEGACY_ROOTS = ['frontend', 'images', 'Images'];
+
     private const SCAN_CACHE = 'media.scan';
 
     /**
@@ -55,22 +61,41 @@ class MediaLibrary
         }
 
         return Cache::remember(self::SCAN_CACHE, now()->addMinutes(5), function () {
-            $root = public_path(self::ROOT);
             $files = [];
-            if (!is_dir($root)) {
-                return $files;
-            }
-            $it = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($root, \FilesystemIterator::SKIP_DOTS));
-            foreach ($it as $file) {
-                if (!$file->isFile() || !in_array(strtolower($file->getExtension()), self::LISTED_EXTENSIONS, true)) {
-                    continue;
+            foreach (self::roots() as $name) {
+                $root = public_path($name);
+                $it = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($root, \FilesystemIterator::SKIP_DOTS));
+                foreach ($it as $file) {
+                    if (!$file->isFile() || !in_array(strtolower($file->getExtension()), self::LISTED_EXTENSIONS, true)) {
+                        continue;
+                    }
+                    $relative = $name . '/' . str_replace('\\', '/', substr($file->getPathname(), strlen($root) + 1));
+                    $files[$relative] = [$file->getSize(), $file->getMTime()];
                 }
-                $relative = self::ROOT . '/' . str_replace('\\', '/', substr($file->getPathname(), strlen($root) + 1));
-                $files[$relative] = [$file->getSize(), $file->getMTime()];
             }
 
             return $files;
         });
+    }
+
+    /** ROOT plus the old websites' folders that exist here (each real folder once). @return list<string> */
+    public static function roots(): array
+    {
+        $out = [];
+        foreach ([self::ROOT, ...self::LEGACY_ROOTS] as $name) {
+            $real = realpath(public_path($name));
+            if ($real && is_dir($real) && !isset($out[$real])) {
+                $out[$real] = $name;
+            }
+        }
+
+        return array_values($out);
+    }
+
+    /** A file in one of the old websites' folders: shown, never changed here. */
+    public static function isLegacy(string $path): bool
+    {
+        return !str_starts_with($path, self::ROOT . '/');
     }
 
     /** path => list of usages. Always computed fresh; callers cache if needed. */
@@ -180,15 +205,15 @@ class MediaLibrary
     public static function folders(): array
     {
         return Cache::remember(self::SCAN_CACHE . '.folders', now()->addMinutes(5), function () {
-            $root = public_path(self::ROOT);
-            $out = is_dir($root) ? [self::ROOT] : [];
-            if (!$out) {
-                return $out;
-            }
-            $it = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($root, \FilesystemIterator::SKIP_DOTS), \RecursiveIteratorIterator::SELF_FIRST);
-            foreach ($it as $f) {
-                if ($f->isDir()) {
-                    $out[] = self::ROOT . '/' . str_replace('\\', '/', substr($f->getPathname(), strlen($root) + 1));
+            $out = [];
+            foreach (self::roots() as $name) {
+                $root = public_path($name);
+                $out[] = $name;
+                $it = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($root, \FilesystemIterator::SKIP_DOTS), \RecursiveIteratorIterator::SELF_FIRST);
+                foreach ($it as $f) {
+                    if ($f->isDir()) {
+                        $out[] = $name . '/' . str_replace('\\', '/', substr($f->getPathname(), strlen($root) + 1));
+                    }
                 }
             }
             sort($out, SORT_NATURAL | SORT_FLAG_CASE);
@@ -427,12 +452,18 @@ class MediaLibrary
         $raw = rawurldecode(strtok($raw, '?#'));
         $raw = ltrim(str_replace('\\', '/', $raw), '/');
 
-        return str_starts_with($raw, self::ROOT . '/') ? $raw : null;
+        foreach ([self::ROOT, ...self::LEGACY_ROOTS] as $root) {
+            if (str_starts_with($raw, $root . '/')) {
+                return $raw;
+            }
+        }
+
+        return null;
     }
 
     private static function pathsInHtml(?string $html): array
     {
-        if (!$html || !str_contains($html, self::ROOT . '/')) {
+        if (!$html || !preg_match('#(' . implode('|', array_map('preg_quote', [self::ROOT, ...self::LEGACY_ROOTS])) . ')/#', $html)) {
             return [];
         }
         preg_match_all('#(?:src|href|srcset|data-src)\s*=\s*["\']([^"\']+)["\']#i', $html, $m);

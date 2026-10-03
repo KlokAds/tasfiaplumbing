@@ -40,6 +40,7 @@ class MediaController extends Controller
             'height' => $meta[$path]->height ?? null,
             'usages' => array_slice($usage[$path] ?? [], 0, 8),
             'usage_count' => count($usage[$path] ?? []),
+            'legacy' => MediaLibrary::isLegacy($path), // the old website's folders: shown, never deleted here
             'uploaded_by' => isset($meta[$path]) ? ($uploaders[$meta[$path]->uploaded_by] ?? null) : null,
             'uploaded_at' => isset($meta[$path]) ? $meta[$path]->created_at?->toIso8601String() : null,
         ])->values();
@@ -81,7 +82,8 @@ class MediaController extends Controller
     /** JSON list of images for the editor's image picker. */
     public function browse(Request $request)
     {
-        $folder = MediaLibrary::cleanFolder($request->input('folder'));
+        $folder = MediaLibrary::cleanFolder($request->input('folder'))
+            ?? (in_array((string) $request->input('folder'), MediaLibrary::folders(), true) ? (string) $request->input('folder') : null); // old site folders too
         $files = collect(MediaLibrary::scan())
             ->filter(fn ($info, $path) => in_array(strtolower(pathinfo($path, PATHINFO_EXTENSION)), MediaLibrary::IMAGE_EXTENSIONS, true))
             ->when($folder, fn ($c) => $c->filter(fn ($i, $path) => dirname($path) === $folder))

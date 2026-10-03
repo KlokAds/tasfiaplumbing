@@ -80,7 +80,7 @@
             <button type="button" class="a-btn-ghost a-btn-sm" :disabled="zipping" @click="downloadZip({ folder: currentFolder })">{{ zipping ? 'Preparing…' : 'Download folder' }}</button>
             <button v-if="can('media.create')" type="button" class="a-btn-ghost a-btn-sm" @click="openFolderDialog('create')">New subfolder</button>
             <button v-if="can('media.edit') && currentFolder !== 'Admin'" type="button" class="a-btn-ghost a-btn-sm" @click="openFolderDialog('rename')">Rename</button>
-            <button v-if="can('media.delete') && currentFolder !== 'Admin'" type="button" class="a-btn-ghost a-danger a-btn-sm" @click="deleteFolder">Delete folder</button>
+            <button v-if="can('media.delete') && currentFolder.startsWith('Admin/')" type="button" class="a-btn-ghost a-danger a-btn-sm" @click="deleteFolder">Delete folder</button>
           </div>
         </div>
 
@@ -228,9 +228,10 @@
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
                 Download
               </a>
-              <button v-if="!detail.usage_count && can('media.delete')" type="button" @click="deleteOne(detail)" class="a-btn-danger">Delete file permanently</button>
+              <button v-if="!detail.usage_count && !detail.legacy && can('media.delete')" type="button" @click="deleteOne(detail)" class="a-btn-danger">Delete file permanently</button>
             </div>
             <p v-if="detail.usage_count" class="a-alert a-alert-info text-xs mt-3">Locked: this file is in use. Replace or remove it on the pages above first.</p>
+            <p v-else-if="detail.legacy" class="a-alert a-alert-info text-xs mt-3">From the old website's folder: kept as it is. New uploads go to the Admin folder.</p>
           </div>
         </div>
       </div>
@@ -349,7 +350,7 @@ const uploading = ref(false);
 const uploadError = ref('');
 const copied = ref(false);
 
-const unusedOnPage = computed(() => props.files.data.filter(f => !f.usage_count).map(f => f.path));
+const unusedOnPage = computed(() => props.files.data.filter(f => !f.usage_count && !f.legacy).map(f => f.path));
 const selectedUnused = computed(() => selected.value.filter((p) => unusedOnPage.value.includes(p)));
 
 // ---- download: one file directly, several files or a folder as a .zip

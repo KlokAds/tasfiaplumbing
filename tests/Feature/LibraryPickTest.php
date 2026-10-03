@@ -52,6 +52,8 @@ class LibraryPickTest extends TestCase
     {
         $owner = User::factory()->create()->assignRole('super-admin');
         $this->actingAs($owner)->post('/admin/partners', ['image' => $this->placeholder('../.env')])->assertSessionHasErrors('image');
+        // An old website folder name in front does not let a path climb out either.
+        $this->actingAs($owner)->post('/admin/partners', ['image' => $this->placeholder('frontend/../../.env')])->assertSessionHasErrors('image');
         $this->assertSame(0, Partner::count());
     }
 }
