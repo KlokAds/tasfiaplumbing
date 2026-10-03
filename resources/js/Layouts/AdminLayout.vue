@@ -236,7 +236,7 @@ const groups = computed(() => {
       { label: 'Enquiries', icon: 'mail', badge: c.unread, alert: true, tabs: [{ label: 'Enquiries', href: '/admin/messages', can: 'enquiries.view' }] },
     ] },
     { label: 'Content', items: [
-      { label: 'Articles', icon: 'doc', badge: c.review, badgeTitle: 'Waiting for approval', alert: true, count: c.articles, tabs: [{ label: 'Articles', href: '/admin/blogs', can: 'articles.create' }] },
+      { label: 'Articles', icon: 'doc', badge: c.review, badgeTitle: 'Waiting for approval', alert: true, count: c.articles, tabs: [{ label: 'Articles', href: '/admin/blogs', can: 'articles.create' }, { label: 'Audit', href: '/admin/blogs-audit', can: 'articles.publish' }] },
       { label: 'Services', icon: 'wrench', count: c.services, tabs: [
         { label: 'Services', href: '/admin/services', can: 'services.view' },
         { label: 'Categories', href: '/admin/service-categories', can: 'categories.view' },

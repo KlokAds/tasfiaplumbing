@@ -59,6 +59,15 @@ Artisan::command('articles:remind-pending', function () {
 // Every hour: anything waiting for approval longer than admin.review_reminder_hours (12) is emailed.
 Schedule::call(fn () => Artisan::call('articles:remind-pending'))->hourly()->name('articles:remind-pending')->withoutOverlapping(30);
 
+Artisan::command('articles:audit', function () {
+    @ini_set('memory_limit', '512M');
+    $r = \App\Support\ArticleAuditor::run();
+    $this->info("Audit done for {$r['articles']} live articles" . ($r['search_console'] ? ' with Search Console data.' : '. ' . $r['error']));
+})->purpose('Group live articles by topic and suggest keep / update / new angle / merge / noindex (writes article_audits only)');
+
+// Every Monday morning the audit is refreshed with the latest Search Console numbers (decisions are kept).
+Schedule::call(fn () => Artisan::call('articles:audit'))->weeklyOn(1, '05:30')->name('articles:audit')->withoutOverlapping(60);
+
 Artisan::command('articles:source-check', function () {
     $n = \App\Support\SourceCheck::due();
     $this->info($n ? "Source check done for {$n} item(s)." : 'Nothing to check, or the source check is off.');

@@ -59,6 +59,14 @@ return [
     // maintenance account (App\Support\ReviewReminder), at most once per this many hours each.
     'review_reminder_hours' => 12,
 
+    // Article audit (App\Support\ArticleAuditor): clicks and impressions are over 16 months.
+    'audit' => [
+        'keep_clicks' => 10,       // this many clicks: keep the article
+        'seen_impressions' => 200, // this many impressions: Google shows it, give it its own angle
+        'thin_words' => 300,       // fewer words: thin
+        'merge_overlap' => 40,     // this much of the same text as a stronger article: merge
+    ],
+
     // Byline on articles that have no author of their own and no default author: the team.
     'team_byline' => [
         'title' => 'Plumbing specialists, Singapore',
