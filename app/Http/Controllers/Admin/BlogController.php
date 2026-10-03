@@ -250,6 +250,12 @@ class BlogController extends Controller
             'scheduled_at.required_if' => 'Choose a date and time.',
         ]);
 
+        $found = \App\Support\TemplateText::inArticle($blog->only(['name', 'excerpt', 'desc', 'meta_title', 'meta_desc'])
+            + ['faqs' => $blog->faqs()->get(['question', 'answer'])->toArray()]);
+        if ($found) {
+            return redirect()->back()->with('error', \App\Support\TemplateText::message($found) . ' Use Edit to fix it, or Send back.');
+        }
+
         $wasPending = $blog->status === BlogDetail::PENDING;
         $blog->scheduled_at = $data['mode'] === 'schedule' ? Carbon::parse($data['scheduled_at']) : null;
         $blog->status = $blog->scheduled_at ? BlogDetail::SCHEDULED : BlogDetail::PUBLISHED;
@@ -288,6 +294,9 @@ class BlogController extends Controller
         abort_unless($revision->status === 'pending', 422);
         $blog = $revision->article;
         $payload = $revision->payload;
+        if ($found = \App\Support\TemplateText::inArticle((array) $payload)) {
+            return redirect()->back()->with('error', \App\Support\TemplateText::message($found) . ' Use “Edit before approving” to fix it, or Reject.');
+        }
         $before = $blog->status === BlogDetail::PUBLISHED ? ArticleHistory::snapshot($blog) : null;
 
         $blog->fill(collect($payload)->only(self::CONTENT_FIELDS)->all());
@@ -614,6 +623,11 @@ class BlogController extends Controller
         // The "From our jobs" prompts must be replaced with real details before an article goes for approval or live.
         if (in_array($request->input('intent'), ['submit', 'publish'], true) && str_contains((string) ($data['desc'] ?? ''), '[Replace:')) {
             throw \Illuminate\Validation\ValidationException::withMessages(['desc' => 'Replace the [Replace: …] notes in “What we see on real jobs” with real details (or delete them) first.']);
+        }
+        // Left-over template text ([MIN], S$XX, Lorem ipsum …) never goes for approval or live.
+        if (in_array($request->input('intent'), ['submit', 'publish'], true)
+            && ($found = \App\Support\TemplateText::inArticle($data + ['faqs' => $request->input('faqs', [])]))) {
+            throw \Illuminate\Validation\ValidationException::withMessages(['desc' => \App\Support\TemplateText::message($found)]);
         }
 
         if (blank($data['slug'] ?? null)) {

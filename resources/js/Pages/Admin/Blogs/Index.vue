@@ -217,6 +217,11 @@
               </div>
               <RichEditor v-model="form.desc" min-height="420px" />
               <p v-if="form.errors.desc" class="a-error">{{ form.errors.desc }}</p>
+              <!-- Template text left in (same rules as App\Support\TemplateText): it cannot be submitted or published -->
+              <div v-if="templateFound.length" class="mt-3 rounded-xl border px-4 py-3 text-sm" style="border-color: rgba(220,38,38,.45); background: rgba(220,38,38,.07)">
+                <p class="font-bold a-text-danger">Template text left in the article</p>
+                <p class="a-muted">Found: <b>{{ templateFound.join(', ') }}</b>. Put in the real prices, times and places. Until then it can be saved as a draft, but not submitted or published.</p>
+              </div>
               <!-- First-hand experience (E-E-A-T): a section with prompts the writer replaces with real job details -->
               <div class="mt-3 rounded-xl border px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-3 justify-between"
                 :style="hasJobsSection && !hasJobsPrompts ? 'border-color: rgba(22,163,74,.45); background: rgba(22,163,74,.08)' : hasJobsPrompts ? 'border-color: rgba(217,119,6,.5); background: rgba(217,119,6,.08)' : 'border-color: var(--a-accent); background: var(--a-accent-soft)'">
@@ -612,6 +617,22 @@ const words = computed(() => (form.desc || '').replace(/<[^>]*>/g, ' ').split(/\
 const selectedService = computed(() => props.services.find(s => s.id === form.primary_service_id));
 const selectedServiceName = computed(() => selectedService.value?.name || '');
 const selectedServicePath = computed(() => (selectedService.value ? `/service/${selectedService.value.slug}` : ''));
+// Same rules as App\Support\TemplateText.
+const TEMPLATE_PATTERNS = [
+  /\[[A-Z][A-Z0-9 _\/&-]{0,30}\]/g,
+  /\[(?:insert|your|add|enter|put|name|area|price|number|phone|date|location|company|brand|city)\b[^\]]{0,60}\]/gi,
+  /S\$\s?X{1,4}\b/gi,
+  /\bX{1,3}(?:\s?[-–]\s?X{1,3})?\s?(?:hours?|hrs?|mins?|minutes?|days?|weeks?|months?|years?|%)/g,
+  /lorem ipsum/gi,
+  /\b(?:TBD|TODO|TBC)\b/g,
+];
+const templateFound = computed(() => {
+  const plain = [form.name, form.excerpt, form.desc, form.meta_title, form.meta_desc, ...(form.faqs || []).flatMap(f => [f.question, f.answer])]
+    .map(t => String(t || '').replace(/<[^>]*>/g, ' ')).join('\n');
+  const found = new Set();
+  TEMPLATE_PATTERNS.forEach(re => (plain.match(re) || []).forEach(m => found.add(m.trim())));
+  return [...found].slice(0, 6);
+});
 const JOBS_SECTION = '<h2>What we see on real jobs</h2><p><strong>Where we see it most:</strong> [Replace: e.g. “On HDB and condo jobs, we often find …”]</p><p><strong>A recent job:</strong> [Replace: the area and building type (no names), the problem, what our technician found on site, what we did and how long it took.]</p><p><strong>Our advice:</strong> [Replace: e.g. “We recommend …”, an early warning sign, when to call a professional.]</p><p>[Replace: add a before/after photo from the job with a caption, or delete this line.]</p>';
 const hasJobsSection = computed(() => /What we see on real jobs/i.test(form.desc || ''));
 const hasJobsPrompts = computed(() => (form.desc || '').includes('[Replace:'));

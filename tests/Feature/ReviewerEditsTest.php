@@ -155,4 +155,24 @@ class ReviewerEditsTest extends TestCase
                 && str_contains($html, 'What changed') && str_contains($html, 'New first line.');
         });
     }
+
+    public function test_template_text_cannot_be_submitted_or_approved(): void
+    {
+        Notification::fake();
+        $owner = $this->user('super-admin');
+        $writer = $this->user('writer');
+        $this->assertSame(['[MIN]', '[MAX]'], \App\Support\TemplateText::find('<p>It costs S$[MIN]–S$[MAX].</p>'));
+        $this->assertSame([], \App\Support\TemplateText::find('<p>It costs S$80–S$150 and takes 2 hours in HDB flats.</p>'));
+
+        $this->actingAs($writer)->post('/admin/blogs', $this->article(['intent' => 'submit', 'desc' => '<p>From S$XX, about XX hours.</p>']))->assertSessionHasErrors('desc');
+        $this->actingAs($writer)->post('/admin/blogs', $this->article(['intent' => 'draft', 'desc' => '<p>From S$XX.</p>']))->assertSessionHasNoErrors();
+
+        // A change to a live article with template text is not approved as it is.
+        $this->actingAs($writer)->post('/admin/blogs', $this->article(['name' => 'Floor Spring Repair Singapore', 'intent' => 'submit']));
+        $blog = BlogDetail::where('name', 'Floor Spring Repair Singapore')->firstOrFail();
+        $this->actingAs($owner)->post("/admin/blogs/{$blog->id}/approve", ['mode' => 'now']);
+        $revision = ArticleRevision::create(['article_id' => $blog->id, 'user_id' => $writer->id, 'status' => 'pending', 'payload' => ['name' => $blog->name, 'desc' => '<p>Costs S$[MIN]–S$[MAX].</p>', 'faqs' => []]]);
+        $this->actingAs($owner)->post("/admin/revisions/{$revision->id}/approve")->assertSessionHas('error');
+        $this->assertSame('pending', $revision->fresh()->status);
+    }
 }
