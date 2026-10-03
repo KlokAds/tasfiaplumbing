@@ -155,7 +155,7 @@ class BlogController extends Controller
             $blog->image = $request->file('image')->store('Admin/Blog/Details', 'uploads');
         }
         $blog->save();
-        $blog->forceFill(['quality_check' => $this->writingCheck($blog, $request)])->saveQuietly();
+        $blog->forceFill(['quality_check' => $this->writingCheck($blog)])->saveQuietly();
         $blog->syncFaqs($request->input('faqs'));
         Draft::discard($user->id, 'article', 0);
         SeoAudit::flush();
@@ -187,12 +187,11 @@ class BlogController extends Controller
             } elseif (!empty($existing?->payload['image'])) {
                 $payload['image'] = $existing->payload['image'];
             }
-            $pasted = (int) ($existing?->quality_check['pasted']['chars'] ?? 0) + max(0, $request->integer('pasted_chars'));
             $revision = ArticleRevision::updateOrCreate(
                 ['article_id' => $blog->id, 'user_id' => $user->id, 'status' => 'pending'],
                 ['payload' => $payload],
             );
-            $revision->forceFill(['quality_check' => WritingCheck::run((string) ($payload['desc'] ?? ''), $blog->id, $pasted)])->saveQuietly();
+            $revision->forceFill(['quality_check' => WritingCheck::run((string) ($payload['desc'] ?? ''), $blog->id)])->saveQuietly();
             Draft::discard($user->id, 'article', $blog->id);
             if ($revision->wasRecentlyCreated) {
                 ArticleNotifier::revisionSubmitted($revision->load('article'), $user);
@@ -225,7 +224,7 @@ class BlogController extends Controller
         }
         $this->applyStatus($blog, $intent, $user);
         $blog->save();
-        $blog->forceFill(['quality_check' => $this->writingCheck($blog, $request)])->saveQuietly();
+        $blog->forceFill(['quality_check' => $this->writingCheck($blog)])->saveQuietly();
         $blog->syncFaqs($request->input('faqs'));
         Draft::discard($user->id, 'article', $blog->id);
         SeoAudit::flush();
@@ -494,19 +493,10 @@ class BlogController extends Controller
         $blog->status = $status;
     }
 
-    /**
-     * The free writing check (App\Support\WritingCheck) of an article that waits for approval. Pasted
-     * characters add up over every save; other articles only keep that count.
-     */
-    private function writingCheck(BlogDetail $blog, Request $request): ?array
+    /** The free writing check (App\Support\WritingCheck) of an article that waits for approval; others keep the last one. */
+    private function writingCheck(BlogDetail $blog): ?array
     {
-        $earlier = $blog->quality_check ?: [];
-        $pasted = (int) ($earlier['pasted']['chars'] ?? 0) + max(0, $request->integer('pasted_chars'));
-        if ($blog->status === BlogDetail::PENDING) {
-            return WritingCheck::run((string) $blog->desc, $blog->id, $pasted);
-        }
-
-        return $pasted || $earlier ? ['pasted' => ['chars' => $pasted, 'percent' => WritingCheck::pastedPercent($pasted, (string) $blog->desc)]] + $earlier : null;
+        return $blog->status === BlogDetail::PENDING ? WritingCheck::run((string) $blog->desc, $blog->id) : $blog->quality_check;
     }
 
     private function notifyTransition(BlogDetail $blog, ?string $old, User $user): void
@@ -677,7 +667,6 @@ class BlogController extends Controller
             'faqs.*.question' => 'nullable|string|max:500',
             'faqs.*.answer' => 'nullable|string|max:3000',
             'author_id' => 'nullable|exists:users,id',
-            'pasted_chars' => 'nullable|integer|min:0|max:10000000',
         ], ['scheduled_at.after' => 'The publish time must be in the future.']);
 
         // The "From our jobs" prompts must be replaced with real details before an article goes for approval or live.
@@ -689,13 +678,6 @@ class BlogController extends Controller
             && ($found = \App\Support\TemplateText::inArticle($data + ['faqs' => $request->input('faqs', [])]))) {
             throw \Illuminate\Validation\ValidationException::withMessages(['desc' => \App\Support\TemplateText::message($found)]);
         }
-
-        // New articles (not live yet) need first-hand experience: the "What we see on real jobs" section.
-        $isNew = !$ignoreId || BlogDetail::whereKey($ignoreId)->whereIn('status', [BlogDetail::DRAFT, BlogDetail::PENDING])->exists();
-        if (in_array($request->input('intent'), ['submit', 'publish'], true) && $isNew && WritingCheck::jobNotesMissing((string) ($data['desc'] ?? ''))) {
-            throw \Illuminate\Validation\ValidationException::withMessages(['desc' => 'New articles need the “What we see on real jobs” section with at least 25 words of real detail from your jobs (button “+ Add From our jobs”). It is what makes an article rank: first-hand experience.']);
-        }
-        unset($data['pasted_chars']);
 
         if (blank($data['slug'] ?? null)) {
             unset($data['slug']);

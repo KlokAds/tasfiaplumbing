@@ -7,8 +7,7 @@ use App\Models\BlogDetail;
 /**
  * Free checks of an article sent for approval (no outside service):
  * - AI-style phrases ("delve into", "in today's fast-paced world" …) that make text read as generated;
- * - duplicate text: how much of it is the same as another article on this site;
- * - pasted text: how much of the text was pasted into the editor rather than typed.
+ * - duplicate text: how much of it is the same as another article on this site.
  * The result is stored on the article or change (quality_check) and shown to approvers.
  * The editor shows the same phrase list while writing (resources/js/Pages/Admin/Blogs/Index.vue, AI_PHRASES).
  */
@@ -34,15 +33,14 @@ class WritingCheck
     private const SHINGLE = 8;
 
     /**
-     * @return array{checked_at: string, ai_phrases: list<string>, duplicate: ?array{percent: int, id: int, name: string, path: string}, pasted: array{chars: int, percent: int}}
+     * @return array{checked_at: string, ai_phrases: list<string>, duplicate: ?array{percent: int, id: int, name: string, path: string}}
      */
-    public static function run(string $html, ?int $articleId, int $pastedChars): array
+    public static function run(string $html, ?int $articleId): array
     {
         return [
             'checked_at' => now()->toIso8601String(),
             'ai_phrases' => self::aiPhrases($html),
             'duplicate' => self::duplicate($html, $articleId),
-            'pasted' => ['chars' => $pastedChars, 'percent' => self::pastedPercent($pastedChars, $html)],
         ];
     }
 
@@ -89,29 +87,6 @@ class WritingCheck
             : null;
     }
 
-    public static function pastedPercent(int $pastedChars, string $html): int
-    {
-        $length = mb_strlen(preg_replace('/\s+/u', '', self::plain($html)));
-
-        return $length ? (int) min(100, round(100 * $pastedChars / max($length, 1))) : 0;
-    }
-
-    /**
-     * New articles need the "What we see on real jobs" section (first-hand experience, E-E-A-T)
-     * with at least 25 words of real detail. Turned off with config admin.require_job_notes.
-     */
-    public static function jobNotesMissing(string $html): bool
-    {
-        if (!config('admin.require_job_notes', true)) {
-            return false;
-        }
-        if (!preg_match('#<h2[^>]*>\s*(?:<[^>]+>\s*)*What we see on real jobs.*?</h2>(.*?)(?=<h2|$)#is', $html, $m)) {
-            return true;
-        }
-
-        return str_word_count(self::plain($m[1])) < 25;
-    }
-
     /** Issue lines for the approval email (same wording as the review queue). */
     public static function issues(?array $check): array
     {
@@ -124,9 +99,6 @@ class WritingCheck
         }
         if (!empty($check['duplicate'])) {
             $out[] = "Writing: {$check['duplicate']['percent']}% of the text is the same as “{$check['duplicate']['name']}” on this site. Two pages with the same text compete in Google.";
-        }
-        if (($check['pasted']['percent'] ?? 0) >= 60) {
-            $out[] = "Writing: {$check['pasted']['percent']}% of the text was pasted into the editor. Check that it was written for this site.";
         }
 
         return $out;

@@ -238,7 +238,7 @@
                 <label class="admin-label">Article body *</label>
                 <span :class="['text-[11px] font-mono', words < 600 ? 'a-text-danger' : 'a-text-success']">{{ words }} words{{ words < 600 ? ' · aim for 600+' : '' }}</span>
               </div>
-              <RichEditor v-model="form.desc" min-height="420px" @paste="(n) => { pastedChars += n; }" />
+              <RichEditor v-model="form.desc" min-height="420px" />
               <p v-if="form.errors.desc" class="a-error">{{ form.errors.desc }}</p>
               <!-- Template text left in (same rules as App\Support\TemplateText): it cannot be submitted or published -->
               <div v-if="templateFound.length" class="mt-3 rounded-xl border px-4 py-3 text-sm" style="border-color: rgba(220,38,38,.45); background: rgba(220,38,38,.07)">
@@ -262,12 +262,12 @@
                     <p class="text-sm font-bold">
                       <template v-if="hasJobsSection && !hasJobsPrompts">“From our jobs” section added</template>
                       <template v-else-if="hasJobsPrompts">Fill in the “From our jobs” section</template>
-                      <template v-else>Add first-hand experience{{ jobsRequired ? ' (required)' : '' }}</template>
+                      <template v-else>Add first-hand experience</template>
                     </p>
                     <p class="text-[13px] a-muted">
                       <template v-if="hasJobsSection && !hasJobsPrompts">It shows on the page as a “From our jobs” card and counts for E-E-A-T.</template>
                       <template v-else-if="hasJobsPrompts">Replace each [Replace: …] note with real details from a job. Until then the article can be saved as a draft but not submitted or published.</template>
-                      <template v-else>{{ jobsRequired ? 'New articles cannot be submitted without it. ' : '' }}One click adds “What we see on real jobs” with three guided lines: where you see it, a recent job, your advice. It raises the E-E-A-T score.</template>
+                      <template v-else>One click adds “What we see on real jobs” with three guided lines: where you see it, a recent job, your advice. It raises the E-E-A-T score.</template>
                     </p>
                   </div>
                 </div>
@@ -699,8 +699,6 @@ const templateFound = computed(() => {
 const JOBS_SECTION = '<h2>What we see on real jobs</h2><p><strong>Where we see it most:</strong> [Replace: e.g. “On HDB and condo jobs, we often find …”]</p><p><strong>A recent job:</strong> [Replace: the area and building type (no names), the problem, what our technician found on site, what we did and how long it took.]</p><p><strong>Our advice:</strong> [Replace: e.g. “We recommend …”, an early warning sign, when to call a professional.]</p><p>[Replace: add a before/after photo from the job with a caption, or delete this line.]</p>';
 const hasJobsSection = computed(() => /What we see on real jobs/i.test(form.desc || ''));
 const hasJobsPrompts = computed(() => (form.desc || '').includes('[Replace:'));
-// New articles need the section (App\Support\WritingCheck::jobNotesMissing); live articles only get the hint.
-const jobsRequired = computed(() => !editing.value || ['draft', 'pending'].includes(editing.value.status));
 
 // Same list as App\Support\WritingCheck::AI_PHRASES.
 const AI_PHRASES = [
@@ -720,8 +718,6 @@ const aiFound = computed(() => {
   return [...new Set(AI_PHRASES.filter((p) => text.includes(p)).map((p) => p.replace(/,$/, '')))].slice(0, 10);
 });
 
-// Characters pasted into the text since the last save; the server adds them up (approvers see the share).
-const pastedChars = ref(0);
 function addJobsSection() { form.desc = (form.desc || '') + JOBS_SECTION; }
 const hasServiceLink = computed(() => /\/services?\//.test(form.desc || ''));
 
@@ -846,12 +842,12 @@ async function save(intent) {
   form
     .transform(d => {
       const { schedule_mode, ...rest } = d;
-      return { ...rest, intent, pasted_chars: pastedChars.value, revision_id: editing.value?.revision_id || '', ...(props.permissions.publish ? { author_id: authorPick.value || '' } : {}), scheduled_at: schedule_mode === 'schedule' ? toIso(d.scheduled_at) : '' };
+      return { ...rest, intent, revision_id: editing.value?.revision_id || '', ...(props.permissions.publish ? { author_id: authorPick.value || '' } : {}), scheduled_at: schedule_mode === 'schedule' ? toIso(d.scheduled_at) : '' };
     })
     .post(url, {
       forceFormData: true,
       preserveScroll: true,
-      onSuccess: () => { pastedChars.value = 0; autosave.clear(); closeModal(); },
+      onSuccess: () => { autosave.clear(); closeModal(); },
       onFinish: () => { busy.value = ''; },
     });
 }

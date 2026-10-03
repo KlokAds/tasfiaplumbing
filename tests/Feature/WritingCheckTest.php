@@ -14,7 +14,7 @@ use Tests\TestCase;
 
 /**
  * Free checks before approval: AI-style phrases, text copied from another article on the site,
- * pasted text, the required "From our jobs" section, and the "updated after submission" email.
+ * and the "updated after submission" email.
  */
 class WritingCheckTest extends TestCase
 {
@@ -49,36 +49,17 @@ class WritingCheckTest extends TestCase
         $this->assertNull(WritingCheck::duplicate($this->body(), $live->id), 'an article is not compared with itself');
     }
 
-    public function test_new_articles_need_the_from_our_jobs_section_but_edits_to_live_articles_do_not(): void
-    {
-        config(['admin.require_job_notes' => true]);
-        $owner = $this->user('super-admin');
-        $writer = $this->user('writer');
-        $short = '<p>Floor springs hold heavy glass doors and control how fast they close in shops and offices.</p>';
-
-        $this->actingAs($writer)->post('/admin/blogs', ['name' => 'Floor Spring Repair', 'desc' => $short, 'faqs' => [], 'intent' => 'submit'])->assertSessionHasErrors('desc');
-        $this->actingAs($writer)->post('/admin/blogs', ['name' => 'Floor Spring Repair', 'desc' => $short, 'faqs' => [], 'intent' => 'draft'])->assertSessionHasNoErrors();
-        $this->actingAs($writer)->post('/admin/blogs', ['name' => 'Floor Spring Cost', 'desc' => $short . '<h2>What we see on real jobs</h2><p>Too short.</p>', 'faqs' => [], 'intent' => 'submit'])->assertSessionHasErrors('desc');
-        $this->actingAs($writer)->post('/admin/blogs', ['name' => 'Floor Spring Price', 'desc' => $this->body(), 'faqs' => [], 'intent' => 'submit'])->assertSessionHasNoErrors();
-
-        // A live article without the section can still be corrected and saved live.
-        $live = BlogDetail::create(['name' => 'Old Article', 'slug' => 'old-article', 'desc' => $short, 'status' => BlogDetail::PUBLISHED]);
-        $this->actingAs($owner)->post("/admin/blogs/{$live->id}", ['name' => 'Old Article', 'desc' => $short . '<p>Fixed.</p>', 'faqs' => [], 'intent' => 'publish'])->assertSessionHasNoErrors();
-    }
-
-    public function test_the_check_is_stored_for_approvers_with_the_pasted_share(): void
+    public function test_the_check_is_stored_for_approvers(): void
     {
         Notification::fake();
         $owner = $this->user('super-admin');
         $writer = $this->user('writer');
         $text = $this->body('<p>In today’s fast-paced world it is worth noting how doors matter.</p>');
-        $length = mb_strlen(preg_replace('/\s+/u', '', strip_tags($text)));
 
-        $this->actingAs($writer)->post('/admin/blogs', ['name' => 'Floor Spring Price', 'desc' => $text, 'faqs' => [], 'intent' => 'submit', 'pasted_chars' => $length]);
+        $this->actingAs($writer)->post('/admin/blogs', ['name' => 'Floor Spring Price', 'desc' => $text, 'faqs' => [], 'intent' => 'submit']);
         $blog = BlogDetail::firstOrFail();
         $check = $blog->quality_check;
         $this->assertContains("in today's fast-paced world", $check['ai_phrases']);
-        $this->assertGreaterThanOrEqual(90, $check['pasted']['percent']);
 
         // The approval email lists it; the writer does not see the check in the list.
         Notification::assertSentTo($owner, ArticleWorkflow::class, fn ($n) => $n->event === 'submitted'

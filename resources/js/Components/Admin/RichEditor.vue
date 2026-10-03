@@ -93,8 +93,7 @@ const props = defineProps({
   placeholder: { type: String, default: 'Write here. Use Heading 2 for main sections, Heading 3 for sub-points.' },
   minHeight: { type: String, default: '280px' },
 });
-// paste: the number of characters pasted (App\Support\WritingCheck shows approvers how much was pasted).
-const emit = defineEmits(['update:modelValue', 'paste']);
+const emit = defineEmits(['update:modelValue']);
 
 // The page H1 comes from the title, so any H1 inside legacy content becomes H2.
 const prepare = html => (html || '').replace(/<h1(\s|>)/gi, '<h2$1').replace(/<\/h1>/gi, '</h2>');
@@ -134,13 +133,6 @@ const editor = useEditor({
   ],
   onUpdate: ({ editor }) => {
     emit('update:modelValue', editor.isEmpty ? '' : editor.getHTML());
-  },
-  editorProps: {
-    handlePaste: (view, event) => {
-      const text = event.clipboardData?.getData('text/plain') || '';
-      if (text.trim()) emit('paste', text.replace(/\s+/g, '').length);
-      return false; // the editor pastes as usual
-    },
   },
 });
 

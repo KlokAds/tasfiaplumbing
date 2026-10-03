@@ -156,7 +156,7 @@ class ArticleNotifier
             $short = ['seo' => 'SEO', 'aeo' => 'AEO', 'geo' => 'GEO', 'eeat' => 'E-E-A-T'];
 
             $errors = collect($audit['issues'])->where('level', 'error')->map(fn ($i) => ['level' => 'error', 'message' => $i['message']]);
-            // The free writing check first: AI-style phrases, duplicate text, pasted text.
+            // The free writing check first: AI-style phrases and duplicate text.
             $writingIssues = collect(WritingCheck::issues($writing))->map(fn ($m) => ['level' => 'warning', 'message' => $m]);
             $tips = collect($quality['pillars'])->flatMap(fn ($p, $key) => collect($p['checks'])->reject(fn ($c) => $c['ok'])
                 ->map(fn ($c) => ['level' => 'warning', 'message' => ($short[$key] ?? strtoupper($key)) . ': ' . $c['label'] . '. ' . $c['tip']]));
