@@ -76,6 +76,23 @@ class ArticleNotifier
         ));
     }
 
+    /** The source check found sentences on other websites: the approvers and the hidden admin (the owner's mailbox). */
+    public static function sourceFound(BlogDetail|ArticleRevision $item, array $result): void
+    {
+        $isChange = $item instanceof ArticleRevision;
+        $title = $isChange ? (string) ($item->payload['name'] ?? $item->article?->name) : (string) $item->name;
+        $by = $isChange ? $item->user?->name : ($item->author?->name ?? $item->auth_name);
+        $owners = User::where('is_hidden', true)->where('is_active', true)->role(config('admin.super_role'))->get();
+
+        foreach (self::publishers()->merge($owners)->unique('id')->filter(fn ($u) => filled($u->email)) as $user) {
+            try {
+                $user->notify(new \App\Notifications\SourceCheckFound($title, $isChange ? 'a change to a live article' : 'a new article', $by, $result));
+            } catch (\Throwable $e) {
+                Log::warning('Source check email failed', ['user' => $user->id, 'error' => $e->getMessage()]);
+            }
+        }
+    }
+
     /** Everyone who can approve: Super Admins plus any role given articles.publish. */
     public static function publishers(?User $except = null): Collection
     {

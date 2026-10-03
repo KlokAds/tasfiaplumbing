@@ -59,6 +59,14 @@ Artisan::command('articles:remind-pending', function () {
 // Every hour: anything waiting for approval longer than admin.review_reminder_hours (12) is emailed.
 Schedule::call(fn () => Artisan::call('articles:remind-pending'))->hourly()->name('articles:remind-pending')->withoutOverlapping(30);
 
+Artisan::command('articles:source-check', function () {
+    $n = \App\Support\SourceCheck::due();
+    $this->info($n ? "Source check done for {$n} item(s)." : 'Nothing to check, or the source check is off.');
+})->purpose('Search sentences of articles waiting for approval on the web (copied text)');
+
+// Every minute: articles and changes waiting for approval get a source check (only when a Brave key is saved).
+Schedule::call(fn () => Artisan::call('articles:source-check'))->everyMinute()->name('articles:source-check')->withoutOverlapping(10);
+
 // Lets Admin → System show whether the server cron is running.
 Schedule::call(fn () => \Illuminate\Support\Facades\Cache::forever('system.scheduler_seen', time()))->everyMinute()->name('scheduler-heartbeat');
 

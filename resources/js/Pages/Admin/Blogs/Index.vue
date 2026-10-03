@@ -44,6 +44,7 @@
           <div class="min-w-0">
             <p class="text-sm font-semibold truncate">{{ r.article?.name }}</p>
             <p class="text-xs a-subtle">Edited by {{ r.user || 'unknown' }} · {{ ago(r.created_at) }}</p>
+            <SourceCheckBadge :result="r.source_check" :on="sourceCheck.on" class="mt-1" />
           </div>
           <div class="flex flex-wrap gap-2 sm:shrink-0">
             <button @click="previewRevision = r" class="a-btn-ghost a-btn-sm">Preview</button>
@@ -54,6 +55,25 @@
         </li>
       </ul>
     </section>
+
+    <!-- Source check (approvers): sentences searched on the web with the Brave Search API. The key is saved
+         encrypted, shown only as its last 4 characters, and only a Super Admin can change it. -->
+    <div v-if="permissions.publish && currentTab === 'review'" class="admin-card mb-4 px-5 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div class="text-sm min-w-0">
+        <p><span class="font-bold">Source check</span>
+          <span :class="['a-badge ml-1', sourceCheck.on ? 'a-badge-success' : '']">{{ sourceCheck.on ? 'On' : 'Off' }}</span>
+          <span v-if="sourceCheck.last4" class="ml-2 a-subtle">Key ••••{{ sourceCheck.last4 }}</span></p>
+        <p class="a-muted">{{ sourceCheck.on
+          ? 'Sentences of every article and change waiting here are searched on the web. Copied text shows below and comes by email.'
+          : (sourceCheck.can_manage ? 'Source check is off. Add a Brave Search API key to find text copied from other websites.' : 'Source check is off. A Super Admin can turn it on.') }}</p>
+        <p v-if="sourceKeyError" class="a-text-danger font-semibold">{{ sourceKeyError }}</p>
+      </div>
+      <form v-if="sourceCheck.can_manage" @submit.prevent="saveSourceKey" class="flex flex-wrap gap-2 sm:shrink-0">
+        <input v-model="sourceKey" type="password" autocomplete="new-password" :placeholder="sourceCheck.on ? 'New key' : 'Brave Search API key'" aria-label="Brave Search API key" class="admin-input sm:w-60" />
+        <button class="admin-btn-primary a-btn-sm" :disabled="!sourceKey.trim() || sourceKeySaving">{{ sourceKeySaving ? 'Checking…' : 'Save key' }}</button>
+        <button v-if="sourceCheck.on" type="button" @click="removeSourceKey" class="a-btn-ghost a-btn-sm !a-text-danger">Remove</button>
+      </form>
+    </div>
 
     <!-- Default author (approvers): shown on articles that have no author of their own -->
     <div v-if="permissions.publish && authors.length && currentTab !== 'review'" class="admin-card mb-4 px-5 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -129,6 +149,7 @@
                 <span :class="['a-badge', status(b).cls]">{{ status(b).label }}</span> <ChangeBadge :created="b.created_at" :updated="b.edited_at" :pending="b.pending_changes" class="ml-1" />
                 <p v-if="b.status === 'scheduled' || (b.status === 'pending' && b.scheduled_at)" class="text-[11px] a-subtle mt-0.5">{{ b.status === 'pending' ? 'Wants ' : '' }}{{ when(b.scheduled_at) }}</p>
                 <p v-else-if="b.status === 'pending'" class="text-[11px] a-subtle mt-0.5">Sent {{ ago(b.submitted_at) }}</p>
+                <SourceCheckBadge v-if="permissions.publish && b.status === 'pending'" :result="b.source_check" :on="sourceCheck.on" class="mt-1 max-w-[22rem]" />
               </td>
               <td class="a-muted"><span class="block max-w-[11rem] truncate" :title="b.author_name">{{ b.author_name || '—' }}</span></td>
               <td>
@@ -194,6 +215,8 @@
           <p class="font-semibold">Waiting for approval</p>
           <p class="a-muted">You can still edit it. “Save draft” takes it out of the review queue.</p>
         </div>
+
+        <SourceCheckBadge v-if="permissions.publish && (editing?.revision_id || editing?.status === 'pending')" :result="editing.source_check" :on="sourceCheck.on" detailed />
 
         <div class="grid grid-cols-1 xl:grid-cols-[1fr_20rem] gap-6">
           <!-- Main column -->
@@ -434,6 +457,7 @@
 
     <Modal :show="!!previewRevision" :title="previewRevision?.payload?.name || 'Changes'" :subtitle="`Proposed by ${previewRevision?.user || 'unknown'}`" width="4xl" @close="previewRevision = null">
       <div v-if="previewRevision" class="space-y-4">
+        <SourceCheckBadge :result="previewRevision.source_check" :on="sourceCheck.on" detailed />
         <p v-if="previewRevision.payload.excerpt" class="text-sm a-muted">{{ previewRevision.payload.excerpt }}</p>
         <div class="preview-html rounded-xl border a-border p-4 max-h-[60vh] overflow-y-auto a-scroll" v-html="previewRevision.payload.desc"></div>
         <div class="flex justify-end gap-2 pt-3 border-t a-border">
@@ -448,6 +472,7 @@
 
 <script setup>
 import ChangeBadge from '@/Components/Admin/ChangeBadge.vue';
+import SourceCheckBadge from '@/Components/Admin/SourceCheckBadge.vue';
 import LibraryButton from '@/Components/Admin/LibraryButton.vue';
 import StickyBar from '@/Components/Admin/StickyBar.vue';
 import DatePicker from '@/Components/DatePicker.vue';
@@ -483,6 +508,7 @@ const props = defineProps({
   editBlog: Object,
   authors: { type: Array, default: () => [] },
   defaultAuthor: { type: Number, default: null },
+  sourceCheck: { type: Object, default: () => ({ on: false }) },
   permissions: { type: Object, default: () => ({}) },
 });
 
@@ -847,6 +873,25 @@ const defaultAuthorWarning = computed(() => {
 });
 function setDefaultAuthor(id) {
   router.post('/admin/blogs-default-author', { author_id: id || '' }, { preserveScroll: true });
+}
+
+// ---------- Source check key (Super Admin): write-only, the server tests it before saving ----------
+const sourceKey = ref('');
+const sourceKeySaving = ref(false);
+const sourceKeyError = ref('');
+function saveSourceKey() {
+  sourceKeySaving.value = true;
+  sourceKeyError.value = '';
+  router.post('/admin/blogs-source-key', { key: sourceKey.value }, {
+    preserveScroll: true,
+    onSuccess: () => { sourceKey.value = ''; },
+    onError: (e) => { sourceKeyError.value = e.key || 'The key was not saved.'; },
+    onFinish: () => { sourceKeySaving.value = false; },
+  });
+}
+async function removeSourceKey() {
+  const ok = await confirmDialog({ title: 'Remove the source check key?', message: 'Articles are no longer searched on the web until a new key is saved.', confirmText: 'Remove', tone: 'danger' });
+  if (ok) router.post('/admin/blogs-source-key', { remove: true }, { preserveScroll: true });
 }
 
 // ---------- History (Super Admin): the last three live versions, compare, restore ----------

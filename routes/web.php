@@ -199,6 +199,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', \App\Http\Middleware
         Route::get('/blogs/{blog}/versions', [BlogController::class, 'versions'])->name('blogs.versions');
         Route::post('/versions/{version}/restore', [BlogController::class, 'restoreVersion'])->name('versions.restore');
         Route::post('/blogs-default-author', [BlogController::class, 'defaultAuthor'])->name('blogs.default-author');
+        Route::post('/blogs-source-key', [BlogController::class, 'sourceKey'])->name('blogs.source-key');
     });
     Route::post('/blogs-bulk/assign-service', [BlogController::class, 'bulkAssignService'])->middleware('can:articles.edit_all')->name('blogs.bulk-service');
 
