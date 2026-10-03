@@ -218,9 +218,27 @@
               <RichEditor v-model="form.desc" min-height="420px" />
               <p v-if="form.errors.desc" class="a-error">{{ form.errors.desc }}</p>
               <!-- First-hand experience (E-E-A-T): a section with prompts the writer replaces with real job details -->
-              <div class="mt-2 flex flex-wrap items-center gap-2">
-                <button v-if="!hasJobsSection" type="button" @click="addJobsSection" class="a-btn-ghost a-btn-sm">+ Add “From our jobs” section</button>
-                <p v-if="hasJobsPrompts" class="text-xs a-text-warning">Replace every [Replace: …] note in “What we see on real jobs” with real details before you submit or publish.</p>
+              <div class="mt-3 rounded-xl border px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-3 justify-between"
+                :style="hasJobsSection && !hasJobsPrompts ? 'border-color: rgba(22,163,74,.45); background: rgba(22,163,74,.08)' : hasJobsPrompts ? 'border-color: rgba(217,119,6,.5); background: rgba(217,119,6,.08)' : 'border-color: var(--a-accent); background: var(--a-accent-soft)'">
+                <div class="flex items-start gap-3 min-w-0">
+                  <span class="mt-0.5 w-9 h-9 shrink-0 rounded-lg flex items-center justify-center text-white" :style="hasJobsSection && !hasJobsPrompts ? 'background:#16a34a' : hasJobsPrompts ? 'background:#d97706' : 'background: var(--a-accent)'" aria-hidden="true">
+                    <svg v-if="hasJobsSection && !hasJobsPrompts" class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>
+                    <svg v-else class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14.7 6.3a4 4 0 00-5.4 5.4L3 18v3h3l6.3-6.3a4 4 0 005.4-5.4l-2.4 2.4-2.6-.4-.4-2.6 2.4-2.4z" /></svg>
+                  </span>
+                  <div class="min-w-0">
+                    <p class="text-sm font-bold">
+                      <template v-if="hasJobsSection && !hasJobsPrompts">“From our jobs” section added</template>
+                      <template v-else-if="hasJobsPrompts">Fill in the “From our jobs” section</template>
+                      <template v-else>Add first-hand experience</template>
+                    </p>
+                    <p class="text-[13px] a-muted">
+                      <template v-if="hasJobsSection && !hasJobsPrompts">It shows on the page as a “From our jobs” card and counts for E-E-A-T.</template>
+                      <template v-else-if="hasJobsPrompts">Replace each [Replace: …] note with real details from a job. Until then the article can be saved as a draft but not submitted or published.</template>
+                      <template v-else>One click adds “What we see on real jobs” with three guided lines: where you see it, a recent job, your advice. It raises the E-E-A-T score.</template>
+                    </p>
+                  </div>
+                </div>
+                <button v-if="!hasJobsSection" type="button" @click="addJobsSection" class="admin-btn-primary a-btn-sm shrink-0">+ Add “From our jobs”</button>
               </div>
               <p v-if="form.primary_service_id && !hasServiceLink" class="text-xs a-text-warning mt-1">
                 No link to the service page yet. Link some text to {{ selectedServicePath }} ({{ selectedServiceName }}).
