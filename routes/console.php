@@ -59,6 +59,14 @@ Artisan::command('articles:remind-pending', function () {
 // Every hour: anything waiting for approval longer than admin.review_reminder_hours (12) is emailed.
 Schedule::call(fn () => Artisan::call('articles:remind-pending'))->hourly()->name('articles:remind-pending')->withoutOverlapping(30);
 
+Artisan::command('visitors:daily-email', function () {
+    $n = \App\Support\VisitorStats::sendDaily();
+    $this->info($n ? "Visitor summary emailed to {$n} user(s)." : 'Not sent (switched off, or nobody may see the counter).');
+})->purpose('Email today\'s visitor counter (visitors, countries, WhatsApp, call and chat clicks)');
+
+// Every day at 6 pm business time: the visitor counter summary.
+Schedule::call(fn () => Artisan::call('visitors:daily-email'))->dailyAt('18:00')->timezone(config('admin.timezone'))->name('visitors:daily-email')->withoutOverlapping(30);
+
 Artisan::command('articles:audit', function () {
     @ini_set('memory_limit', '512M');
     $r = \App\Support\ArticleAuditor::run();

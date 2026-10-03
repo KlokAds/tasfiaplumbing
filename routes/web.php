@@ -67,6 +67,8 @@ Route::get('/locations', [FrontendController::class, 'locations'])->name('locati
 Route::get('/locations/{slug}', [FrontendController::class, 'locationDetail'])->name('location.detail');
 Route::permanentRedirect('/articles', '/blogs');
 Route::get('/search', [\App\Http\Controllers\SearchController::class, 'index'])->middleware('throttle:60,1')->name('search');
+// The website's own visitor counter: page views and WhatsApp / call / chat clicks (no CSRF token: sent by sendBeacon).
+Route::post('/t', [\App\Http\Controllers\TrackController::class, 'store'])->middleware('throttle:120,1')->name('track');
 Route::get('/search/suggest', [\App\Http\Controllers\SearchController::class, 'suggest'])->middleware('throttle:120,1')->name('search.suggest');
 Route::get('/cache/w/{width}/{path}', [\App\Http\Controllers\ImageController::class, 'show'])
     ->whereNumber('width')->where('path', '.*')->middleware('throttle:300,1')->name('image.resized')
@@ -165,6 +167,8 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', \App\Http\Middleware
     Route::get('/', fn () => redirect()->route('admin.dashboard'));
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     // Bulk delete for every list (each item uses that list's own delete rules and permission).
+    Route::get('/visitors', [\App\Http\Controllers\Admin\VisitorController::class, 'index'])->middleware('can:visitors.view')->name('visitors.index');
+    Route::post('/visitors/daily-email', [\App\Http\Controllers\Admin\VisitorController::class, 'dailyEmail'])->middleware('can:visitors.view')->name('visitors.daily-email');
     Route::post('/bulk/{resource}/delete', [\App\Http\Controllers\Admin\BulkController::class, 'destroy'])->middleware('throttle:20,1')->name('bulk.delete');
     Route::get('/checklist', [DashboardController::class, 'checklist'])->middleware('can:settings.view')->name('checklist');
 

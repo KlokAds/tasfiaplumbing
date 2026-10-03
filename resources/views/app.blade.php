@@ -71,10 +71,11 @@
                         Tawk_API.customStyle = { visibility: { mobile: { position: 'br', xOffset: 12, yOffset: 84 }, desktop: { position: 'br', xOffset: 20, yOffset: 92 } } };
                         // Chat events for GTM: chat started, and the visitor's first message as a lead (same event as the old site).
                         var push = function (event) { (window.dataLayer = window.dataLayer || []).push({ event: event, page_path: location.pathname }); };
-                        Tawk_API.onChatStarted = function () { push('tawkto_chat_start'); };
+                        Tawk_API.onChatStarted = function () { push('tawkto_chat_start'); window.__siteEvent && window.__siteEvent('chat'); };
                         Tawk_API.onChatMessageVisitor = function () {
                             if (window.__tawkLead) return; window.__tawkLead = true;
                             push('tawkto_lead');
+                            window.__siteEvent && window.__siteEvent('chat_message');
                         };
                         var s = document.createElement('script'); s.async = true; s.charset = 'UTF-8';
                         s.src = 'https://embed.tawk.to/{{ $tawkId }}'; s.setAttribute('crossorigin', '*');

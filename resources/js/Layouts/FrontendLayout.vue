@@ -385,12 +385,15 @@ watch(() => page.url, () => { mobileOpen.value = false; mobileSection.value = nu
 
 // Conversion events for GTM (switched on in admin): calls, WhatsApp and email clicks.
 function trackClick(e) {
-  if (!window.__trackEvents) return;
   const a = e.target.closest?.('a[href]');
   if (!a) return;
   const href = a.getAttribute('href') || '';
   const event = href.startsWith('tel:') ? 'click_call' : /wa\.me|wa\.link|whatsapp\.com/i.test(href) ? 'click_whatsapp' : href.startsWith('mailto:') ? 'click_email' : null;
   if (!event) return;
+  // The website's own visitor counter (always on).
+  if (event === 'click_whatsapp') window.__siteEvent?.('whatsapp');
+  if (event === 'click_call') window.__siteEvent?.('call');
+  if (!window.__trackEvents) return;
   (window.dataLayer = window.dataLayer || []).push({ event, link_url: href, page_path: location.pathname });
 }
 onMounted(() => document.addEventListener('click', trackClick, true));

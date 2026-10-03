@@ -43,6 +43,7 @@ return [
         ],
         'Insights' => [
             'analytics' => ['label' => 'Search & visitor reports', 'help' => 'Search Console, Analytics and index status', 'actions' => ['view' => 'View reports', 'connect' => 'Connect Google accounts']],
+            'visitors' => ['label' => 'Visitor counter', 'help' => 'The website\'s own count: visitors, countries, WhatsApp, call and chat clicks, and the 6 pm email', 'actions' => ['view' => 'View']],
         ],
         'Leads' => [
             'enquiries' => ['label' => 'Enquiries', 'actions' => ['view' => 'View', 'edit' => 'Mark read', 'delete' => 'Delete']],

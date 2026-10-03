@@ -261,6 +261,7 @@ const groups = computed(() => {
     { label: 'Insights', items: [
       { label: 'Search & visitors', icon: 'chart', tabs: [
         { label: 'Reports', href: '/admin/insights', can: 'analytics.view', exact: true },
+        { label: 'Visitor counter', href: '/admin/visitors', can: 'visitors.view' },
         { label: 'Index status', href: '/admin/insights/indexing', can: 'analytics.view' },
         { label: 'Google connections', href: '/admin/insights/google', can: 'analytics.connect' },
       ] },

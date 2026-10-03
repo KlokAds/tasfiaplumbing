@@ -21,6 +21,9 @@ return Application::configure(basePath: dirname(__DIR__))
         // knows the visitor is on https (secure cookies, https links, correct visitor IP).
         $middleware->trustProxies(at: '*');
 
+        // The visitor counter signal (POST /t) is sent with navigator.sendBeacon, which carries no CSRF token.
+        $middleware->validateCsrfTokens(except: ['t']);
+
         // Runs first: app key, database check, automatic migrations, first-run owner setup.
         $middleware->prepend(\App\Http\Middleware\AutoSetup::class);
         $middleware->append(\App\Http\Middleware\HandleRedirects::class);

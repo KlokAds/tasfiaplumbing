@@ -21,6 +21,32 @@ createInertiaApp({
     },
 });
 
+// The website's own visitor counter (App\Support\VisitorStats): one small signal per page view and
+// per WhatsApp, call or chat click. Admin pages are not counted; counting never breaks the page.
+window.__siteEvent = (type, withReferrer = false) => {
+    try {
+        if (location.pathname.startsWith('/admin') || navigator.webdriver) return;
+        const body = JSON.stringify({
+            t: type,
+            p: location.pathname,
+            z: Intl.DateTimeFormat().resolvedOptions().timeZone,
+            r: withReferrer ? document.referrer : '',
+            w: window.innerWidth,
+        });
+        if (!(navigator.sendBeacon && navigator.sendBeacon('/t', new Blob([body], { type: 'application/json' })))) {
+            fetch('/t', { method: 'POST', body, headers: { 'Content-Type': 'application/json' }, keepalive: true }).catch(() => {});
+        }
+    } catch (e) {
+        // ignore
+    }
+};
+let firstSignal = true;
+router.on('navigate', () => {
+    const first = firstSignal;
+    firstSignal = false;
+    setTimeout(() => window.__siteEvent('visit', first), first ? 1500 : 300);
+});
+
 // GTM / GA4 page views for pages opened inside the site (the first page is counted on load).
 let firstVisit = true;
 router.on('navigate', () => {
