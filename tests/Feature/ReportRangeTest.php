@@ -22,9 +22,10 @@ class ReportRangeTest extends TestCase
 
     public function test_presets_end_at_the_latest_complete_day_and_compare_with_the_period_before(): void
     {
-        $r = ReportRange::make('28d', null, null, 2, 16);
-        $this->assertSame(['2026-09-01', '2026-09-28'], [$r->start->toDateString(), $r->end->toDateString()]);
-        $this->assertSame(['2026-08-04', '2026-08-31'], [$r->previousStart()->toDateString(), $r->previousEnd()->toDateString()]);
+        $r = ReportRange::make('30d', null, null, 2, 16);
+        $this->assertSame(['2026-08-30', '2026-09-28'], [$r->start->toDateString(), $r->end->toDateString()]);
+        $this->assertSame(['2026-07-31', '2026-08-29'], [$r->previousStart()->toDateString(), $r->previousEnd()->toDateString()]);
+        $this->assertFalse($r->recent(2));
         $this->assertFalse($r->weekly());
         $this->assertSame('', $r->cacheSuffix());
 
@@ -45,10 +46,23 @@ class ReportRangeTest extends TestCase
         $this->assertNotSame('', $swapped->cacheSuffix());
     }
 
-    public function test_bad_input_falls_back_to_28_days(): void
+    public function test_bad_input_falls_back_to_30_days(): void
     {
-        $this->assertSame('28d', ReportRange::make('forever', null, null, 2, 16)->key);
-        $this->assertSame('28d', ReportRange::make('custom', 'not-a-date', 'x', 2, 16)->key);
+        $this->assertSame('30d', ReportRange::make('forever', null, null, 2, 16)->key);
+        $this->assertSame('30d', ReportRange::make('custom', 'not-a-date', 'x', 2, 16)->key);
+    }
+
+    public function test_today_and_yesterday_are_single_days_compared_with_the_day_before(): void
+    {
+        $today = ReportRange::make('today', null, null, 2, 16);
+        $this->assertSame([now()->toDateString(), now()->toDateString()], [$today->start->toDateString(), $today->end->toDateString()]);
+        $this->assertSame(now()->subDay()->toDateString(), $today->previousStart()->toDateString());
+        $this->assertTrue($today->recent(2), 'Search Console is asked for its fresh numbers');
+
+        $yesterday = ReportRange::make('yesterday', null, null, 1, 26);
+        $this->assertSame(now()->subDay()->toDateString(), $yesterday->end->toDateString());
+        $this->assertSame(1, $yesterday->days());
+        $this->assertSame(182, ReportRange::make('6m', null, null, 2, 16)->days());
     }
 
     public function test_days_add_up_into_weeks(): void

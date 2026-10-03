@@ -18,7 +18,7 @@
       <section class="admin-card p-3 sm:p-4 flex flex-col lg:flex-row lg:items-center gap-3 lg:gap-5">
         <div class="flex flex-wrap items-center gap-1.5" role="group" aria-label="Period">
           <button v-for="p in periodButtons" :key="p.key" type="button" @click="pick(p.key)"
-            :class="['px-3.5 py-2 rounded-lg text-[13.5px] font-semibold transition', current === p.key ? 'bg-[var(--a-accent)] text-white shadow-sm' : 'a-muted hover:bg-[var(--a-panel-3)]']"
+            :class="['px-3 py-1.5 rounded-lg text-[13.5px] font-semibold transition whitespace-nowrap', current === p.key ? 'bg-[var(--a-accent)] text-white shadow-sm' : 'a-muted hover:bg-[var(--a-panel-3)]']"
             :aria-pressed="current === p.key">{{ p.label }}</button>
         </div>
         <form v-if="showCustom" @submit.prevent="applyCustom" class="flex flex-wrap items-end gap-2">
@@ -127,7 +127,7 @@ import { toast } from '@/Composables/useToast';
 const props = defineProps({
   connected: Boolean, hasGsc: Boolean, hasGa4: Boolean, gsc: Object, ga4: Object,
   gscProperty: String, ga4Property: String, site: String,
-  range: { type: Object, default: () => ({ key: '28d' }) },
+  range: { type: Object, default: () => ({ key: '30d' }) },
   gscRange: { type: Object, default: () => ({}) },
   ga4Range: { type: Object, default: () => ({}) },
   presets: { type: Array, default: () => [] },
@@ -135,7 +135,7 @@ const props = defineProps({
 const { can } = usePermissions();
 
 // ---- Period
-const current = ref(props.range.key || '28d');
+const current = ref(props.range.key || '30d');
 const periodButtons = computed(() => [...props.presets, { key: 'custom', label: 'Custom' }]);
 const showCustom = computed(() => current.value === 'custom');
 const today = new Date().toISOString().slice(0, 10);
@@ -145,7 +145,7 @@ const loading = ref(false);
 
 let announce = '';
 function go(extra = {}) {
-  const params = current.value === 'custom' ? { range: 'custom', from: from.value, to: to.value } : (current.value === '28d' ? {} : { range: current.value });
+  const params = current.value === 'custom' ? { range: 'custom', from: from.value, to: to.value } : (current.value === '30d' ? {} : { range: current.value });
   announce = extra.refresh ? 'refresh' : 'period';
   loading.value = true;
   // preserveState keeps this page (and the note below) while the new reports load.

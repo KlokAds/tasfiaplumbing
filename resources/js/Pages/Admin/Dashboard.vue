@@ -18,7 +18,7 @@
         <span class="text-xs a-accent font-semibold shrink-0">Open →</span>
       </Link>
       <Link v-if="insights" href="/admin/insights" class="admin-card p-5 hover:border-[var(--a-border-2)] transition">
-        <p class="text-sm font-bold">Last 28 days on Google</p>
+        <p class="text-sm font-bold">Last 30 days on Google</p>
         <p v-if="insights.empty" class="text-xs a-muted mt-1">Open Search & visitors once to load the numbers.</p>
         <dl v-else class="mt-2 grid grid-cols-3 gap-3">
           <div v-if="insights.clicks !== null"><dt class="text-[11px] a-subtle">Search clicks</dt><dd class="text-xl font-bold tabular-nums">{{ insights.clicks.toLocaleString() }} <span v-if="insights.clicks_before" :class="['text-[11px] font-semibold', insights.clicks >= insights.clicks_before ? 'a-text-success' : 'a-text-danger']">{{ change(insights.clicks, insights.clicks_before) }}</span></dd></div>

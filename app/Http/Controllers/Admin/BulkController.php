@@ -60,7 +60,7 @@ class BulkController extends Controller
 
         // The per-item actions each set their own message; replace them with one summary.
         session()->forget(['success', 'error']);
-        $plural = fn ($n) => $n === 1 ? $label : $label . 's';
+        $plural = fn ($n) => $n === 1 ? $label : (preg_match('/[^aeiou]y$/', $label) ? substr($label, 0, -1) . 'ies' : $label . 's');
         $message = $deleted ? "{$deleted} {$plural($deleted)} deleted." : 'Nothing was deleted.';
         if ($skipped) {
             $message .= " {$skipped} could not be deleted (in use, not allowed, or protected).";

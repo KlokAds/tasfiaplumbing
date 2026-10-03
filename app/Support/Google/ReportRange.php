@@ -6,19 +6,27 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 
 /**
- * The period a report covers (7 days, 28 days, 3 months, 12 months or custom dates)
- * and the period of the same length right before it, for the comparison.
+ * The period a report covers (today, yesterday, 3 days … 1 year, or custom dates) and the period
+ * of the same length right before it, for the comparison.
+ *
+ * "today" and "yesterday" end on that calendar day (Google's data for them is still filling in);
+ * the other presets end on the latest day the source has complete data for.
  */
 class ReportRange
 {
     public const PRESETS = [
-        '7d' => ['label' => 'Last 7 days', 'days' => 7],
-        '28d' => ['label' => 'Last 28 days', 'days' => 28],
-        '3m' => ['label' => 'Last 3 months', 'days' => 91],
-        '12m' => ['label' => 'Last 12 months', 'days' => 365],
+        'today' => ['label' => 'Today', 'days' => 1, 'ends_days_ago' => 0],
+        'yesterday' => ['label' => 'Yesterday', 'days' => 1, 'ends_days_ago' => 1],
+        '3d' => ['label' => '3 days', 'days' => 3],
+        '7d' => ['label' => '7 days', 'days' => 7],
+        '15d' => ['label' => '15 days', 'days' => 15],
+        '30d' => ['label' => '30 days', 'days' => 30],
+        '3m' => ['label' => '3 months', 'days' => 91],
+        '6m' => ['label' => '6 months', 'days' => 182],
+        '12m' => ['label' => '1 year', 'days' => 365],
     ];
 
-    public const DEFAULT = '28d';
+    public const DEFAULT = '30d';
 
     private function __construct(
         public readonly string $key,
@@ -60,10 +68,17 @@ class ReportRange
             return new self('custom', $start, $end);
         }
 
-        $days = self::PRESETS[$key]['days'] ?? self::PRESETS[self::DEFAULT]['days'];
         $key = isset(self::PRESETS[$key]) ? $key : self::DEFAULT;
+        $days = self::PRESETS[$key]['days'];
+        $end = isset(self::PRESETS[$key]['ends_days_ago']) ? now()->subDays(self::PRESETS[$key]['ends_days_ago'])->startOfDay() : $latest->copy();
 
-        return new self($key, $latest->copy()->subDays($days - 1), $latest->copy());
+        return new self($key, $end->copy()->subDays($days - 1), $end);
+    }
+
+    /** The period reaches days Google is still filling in (ask for fresh, not only final, data). */
+    public function recent(int $lagDays): bool
+    {
+        return $this->end->gt(now()->subDays($lagDays)->startOfDay());
     }
 
     public function days(): int

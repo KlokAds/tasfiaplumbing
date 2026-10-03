@@ -105,7 +105,7 @@ class DashboardController extends Controller
         return Inertia::render('Admin/Checklist', ['groups' => \App\Support\SiteChecklist::groups()]);
     }
 
-    /** Last 28 days from Google, only when a report is already cached (the dashboard never waits on Google). */
+    /** Last 30 days from Google, only when a report is already cached (the dashboard never waits on Google). */
     private function insights(): ?array
     {
         $gsc = cache('google.gsc.report');

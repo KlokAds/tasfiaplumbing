@@ -52,7 +52,7 @@ class SearchConsole
                 'endDate' => $e->toDateString(),
                 'dimensions' => $dims ?: null,
                 'rowLimit' => $limit,
-                'dataState' => 'final',
+                'dataState' => $range->recent(2) ? 'all' : 'final', // today / yesterday: the fresh numbers
             ]))['rows'] ?? [];
 
             $total = fn ($rows) => [
