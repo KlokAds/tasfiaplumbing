@@ -62,7 +62,8 @@
       <div class="text-sm min-w-0">
         <p><span class="font-bold">Source check</span>
           <span :class="['a-badge ml-1', sourceCheck.on ? 'a-badge-success' : '']">{{ sourceCheck.on ? 'On' : 'Off' }}</span>
-          <span v-if="sourceCheck.last4" class="ml-2 a-subtle">Key ••••{{ sourceCheck.last4 }}</span></p>
+          <span v-if="sourceCheck.last4" class="ml-2 a-subtle">Key ••••{{ sourceCheck.last4 }}</span>
+          <span v-if="sourceCheck.on && sourceCheck.usage" class="ml-2 a-subtle">This month: {{ sourceCheck.usage.used }} of {{ sourceCheck.usage.limit }} searches</span></p>
         <p class="a-muted">{{ sourceCheck.on
           ? 'Sentences of every article and change waiting here are searched on the web. Copied text shows below and comes by email.'
           : (sourceCheck.can_manage ? 'Source check is off. Add a Brave Search API key in System → API keys to find text copied from other websites.' : 'Source check is off. A Super Admin can turn it on.') }}</p>

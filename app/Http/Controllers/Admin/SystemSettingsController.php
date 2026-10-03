@@ -141,6 +141,15 @@ class SystemSettingsController extends Controller
         $label = ApiKeys::KEYS[$name]['label'];
         $had = (bool) ApiKeys::value($name);
 
+        // Source check: searches per month on this site (keeps the Brave plan inside its free credit).
+        if ($name === 'brave' && $request->has('limit')) {
+            $limit = (int) $request->validate(['limit' => 'required|integer|min:0|max:100000'])['limit'];
+            SiteSetting::putMany([\App\Support\SourceCheck::LIMIT_SETTING => (string) $limit]);
+            Log::warning('Source check monthly limit changed', ['by' => $user->email, 'limit' => $limit]);
+
+            return back()->with('success', "Source check limit saved: {$limit} searches a month on this site (about " . intdiv($limit, \App\Support\SourceCheck::SENTENCES) . ' articles).');
+        }
+
         if ($request->boolean('remove')) {
             if ($had) {
                 ApiKeys::save($name, null);

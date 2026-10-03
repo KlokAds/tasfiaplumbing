@@ -31,6 +31,15 @@ class SourceCheck
     /** Items checked per scheduler run (each takes about SENTENCES seconds). */
     private const PER_RUN = 3;
 
+    /**
+     * Searches per month on this site. The Brave plan includes $5 of credit a month (1,000 searches);
+     * 4 sites x 240 stays inside it, so the card is never charged. A Super Admin can change it in
+     * System → API keys. The count is kept in the database (not the cache), per calendar month.
+     */
+    public const LIMIT_SETTING = 'source_check.monthly_limit';
+
+    public const DEFAULT_LIMIT = 240;
+
     /** Pause between searches in microseconds (tests set it to 0). */
     public static int $pause = 1_100_000;
 
@@ -52,13 +61,46 @@ class SourceCheck
         return filled(self::key());
     }
 
-    /** What the Articles page shows: on/off and, for a Super Admin, the last 4 characters. */
+    public static function monthlyLimit(): int
+    {
+        return max(0, (int) SiteSetting::stored(self::LIMIT_SETTING, self::DEFAULT_LIMIT));
+    }
+
+    public static function used(): int
+    {
+        return (int) SiteSetting::where('key', self::usedKey())->value('value');
+    }
+
+    public static function left(): int
+    {
+        return max(0, self::monthlyLimit() - self::used());
+    }
+
+    /** used / limit this month, for the API keys tab and the Articles page. */
+    public static function usage(): array
+    {
+        return ['used' => self::used(), 'limit' => self::monthlyLimit(), 'per_article' => self::SENTENCES];
+    }
+
+    private static function usedKey(): string
+    {
+        return 'source_check.used.' . now()->timezone(config('admin.timezone'))->format('Y-m');
+    }
+
+    private static function countSearch(): void
+    {
+        $row = SiteSetting::firstOrCreate(['key' => self::usedKey()], ['value' => '0']);
+        $row->update(['value' => (string) ((int) $row->value + 1)]);
+    }
+
+    /** What the Articles page shows: on/off, this month's searches and, for a Super Admin, the last 4 characters. */
     public static function status(bool $manager): array
     {
         $key = self::key();
 
         return [
             'on' => filled($key),
+            'usage' => self::usage(),
             'last4' => $manager && $key ? substr($key, -4) : null,
             'can_manage' => $manager,
         ];
@@ -72,6 +114,9 @@ class SourceCheck
     /** One search to see that the key works. Returns null when it does, or the problem. */
     public static function testKey(string $key): ?string
     {
+        if (self::left() < 1) {
+            return null; // no searches left this month: the key is saved untested
+        }
         try {
             $res = self::request($key, '"door closer"', 1);
         } catch (\Throwable $e) {
@@ -146,6 +191,10 @@ class SourceCheck
             if ($i > 0 && self::$pause > 0) {
                 usleep(self::$pause); // 1 search per second
             }
+            if (self::left() < 1) {
+                $error = 'The monthly limit of ' . self::monthlyLimit() . ' searches is used up. Checks start again next month.';
+                break;
+            }
             try {
                 $res = self::request($key, '"' . str_replace('"', '', $sentence) . '"', 5);
             } catch (\Throwable) {
@@ -154,7 +203,7 @@ class SourceCheck
             }
             if (!$res->successful()) {
                 $error = match ($res->status()) {
-                    401, 403, 422 => 'The Brave Search key no longer works. A Super Admin can save a new one on the Articles page.',
+                    401, 403, 422 => 'The Brave Search key no longer works. A Super Admin can save a new one in System → API keys.',
                     429 => 'The Brave Search limit was reached. It is checked again later.',
                     default => 'Brave Search answered with an error (' . $res->status() . '). It is checked again later.',
                 };
@@ -185,8 +234,8 @@ class SourceCheck
     public static function due(): int
     {
         $key = self::key();
-        if (!$key) {
-            return 0;
+        if (!$key || self::left() < self::SENTENCES) {
+            return 0; // off, or this month's searches are used up (items stay "waiting")
         }
 
         $articles = BlogDetail::where('status', BlogDetail::PENDING)->orderBy('updated_at')->get();
@@ -229,6 +278,8 @@ class SourceCheck
 
     private static function request(string $key, string $query, int $count)
     {
+        self::countSearch();
+
         return Http::withHeaders(['Accept' => 'application/json', 'X-Subscription-Token' => $key])
             ->timeout(15)
             ->get(self::ENDPOINT, ['q' => $query, 'count' => $count, 'safesearch' => 'off', 'spellcheck' => 0]);

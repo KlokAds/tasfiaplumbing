@@ -95,4 +95,26 @@ class SourceCheckTest extends TestCase
         $this->assertSame(1, SourceCheck::due());
         $this->assertSame(0, $revision->fresh()->source_check['found']);
     }
+
+    public function test_the_monthly_limit_stops_searching_so_the_free_credit_is_never_passed(): void
+    {
+        Http::fake(['api.search.brave.com/*' => Http::response(['web' => ['results' => []]])]);
+        $writer = $this->user('writer');
+        SourceCheck::saveKey(self::KEY);
+        \App\Models\SiteSetting::putMany([SourceCheck::LIMIT_SETTING => '8']);
+        $blog = BlogDetail::create(['name' => 'Live', 'slug' => 'live', 'desc' => '<p>Old</p>', 'status' => BlogDetail::PUBLISHED]);
+        $first = ArticleRevision::create(['article_id' => $blog->id, 'user_id' => $writer->id, 'status' => 'pending', 'payload' => ['name' => 'Live', 'desc' => $this->text(), 'faqs' => []]]);
+
+        $this->assertSame(1, SourceCheck::due());
+        $this->assertSame(2, SourceCheck::used());
+        $this->assertSame(6, SourceCheck::left());
+
+        // 6 left = one more article; after that nothing runs and nothing is sent to Brave.
+        \App\Models\SiteSetting::putMany([SourceCheck::LIMIT_SETTING => '5']);
+        $other = BlogDetail::create(['name' => 'Second', 'slug' => 'second', 'desc' => $this->text() . '<p>One more long sentence that makes this text different from the first one here.</p>', 'status' => BlogDetail::PENDING]);
+        Http::fake(['*' => Http::response([], 500)]);
+        $this->assertSame(0, SourceCheck::due());
+        $this->assertNull($other->fresh()->source_check, 'it waits for next month');
+        $this->assertSame(0, $first->fresh()->source_check['found']);
+    }
 }

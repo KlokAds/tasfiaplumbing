@@ -230,6 +230,15 @@
               <span v-else class="a-badge ml-1">Not set</span></p>
             <p class="a-muted mt-0.5">{{ k.used_for }} Used in <a :href="k.page.url" class="underline">{{ k.page.label }}</a>.</p>
             <p class="a-subtle mt-0.5">Get it: {{ k.get }}</p>
+            <template v-if="k.usage">
+              <form @submit.prevent="saveLimit(k)" class="mt-2 flex flex-wrap items-center gap-2">
+                <span>This month: <b>{{ k.usage.used }}</b> of {{ k.usage.limit }} searches (about {{ Math.floor(Math.max(0, k.usage.limit - k.usage.used) / k.usage.per_article) }} articles left).</span>
+                <label class="a-muted" :for="`limit-${k.name}`">Monthly limit</label>
+                <input :id="`limit-${k.name}`" v-model.number="limitInput" type="number" min="0" step="1" class="admin-input w-28" />
+                <button class="admin-btn-secondary a-btn-sm" :disabled="limitInput === k.usage.limit || limitInput === ''">Save limit</button>
+              </form>
+              <p class="a-subtle mt-1">The Brave plan includes $5 of credit a month = 1,000 searches, for all sites using the same key together. Keep the limits of all sites under 1,000 (240 each for 4 sites) and the card is never charged. Each article uses {{ k.usage.per_article }} searches.</p>
+            </template>
             <p v-if="keyErrors[k.name]" class="a-error">{{ keyErrors[k.name] }}</p>
           </div>
           <form @submit.prevent="saveKey(k)" class="flex flex-wrap gap-2">
@@ -302,6 +311,10 @@ const tabs = computed(() => [
 const keyInputs = reactive({});
 const keyErrors = reactive({});
 const keySaving = ref('');
+const limitInput = ref(props.apiKeys?.find((k) => k.usage)?.usage.limit ?? 240);
+function saveLimit(k) {
+  router.post(`/admin/system/settings/keys/${k.name}`, { limit: limitInput.value }, { preserveScroll: true });
+}
 function saveKey(k) {
   keySaving.value = k.name;
   keyErrors[k.name] = '';

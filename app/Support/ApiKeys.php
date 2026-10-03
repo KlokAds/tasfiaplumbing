@@ -85,6 +85,7 @@ class ApiKeys
                 'last4' => $value ? substr($value, -4) : null,
                 'from_server' => (bool) $fromServer,
                 'updated_at' => $value ? SiteSetting::where('key', $k['setting'])->value('updated_at')?->toIso8601String() : null,
+                'usage' => $name === 'brave' ? SourceCheck::usage() : null,
             ];
         })->values()->all();
     }
