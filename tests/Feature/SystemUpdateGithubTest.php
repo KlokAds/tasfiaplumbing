@@ -19,8 +19,10 @@ class SystemUpdateGithubTest extends TestCase
         Process::fake(['*' => Process::result(exitCode: 1)]); // not a repo yet
         $owner = User::factory()->create(['password' => bcrypt('pw-123456')])->assignRole('super-admin');
 
-        $this->actingAs($owner)->post('/admin/system/update/github', [
-            'repo_url' => 'https://github.com/KlokAds/tasfiaplumbing', 'branch' => 'main', 'token' => 'github_pat_secret',
+        // The token is saved in System → API keys, the repository on the Update page.
+        $this->actingAs($owner)->post('/admin/system/settings/keys/github', ['value' => 'github_pat_secret'])->assertSessionHasNoErrors();
+        $this->post('/admin/system/update/github', [
+            'repo_url' => 'https://github.com/KlokAds/tasfiaplumbing', 'branch' => 'main',
         ])->assertSessionHas('success');
 
         $this->assertSame('https://github.com/KlokAds/tasfiaplumbing.git', SiteSetting::get('deploy.repo_url'));

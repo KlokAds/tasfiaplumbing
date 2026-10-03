@@ -146,7 +146,11 @@
             </div>
             <div>
               <label class="admin-label">Password / app password</label>
-              <input v-model="mailForm.password" type="password" class="admin-input" autocomplete="new-password" :placeholder="mail.has_password ? '•••••••• saved (leave blank to keep)' : 'Password'" />
+              <p class="admin-input flex items-center justify-between gap-2">
+                <span>{{ mail.has_password ? 'Saved' : 'Not set' }}</span>
+                <button v-if="apiKeys" type="button" class="underline text-sm" @click="setTab('keys')">{{ mail.has_password ? 'Change' : 'Add' }} in API keys</button>
+                <span v-else class="a-subtle text-sm">A Super Admin sets it in API keys</span>
+              </p>
               <p class="a-help">Gmail and Outlook need an <b>app password</b>, not your normal password. Stored encrypted.</p>
             </div>
           </div>
@@ -214,6 +218,29 @@
       </div>
     </form>
 
+    <!-- API keys: every key, token and password in one place (Super Admin only, App\Support\ApiKeys) -->
+    <section v-if="apiKeys" v-show="tab === 'keys'" class="admin-card overflow-hidden">
+      <header class="a-card-head"><div><h3 class="a-card-title">API keys</h3><p class="a-card-sub">Every key, token and password the website uses, in one place. Saved encrypted and never shown again (only the last 4 characters). Only a Super Admin can change them, and every change is emailed to the main admin mailbox.</p></div></header>
+      <ul class="divide-y a-divide">
+        <li v-for="k in apiKeys" :key="k.name" class="px-5 py-4 grid lg:grid-cols-[1fr_auto] gap-3 lg:items-center">
+          <div class="min-w-0 text-sm">
+            <p class="font-semibold">{{ k.label }}
+              <span v-if="k.saved" class="a-badge a-badge-success ml-1">Saved ••••{{ k.last4 }}</span>
+              <span v-else-if="k.from_server" class="a-badge ml-1">From the server file</span>
+              <span v-else class="a-badge ml-1">Not set</span></p>
+            <p class="a-muted mt-0.5">{{ k.used_for }} Used in <a :href="k.page.url" class="underline">{{ k.page.label }}</a>.</p>
+            <p class="a-subtle mt-0.5">Get it: {{ k.get }}</p>
+            <p v-if="keyErrors[k.name]" class="a-error">{{ keyErrors[k.name] }}</p>
+          </div>
+          <form @submit.prevent="saveKey(k)" class="flex flex-wrap gap-2">
+            <input v-model="keyInputs[k.name]" type="password" autocomplete="new-password" :aria-label="k.label" :placeholder="k.saved ? 'Paste a new one to replace' : 'Paste here'" class="admin-input a-mono sm:w-64" />
+            <button class="admin-btn-primary a-btn-sm" :disabled="!(keyInputs[k.name] || '').trim() || keySaving === k.name">{{ keySaving === k.name ? 'Checking…' : 'Save' }}</button>
+            <button v-if="k.saved" type="button" @click="removeKey(k)" class="a-btn-ghost a-btn-sm !a-text-danger">Remove</button>
+          </form>
+        </li>
+      </ul>
+    </section>
+
     <!-- Server health -->
     <section v-show="tab === 'server'" class="admin-card overflow-hidden">
       <header class="a-card-head"><div><h3 class="a-card-title">Server check</h3><p class="a-card-sub">What the live server needs for everything to work. Red items are for your developer or hosting.</p></div></header>
@@ -232,14 +259,14 @@
 
 <script setup>
 import SelectBox from '@/Components/SelectBox.vue';
-import { computed, onBeforeUnmount, ref } from 'vue';
+import { computed, onBeforeUnmount, reactive, ref } from 'vue';
 import { router, useForm, usePage } from '@inertiajs/vue3';
 import AdminLayout from '@/Layouts/AdminLayout.vue';
 import PageHeader from '@/Components/Admin/PageHeader.vue';
 import CountryPicker from '@/Components/Admin/CountryPicker.vue';
 import { confirmDialog } from '@/Composables/useConfirm';
 
-const props = defineProps({ status: Object, mail: Object, geo: Object, server: Object });
+const props = defineProps({ status: Object, mail: Object, geo: Object, server: Object, apiKeys: { type: Array, default: null } });
 
 const tab = ref(new URLSearchParams(location.search).get('tab') || 'status');
 function setTab(key) {
@@ -267,8 +294,28 @@ const tabs = computed(() => [
   { key: 'status', label: 'Site status', badge: props.status.maintenance ? 'Offline' : (debugLeft.value ? 'Debug' : ''), badgeCls: 'a-badge-warning' },
   { key: 'mail', label: 'Email', badge: props.mail.enabled && props.mail.host ? '' : 'Set up', badgeCls: 'a-badge-warning' },
   { key: 'geo', label: 'Country access' },
+  ...(props.apiKeys ? [{ key: 'keys', label: 'API keys' }] : []),
   { key: 'server', label: 'Server check', badge: serverChecks.value.filter((c) => !c.ok && !c.warn).length || '', badgeCls: 'a-badge-danger' },
 ]);
+
+// ---- API keys (Super Admin): write-only, each saved and checked on its own
+const keyInputs = reactive({});
+const keyErrors = reactive({});
+const keySaving = ref('');
+function saveKey(k) {
+  keySaving.value = k.name;
+  keyErrors[k.name] = '';
+  router.post(`/admin/system/settings/keys/${k.name}`, { value: keyInputs[k.name] }, {
+    preserveScroll: true,
+    onSuccess: () => { keyInputs[k.name] = ''; },
+    onError: (e) => { keyErrors[k.name] = e.value || 'Not saved.'; },
+    onFinish: () => { keySaving.value = ''; },
+  });
+}
+async function removeKey(k) {
+  const ok = await confirmDialog({ title: `Remove the ${k.label}?`, message: `${k.used_for} It stops working until a new one is saved.`, confirmText: 'Remove', tone: 'danger' });
+  if (ok) router.post(`/admin/system/settings/keys/${k.name}`, { remove: true }, { preserveScroll: true });
+}
 
 // ---- Site status
 const statusForm = useForm({
@@ -312,7 +359,6 @@ const mailForm = useForm({
   port: props.mail.port || 587,
   encryption: props.mail.encryption || 'tls',
   username: props.mail.username || '',
-  password: '',
   from_address: props.mail.from_address || '',
   from_name: props.mail.from_name || '',
 });
@@ -326,7 +372,7 @@ function usePreset(p) {
   Object.assign(mailForm, { host: p.host, port: p.port, encryption: p.encryption });
 }
 function saveMail() {
-  mailForm.post('/admin/system/settings', { preserveScroll: true, onSuccess: () => { mailForm.password = ''; } });
+  mailForm.post('/admin/system/settings', { preserveScroll: true });
 }
 const page = usePage();
 const testTo = ref(page.props.auth?.user?.email || props.mail.from_address || '');

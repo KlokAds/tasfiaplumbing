@@ -83,9 +83,8 @@
             <div>
               <label class="admin-label flex items-center justify-between">
                 <span>Personal access token <span class="font-normal a-subtle">(only for a private repository)</span></span>
-                <button v-if="github.has_token" type="button" class="text-[11px] a-text-danger font-semibold" @click="clearToken">Remove saved token</button>
               </label>
-              <input v-model="gh.token" type="password" autocomplete="new-password" class="admin-input a-mono text-xs" :placeholder="github.has_token ? '•••••••• saved (leave blank to keep)' : 'github_pat_…'" />
+              <p class="admin-input flex items-center justify-between gap-2"><span>{{ github.has_token ? 'Saved' : 'Not set' }}</span><a href="/admin/system/settings?tab=keys" class="underline text-sm">{{ github.has_token ? 'Change' : 'Add' }} in API keys</a></p>
               <p class="a-help">GitHub → Settings → Developer settings → <b>Fine-grained tokens</b> → Generate: choose only this repository, permission <b>Contents: Read-only</b>. Read-only means the website can download code but can never change GitHub.</p>
             </div>
             <div class="md:col-span-2 flex justify-end"><button type="submit" class="admin-btn-secondary" :disabled="gh.processing">Save</button></div>
@@ -177,10 +176,8 @@ const gh = useForm({
   repo_url: (props.github.repo_url || '').replace(/^https:\/\/github\.com\//, '').replace(/\.git$/, ''),
   branch: props.github.branch || 'main',
   username: props.github.username || '',
-  token: '',
 });
-const saveGithub = () => gh.post('/admin/system/update/github', { preserveScroll: true, onSuccess: () => { gh.token = ''; } });
-const clearToken = () => router.post('/admin/system/update/github', { repo_url: gh.repo_url, branch: gh.branch, clear_token: 1 }, { preserveScroll: true });
+const saveGithub = () => gh.post('/admin/system/update/github', { preserveScroll: true });
 const connecting = ref(false);
 const mode = ref('update');
 function startConnect() {

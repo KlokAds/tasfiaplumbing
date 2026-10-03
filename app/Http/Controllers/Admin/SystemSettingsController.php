@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\SiteSetting;
+use App\Support\ApiKeys;
 use App\Support\SystemSettings;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -31,6 +32,8 @@ class SystemSettingsController extends Controller
                 'debug_minutes' => SystemSettings::DEBUG_MINUTES,
             ],
             'mail' => SystemSettings::mail() + ['env_mailer' => env('MAIL_MAILER', 'log')],
+            // Only a Super Admin sees the API keys tab (never the keys, only saved / last 4).
+            'apiKeys' => $request->user()->hasRole(config('admin.super_role')) ? ApiKeys::list() : null,
             'geo' => [
                 'mode' => $geo['mode'],
                 'countries' => implode(', ', $geo['countries']),
@@ -88,7 +91,6 @@ class SystemSettingsController extends Controller
                 'port' => 'nullable|required_if:enabled,true|integer|between:1,65535',
                 'encryption' => 'required|in:tls,ssl,none',
                 'username' => 'nullable|string|max:190',
-                'password' => 'nullable|string|max:500',
                 'from_address' => 'nullable|required_if:enabled,true|email|max:190',
                 'from_name' => 'nullable|string|max:120',
             ]);
@@ -101,10 +103,7 @@ class SystemSettingsController extends Controller
                 'mail.from_address' => trim((string) ($data['from_address'] ?? '')),
                 'mail.from_name' => trim((string) ($data['from_name'] ?? '')),
             ];
-            // Blank password = keep the saved one. The password is stored encrypted.
-            if (filled($data['password'] ?? null)) {
-                $values['mail.password'] = Crypt::encryptString($data['password']);
-            }
+            // The password is saved in System → API keys.
             SiteSetting::putMany($values);
 
             return back()->with('success', 'Email settings saved. Send a test email to check them.');
@@ -131,6 +130,34 @@ class SystemSettingsController extends Controller
         ]);
 
         return back()->with('success', $data['mode'] === 'off' ? 'Country access: everyone can open the site.' : 'Country access saved.');
+    }
+
+    /** System → API keys: save or remove one key. Super Admin only; tested first where possible, logged and emailed. */
+    public function saveKey(Request $request, string $name)
+    {
+        $user = $request->user();
+        abort_unless($user->hasRole(config('admin.super_role')), 403);
+        abort_unless(isset(ApiKeys::KEYS[$name]), 404);
+        $label = ApiKeys::KEYS[$name]['label'];
+        $had = (bool) ApiKeys::value($name);
+
+        if ($request->boolean('remove')) {
+            if ($had) {
+                ApiKeys::save($name, null);
+                ApiKeys::alert($name, 'removed', $user, $request->ip(), null);
+            }
+
+            return back()->with('success', "{$label} removed.");
+        }
+
+        $value = trim((string) $request->validate(['value' => 'required|string|max:500'])['value']);
+        if ($problem = ApiKeys::test($name, $value)) {
+            throw \Illuminate\Validation\ValidationException::withMessages(['value' => $problem]);
+        }
+        ApiKeys::save($name, $value);
+        ApiKeys::alert($name, $had ? 'changed' : 'saved', $user, $request->ip(), substr($value, -4));
+
+        return back()->with('success', "{$label} saved.");
     }
 
     /** Shows the owner exactly what visitors get while offline / blocked. */

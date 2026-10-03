@@ -169,16 +169,13 @@ class InsightsController extends Controller
     {
         $data = $request->validate([
             'client_id' => ['required', 'string', 'max:200', 'regex:/\.apps\.googleusercontent\.com$/'],
-            'client_secret' => 'nullable|string|max:200',
         ], ['client_id.regex' => 'The Client ID ends with .apps.googleusercontent.com']);
 
-        $values = ['google.client_id' => trim($data['client_id'])];
-        if (filled($data['client_secret'] ?? null)) {
-            $values['google.client_secret'] = Crypt::encryptString(trim($data['client_secret']));
-        }
-        SiteSetting::putMany($values);
+        SiteSetting::putMany(['google.client_id' => trim($data['client_id'])]);
 
-        return back()->with('success', 'Saved. Now click "Connect Google".');
+        return back()->with('success', GoogleApi::clientSecret()
+            ? 'Saved. Now click "Connect Google".'
+            : 'Client ID saved. Add the Client secret in System → Settings → API keys, then click "Connect Google".');
     }
 
     public function connect(Request $request)

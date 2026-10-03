@@ -56,9 +56,11 @@ class SystemSettingsTest extends TestCase
 
     public function test_smtp_settings_are_encrypted_and_applied(): void
     {
-        $this->actingAs($this->owner())->post('/admin/system/settings', [
+        // The password is saved in System → API keys, the rest in the Email tab.
+        $this->actingAs($this->owner())->post('/admin/system/settings/keys/smtp', ['value' => 'secret-pass'])->assertSessionHasNoErrors();
+        $this->post('/admin/system/settings', [
             'section' => 'mail', 'enabled' => true, 'host' => 'smtp.example.test', 'port' => 587, 'encryption' => 'tls',
-            'username' => 'me@example.test', 'password' => 'secret-pass', 'from_address' => 'hello@example.test', 'from_name' => 'Tasfia',
+            'username' => 'me@example.test', 'from_address' => 'hello@example.test', 'from_name' => 'Tasfia',
         ])->assertSessionHas('success');
 
         $this->assertNotSame('secret-pass', SiteSetting::get('mail.password'));
@@ -70,7 +72,7 @@ class SystemSettingsTest extends TestCase
         $this->assertSame('secret-pass', config('mail.mailers.smtp.password'));
         $this->assertSame('hello@example.test', config('mail.from.address'));
 
-        // Blank password keeps the saved one
+        // Saving the email settings keeps the saved password
         $this->post('/admin/system/settings', ['section' => 'mail', 'enabled' => true, 'host' => 'smtp.example.test', 'port' => 587, 'encryption' => 'tls', 'from_address' => 'hello@example.test', 'password' => '']);
         $this->assertSame('secret-pass', Crypt::decryptString(SiteSetting::get('mail.password')));
     }

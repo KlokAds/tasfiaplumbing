@@ -29,7 +29,7 @@
             </div>
             <div>
               <label class="admin-label">Client secret</label>
-              <input v-model="clientForm.client_secret" type="password" autocomplete="new-password" class="admin-input a-mono text-xs" :placeholder="client.has_secret ? '•••••••• saved (leave blank to keep)' : 'GOCSPX-…'" />
+              <p class="admin-input flex items-center justify-between gap-2"><span>{{ client.has_secret ? 'Saved' : 'Not set' }}</span><a href="/admin/system/settings?tab=keys" class="underline text-sm">{{ client.has_secret ? 'Change' : 'Add' }} in API keys</a></p>
             </div>
             <div class="md:col-span-2 flex justify-end"><button type="submit" class="admin-btn-secondary" :disabled="clientForm.processing">Save</button></div>
           </div>
@@ -156,7 +156,7 @@
             <span class="a-step">4</span>
             <div>
               <p class="font-semibold">Paste and connect</p>
-              <p class="a-muted">Copy the Client ID and secret into the form, save, then click <b>Connect Google</b>. Google shows "app not verified" because it is your own app: click <b>Advanced → Go to …</b> and allow everything.</p>
+              <p class="a-muted">Copy the Client ID into the form and save, put the Client secret in <b>System → Settings → API keys</b>, then click <b>Connect Google</b>. Google shows "app not verified" because it is your own app: click <b>Advanced → Go to …</b> and allow everything.</p>
             </div>
           </li>
         </ol>
@@ -187,8 +187,8 @@ const apis = [
   { id: 'mybusiness.googleapis.com', name: 'Google My Business API (reviews)' },
 ];
 
-const clientForm = useForm({ client_id: props.client?.id || '', client_secret: '' });
-const saveClient = () => clientForm.post('/admin/insights/google/client', { preserveScroll: true, onSuccess: () => { clientForm.client_secret = ''; } });
+const clientForm = useForm({ client_id: props.client?.id || '' });
+const saveClient = () => clientForm.post('/admin/insights/google/client', { preserveScroll: true });
 
 const refreshing = ref(false);
 const refreshNote = ref('');

@@ -68,7 +68,6 @@ class SystemUpdateController extends Controller
             'repo_url' => ['required', 'string', 'max:300', 'regex:#^https://(github\.com|gitlab\.com|bitbucket\.org)/[\w.-]+/[\w.-]+?(\.git)?/?$#'],
             'username' => 'nullable|string|max:100',
             'branch' => ['required', 'string', 'max:100', 'regex:#^[\w./-]+$#'],
-            'token' => 'nullable|string|max:300',
         ], ['repo_url.regex' => 'Use User/Repo (e.g. KlokAds/tasfiaplumbing) or the full https address.']);
 
         $values = [
@@ -76,11 +75,7 @@ class SystemUpdateController extends Controller
             'deploy.branch' => $data['branch'],
             'deploy.username' => trim((string) ($data['username'] ?? '')),
         ];
-        if ($request->boolean('clear_token')) {
-            $values['deploy.token'] = '';
-        } elseif (filled($data['token'] ?? null)) {
-            $values['deploy.token'] = Crypt::encryptString(trim($data['token']));
-        }
+        // The access token is saved in System → Settings → API keys.
         SiteSetting::putMany($values);
 
         // Keep the local "origin" in step with the saved address (the token is never written to .git/config).

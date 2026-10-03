@@ -199,7 +199,6 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', \App\Http\Middleware
         Route::get('/blogs/{blog}/versions', [BlogController::class, 'versions'])->name('blogs.versions');
         Route::post('/versions/{version}/restore', [BlogController::class, 'restoreVersion'])->name('versions.restore');
         Route::post('/blogs-default-author', [BlogController::class, 'defaultAuthor'])->name('blogs.default-author');
-        Route::post('/blogs-source-key', [BlogController::class, 'sourceKey'])->name('blogs.source-key');
     });
     Route::post('/blogs-bulk/assign-service', [BlogController::class, 'bulkAssignService'])->middleware('can:articles.edit_all')->name('blogs.bulk-service');
 
@@ -356,6 +355,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', \App\Http\Middleware
             Route::post('/settings', [\App\Http\Controllers\Admin\SystemSettingsController::class, 'update'])->name('settings.update');
             Route::get('/settings/preview', [\App\Http\Controllers\Admin\SystemSettingsController::class, 'preview'])->name('settings.preview');
             Route::post('/settings/debug', [\App\Http\Controllers\Admin\SystemSettingsController::class, 'debug'])->name('settings.debug');
+            Route::post('/settings/keys/{name}', [\App\Http\Controllers\Admin\SystemSettingsController::class, 'saveKey'])->middleware('throttle:20,1')->name('settings.keys');
             Route::post('/settings/test-mail', [\App\Http\Controllers\Admin\SystemSettingsController::class, 'testMail'])->middleware('throttle:5,1')->name('settings.test-mail');
         });
         Route::post('/cache/clear', [CacheController::class, 'clear'])->middleware(['can:system.cache', 'throttle:10,1'])->name('cache.clear');

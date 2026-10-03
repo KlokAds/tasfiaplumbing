@@ -48,11 +48,12 @@ class AdminFeaturesTest extends TestCase
         ])]);
         $this->actingAs($this->user('super-admin'));
 
-        $this->post('/admin/reviews/google', ['enabled' => true, 'place_id' => 'ChIJabc123', 'api_key' => 'AIzaTESTKEY123', 'min_rating' => '4', 'show_own' => true])
+        $this->post('/admin/system/settings/keys/google_places', ['value' => 'AIzaTESTKEY1234567890'])->assertSessionHasNoErrors();
+        $this->post('/admin/reviews/google', ['enabled' => true, 'place_id' => 'ChIJabc123', 'min_rating' => '4', 'show_own' => true])
             ->assertRedirect()->assertSessionHas('success');
 
-        $this->assertNotSame('AIzaTESTKEY123', SiteSetting::where('key', 'reviews.google_api_key')->value('value'));
-        $this->assertSame('AIzaTESTKEY123', GoogleReviews::apiKey());
+        $this->assertNotSame('AIzaTESTKEY1234567890', SiteSetting::where('key', 'reviews.google_api_key')->value('value'));
+        $this->assertSame('AIzaTESTKEY1234567890', GoogleReviews::apiKey());
         $result = GoogleReviews::get();
         $this->assertSame(4.8, $result['rating']);
         $this->assertCount(1, $result['reviews']);

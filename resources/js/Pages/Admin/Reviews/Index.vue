@@ -62,9 +62,8 @@
 
           <div>
             <label class="admin-label">Places API key</label>
-            <input v-model="gForm.api_key" type="password" autocomplete="off" class="admin-input a-mono text-xs" :placeholder="google.has_key ? 'Saved (hidden). Paste a new key to replace it.' : 'AIza…'" :disabled="!can('reviews.google')" />
-            <p v-if="gForm.errors.api_key" class="a-error">{{ gForm.errors.api_key }}</p>
-            <p class="a-help">Google Cloud Console → enable “Places API (New)” → create an API key and restrict it to that API. Stored encrypted; never shown on the website.</p>
+            <p class="admin-input flex items-center justify-between gap-2"><span>{{ google.has_key ? 'Saved' : 'Not set' }}</span><a href="/admin/system/settings?tab=keys" class="underline text-sm">{{ google.has_key ? 'Change' : 'Add' }} in API keys</a></p>
+            <p class="a-help">Google Cloud Console → enable “Places API (New)” → create an API key and restrict it to that API. Kept with all other keys in System → Settings → API keys (Super Admin only).</p>
           </div>
 
           <div class="grid grid-cols-2 gap-3">
@@ -246,12 +245,11 @@ const status = computed(() => {
 const gForm = useForm({
   enabled: props.google.enabled,
   place_id: props.google.place_id || '',
-  api_key: '',
   min_rating: props.google.min_rating || '4',
   show_own: props.google.show_own,
 });
 function saveGoogle() {
-  gForm.post('/admin/reviews/google', { preserveScroll: true, onSuccess: () => { gForm.api_key = ''; } });
+  gForm.post('/admin/reviews/google', { preserveScroll: true });
 }
 function refresh() {
   router.post('/admin/reviews/google/refresh', {}, { preserveScroll: true });

@@ -4,10 +4,8 @@ namespace Tests\Feature;
 
 use App\Models\ArticleRevision;
 use App\Models\BlogDetail;
-use App\Models\SiteSetting;
 use App\Models\User;
 use App\Notifications\SourceCheckFound;
-use App\Notifications\SourceKeyChanged;
 use App\Support\SourceCheck;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
@@ -16,8 +14,7 @@ use Tests\TestCase;
 
 /**
  * Source check: sentences of articles waiting for approval are searched on the web (Brave Search).
- * The key is saved encrypted from the Articles page by a Super Admin, and every change is emailed
- * to the hidden admin.
+ * The key is saved in System → API keys (tests/Feature/ApiKeysTest.php).
  */
 class SourceCheckTest extends TestCase
 {
@@ -50,42 +47,6 @@ class SourceCheckTest extends TestCase
             'Most floor spring jobs in Singapore shops take about two hours when the old box comes out cleanly.',
             'We always check the top pivot first because a worn pivot makes a new floor spring fail early.',
         ], SourceCheck::sentences($this->text()));
-    }
-
-    public function test_only_a_super_admin_saves_the_key_encrypted_and_the_hidden_admin_is_emailed(): void
-    {
-        Notification::fake();
-        Http::fake(['api.search.brave.com/*' => Http::response(['web' => ['results' => []]])]);
-        $owner = $this->user('super-admin');
-        $hidden = $this->user('super-admin', ['is_hidden' => true]);
-        $editor = $this->user('editor');
-
-        $this->actingAs($editor)->post('/admin/blogs-source-key', ['key' => self::KEY])->assertForbidden();
-
-        $this->actingAs($owner)->post('/admin/blogs-source-key', ['key' => self::KEY])->assertSessionHasNoErrors();
-        $stored = SiteSetting::where('key', SourceCheck::KEY_SETTING)->value('value');
-        $this->assertNotSame(self::KEY, $stored);
-        $this->assertStringNotContainsString(self::KEY, (string) $stored);
-        $this->assertSame(self::KEY, SourceCheck::key());
-        Notification::assertSentTo($hidden, SourceKeyChanged::class, fn ($n) => $n->action === 'saved' && $n->last4 === '7890');
-
-        // The page shows only the last 4 characters, and only to a Super Admin.
-        $this->actingAs($owner)->get('/admin/blogs?tab=review')
-            ->assertInertia(fn ($page) => $page->where('sourceCheck.on', true)->where('sourceCheck.last4', '7890'));
-        $this->actingAs($owner)->get('/admin/blogs?tab=review')->assertDontSee(self::KEY);
-
-        $this->actingAs($owner)->post('/admin/blogs-source-key', ['remove' => true]);
-        $this->assertFalse(SourceCheck::enabled());
-        Notification::assertSentTo($hidden, SourceKeyChanged::class, fn ($n) => $n->action === 'removed');
-    }
-
-    public function test_a_key_brave_does_not_accept_is_not_saved(): void
-    {
-        Http::fake(['api.search.brave.com/*' => Http::response(['error' => 'invalid'], 401)]);
-        $owner = $this->user('super-admin');
-
-        $this->actingAs($owner)->post('/admin/blogs-source-key', ['key' => self::KEY])->assertSessionHasErrors('key');
-        $this->assertFalse(SourceCheck::enabled());
     }
 
     public function test_waiting_articles_are_checked_and_copied_text_is_reported(): void

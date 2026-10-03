@@ -79,12 +79,10 @@ class ReviewController extends Controller
         $data = $request->validate([
             'enabled' => 'boolean',
             'place_id' => ['nullable', 'string', 'max:255', 'regex:/^[A-Za-z0-9_\-]+$/'],
-            'api_key' => ['nullable', 'string', 'max:255', 'regex:/^[A-Za-z0-9_\-]+$/'],
             'min_rating' => 'required|in:1,2,3,4,5',
             'show_own' => 'boolean',
         ], [
             'place_id.regex' => 'That does not look like a Place ID (it usually starts with "ChIJ").',
-            'api_key.regex' => 'That does not look like a Google API key.',
         ]);
 
         SiteSetting::putMany([
@@ -93,9 +91,6 @@ class ReviewController extends Controller
             'reviews.google_min_rating' => $data['min_rating'],
             'reviews.show_own' => $request->boolean('show_own') ? '1' : '0',
         ]);
-        if (filled($data['api_key'] ?? null)) {
-            GoogleReviews::storeApiKey($data['api_key']);
-        }
         GoogleReviews::flush();
 
         if ($request->boolean('enabled')) {

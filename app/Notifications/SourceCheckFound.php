@@ -25,14 +25,14 @@ class SourceCheckFound extends Notification
         $subject = "Source check: {$this->result['found']} of {$this->result['total']} sentences found online";
 
         $lines = [
-            '“' . $this->title . '” (' . $this->kind . ($this->by ? ', sent by ' . $this->by : '') . ') has sentences that are already on other websites. It may be copied. Check the pages below before approving.',
+            'â€œ' . $this->title . 'â€ (' . $this->kind . ($this->by ? ', sent by ' . $this->by : '') . ') has sentences that are already on other websites. It may be copied. Check the pages below before approving.',
         ];
         foreach (array_slice($this->result['matches'], 0, 4) as $m) {
-            $lines[] = '• “' . $m['sentence'] . '” — ' . implode(', ', array_map(fn ($u) => parse_url($u, PHP_URL_HOST) ?: $u, $m['urls']));
+            $lines[] = 'â€¢ â€œ' . $m['sentence'] . 'â€ â€” ' . implode(', ', array_map(fn ($u) => parse_url($u, PHP_URL_HOST) ?: $u, $m['urls']));
         }
 
         return (new MailMessage)
-            ->subject($subject . ' · ' . $brand)
+            ->subject($subject . ' Â· ' . $brand)
             ->view(['emails.notice', 'emails.notice-text'], [
                 'preheader' => $subject,
                 'badge' => 'Articles',

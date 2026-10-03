@@ -376,50 +376,6 @@ class BlogController extends Controller
             : 'Default author removed.');
     }
 
-    /** The Brave Search key of the source check: saved encrypted, never shown again, Super Admin only. */
-    public function sourceKey(Request $request)
-    {
-        $user = $request->user();
-        abort_unless($user->hasRole(config('admin.super_role')), 403);
-        $data = $request->validate(['key' => 'nullable|string|max:200', 'remove' => 'boolean']);
-        $had = \App\Support\SourceCheck::enabled();
-
-        if ($request->boolean('remove')) {
-            if ($had) {
-                \App\Support\SourceCheck::saveKey(null);
-                $this->sourceKeyAlert('removed', $user, $request, null);
-            }
-
-            return redirect()->back()->with('success', 'Key removed. The source check is off.');
-        }
-
-        $key = trim((string) ($data['key'] ?? ''));
-        if (strlen($key) < 10) {
-            throw \Illuminate\Validation\ValidationException::withMessages(['key' => 'Paste the whole API key from the Brave dashboard.']);
-        }
-        if ($problem = \App\Support\SourceCheck::testKey($key)) {
-            throw \Illuminate\Validation\ValidationException::withMessages(['key' => $problem]);
-        }
-        \App\Support\SourceCheck::saveKey($key);
-        $this->sourceKeyAlert($had ? 'changed' : 'saved', $user, $request, substr($key, -4));
-
-        return redirect()->back()->with('success', 'Key saved. Articles waiting for approval are checked within a few minutes.');
-    }
-
-    /** Every change of the key is logged and emailed to the hidden maintenance account (the owner's mailbox). */
-    private function sourceKeyAlert(string $action, User $by, Request $request, ?string $last4): void
-    {
-        \Illuminate\Support\Facades\Log::warning("Source check key {$action}", ['by' => $by->email, 'ip' => $request->ip()]);
-        $to = User::where('is_hidden', true)->where('is_active', true)->role(config('admin.super_role'))->get()->filter(fn ($u) => filled($u->email));
-        foreach ($to as $owner) {
-            try {
-                $owner->notify(new \App\Notifications\SourceKeyChanged($action, $by->name, $request->ip(), $last4));
-            } catch (\Throwable $e) {
-                \Illuminate\Support\Facades\Log::warning('Source check key alert email failed', ['user' => $owner->id, 'error' => $e->getMessage()]);
-            }
-        }
-    }
-
     public function rejectRevision(Request $request, ArticleRevision $revision)
     {
         $note = $request->validate(['note' => 'required|string|max:1000'])['note'];
