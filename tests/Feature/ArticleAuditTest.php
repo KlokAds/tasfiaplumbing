@@ -95,4 +95,44 @@ class ArticleAuditTest extends TestCase
         $this->actingAs($owner)->post('/admin/blogs-audit/accept-group', ['group_key' => 'wardrobe sliding door repair']);
         $this->assertNotNull(ArticleAudit::where('article_id', $a->id)->value('decision'));
     }
+
+    public function test_the_batch_runs_only_approved_decisions_and_every_step_can_be_undone(): void
+    {
+        $owner = User::factory()->create(['is_active' => true])->assignRole('super-admin');
+        $keep = $this->article('Wardrobe Sliding Door Repair in Singapore', $this->text('closer'));
+        $copy = $this->article('Wardrobe Sliding Door Repair Singapore', $this->text('closer'));
+        $hide = $this->article('Glass Door Hinge Replacement', $this->text('hinge', 700));
+        $untouched = $this->article('Door Lock Replacement', $this->text('lock', 700));
+        // An older redirect that led to the copy must now go straight to the stronger article.
+        \App\Models\Redirect::create(['from_path' => '/old-copy-page', 'to_path' => $copy->publicPath(), 'code' => 301, 'is_active' => true]);
+        ArticleAuditor::run();
+        $rows = ArticleAudit::all()->keyBy('article_id');
+
+        // Nothing decided: the batch changes nothing.
+        $this->actingAs($owner)->post('/admin/blogs-audit/batch');
+        $this->assertSame(BlogDetail::PUBLISHED, $copy->fresh()->status);
+
+        $this->actingAs($owner)->post("/admin/blogs-audit/{$rows[$copy->id]->id}/decide", ['decision' => 'merge', 'target_id' => $keep->id]);
+        $this->actingAs($owner)->post("/admin/blogs-audit/{$rows[$hide->id]->id}/decide", ['decision' => 'noindex']);
+        $this->actingAs($owner)->post('/admin/blogs-audit/batch')->assertSessionHas('success');
+
+        $this->assertSame(BlogDetail::MERGED, $copy->fresh()->status, 'off the site, still in the database');
+        $this->assertTrue($hide->fresh()->noindex);
+        $this->assertSame(BlogDetail::PUBLISHED, $untouched->fresh()->status);
+        $this->get($copy->publicPath())->assertRedirect($keep->publicPath())->assertStatus(301);
+        $this->get('/old-copy-page')->assertRedirect($keep->publicPath());
+        $this->assertNotNull(ArticleAudit::where('article_id', $copy->id)->value('applied_at'));
+
+        // A step that ran cannot be re-decided before it is undone.
+        $this->actingAs($owner)->post("/admin/blogs-audit/{$rows[$copy->id]->id}/decide", ['decision' => 'keep'])->assertSessionHas('error');
+
+        // Undo: live again, the redirect off, the older redirect back as it was.
+        $this->actingAs($owner)->post("/admin/blogs-audit/{$rows[$copy->id]->id}/undo")->assertSessionHas('success');
+        $this->actingAs($owner)->post("/admin/blogs-audit/{$rows[$hide->id]->id}/undo");
+        $this->assertSame(BlogDetail::PUBLISHED, $copy->fresh()->status);
+        $this->assertFalse($hide->fresh()->noindex);
+        $this->get($copy->publicPath())->assertOk();
+        $this->assertSame($copy->publicPath(), \App\Models\Redirect::where('from_path', '/old-copy-page')->value('to_path'));
+        $this->assertNull(ArticleAudit::where('article_id', $copy->id)->value('decision'));
+    }
 }

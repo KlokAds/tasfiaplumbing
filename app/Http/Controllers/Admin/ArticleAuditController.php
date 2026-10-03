@@ -8,6 +8,7 @@ use App\Models\BlogDetail;
 use App\Models\ServiceDetail;
 use App\Models\SiteSetting;
 use App\Support\ArticleAuditor;
+use App\Support\AuditBatch;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
@@ -21,17 +22,20 @@ class ArticleAuditController extends Controller
     public function index(Request $request)
     {
         $filters = $request->only(['suggestion', 'state', 'search', 'per_page']);
-        $live = fn ($q) => $q->whereHas('article', fn ($a) => $a->where('status', BlogDetail::PUBLISHED));
+        // Live articles, and the ones a batch merged (they can be undone from here).
+        $live = fn ($q) => $q->whereHas('article', fn ($a) => $a->whereIn('status', [BlogDetail::PUBLISHED, BlogDetail::MERGED]));
 
         $scope = ArticleAudit::query()->tap($live);
         if ($request->filled('suggestion')) {
             $scope->where(fn ($q) => $q->where('suggestion', $request->input('suggestion'))->orWhere('decision', $request->input('suggestion')));
         }
-        if ($request->input('state') === 'open') {
-            $scope->whereNull('decision');
-        } elseif ($request->input('state') === 'decided') {
-            $scope->whereNotNull('decision');
-        }
+        match ($request->input('state')) {
+            'open' => $scope->whereNull('decision'),
+            'decided' => $scope->whereNotNull('decision')->whereNull('applied_at'),
+            'done' => $scope->whereNotNull('applied_at'),
+            'todo' => $scope->whereIn('applied_action', ['update', 'retarget'])->whereHas('article', fn ($a) => $a->where('status', BlogDetail::PUBLISHED)),
+            default => null,
+        };
         if ($request->filled('search')) {
             $term = '%' . $request->input('search') . '%';
             $scope->where(fn ($q) => $q->where('group_key', 'like', $term)
@@ -44,7 +48,7 @@ class ArticleAuditController extends Controller
             ->paginate(min(50, max(10, (int) $request->input('per_page', 20))))->withQueryString();
 
         $rows = (clone $scope)->whereIn('group_key', $groups->pluck('group_key'))
-            ->with('article:id,name,slug')->get();
+            ->with('article:id,name,slug,status')->get();
         $names = BlogDetail::whereIn('id', $rows->pluck('target_article_id')->merge($rows->pluck('dup_article_id'))->merge($rows->pluck('decision_target_id'))->filter()->unique())
             ->get(['id', 'name', 'slug'])->keyBy('id');
         $services = ServiceDetail::whereIn('id', $rows->pluck('service_id')->filter()->unique())->get(['id', 'name', 'slug'])->keyBy('id');
@@ -75,6 +79,8 @@ class ArticleAuditController extends Controller
                     'decision' => $a->decision,
                     'decision_target' => $link($a->decision_target_id),
                     'decision_note' => $a->decision_note,
+                    'applied' => $a->applied_at ? ['action' => $a->applied_action, 'at' => $a->applied_at->toIso8601String(), 'to' => $a->applied_snapshot['to'] ?? null] : null,
+                    'merged' => $a->article->status === BlogDetail::MERGED,
                 ]),
         ]);
 
@@ -93,6 +99,10 @@ class ArticleAuditController extends Controller
                 'search_console' => SiteSetting::stored('audit.search_console') === '1',
                 'error' => SiteSetting::stored('audit.error'),
                 'live_articles' => BlogDetail::where('status', BlogDetail::PUBLISHED)->count(),
+                'waiting' => AuditBatch::waiting()->selectRaw('decision, count(*) as n')->groupBy('decision')->pluck('n', 'decision'),
+                'done' => (clone $all)->whereNotNull('applied_at')->count(),
+                'todo' => (clone $all)->whereIn('applied_action', ['update', 'retarget'])->whereHas('article', fn ($a) => $a->where('status', BlogDetail::PUBLISHED))->count(),
+                'batch_size' => AuditBatch::size(),
             ],
             'thresholds' => ArticleAuditor::thresholds(),
         ]);
@@ -108,9 +118,35 @@ class ArticleAuditController extends Controller
             : "Audit done for {$result['articles']} articles, without Search Console: " . $result['error']);
     }
 
+    /** Runs the next approved decisions (at most the batch size). Only when an approver presses the button. */
+    public function runBatch(Request $request)
+    {
+        $result = AuditBatch::run($request->user());
+        $labels = ['merge' => 'merged with a 301', 'noindex' => 'set to noindex', 'update' => 'added to the writing to-do list', 'retarget' => 'added to the writing to-do list (new angle)', 'keep' => 'kept'];
+        $parts = collect($result['done'])->map(fn ($n, $action) => "{$n} " . ($labels[$action] ?? $action))->values()->implode(', ');
+        $message = $parts ? "Batch done: {$parts}. Every step can be undone here." : 'Nothing was waiting: decide some articles first.';
+        if ($result['skipped']) {
+            $message .= ' Skipped ' . count($result['skipped']) . ': ' . implode(' ', array_slice($result['skipped'], 0, 3));
+        }
+
+        return back()->with($result['skipped'] && !$parts ? 'error' : 'success', $message);
+    }
+
+    /** Put one article back as it was before its batch step. */
+    public function undo(Request $request, ArticleAudit $audit)
+    {
+        abort_unless($audit->applied_at, 422);
+        AuditBatch::undo($audit, $request->user());
+
+        return back()->with('success', 'Undone: the article is back as it was, and its decision is cleared.');
+    }
+
     /** The approver's decision for one article. Nothing on the website changes yet. */
     public function decide(Request $request, ArticleAudit $audit)
     {
+        if ($audit->applied_at) {
+            return back()->with('error', 'This step has already been run. Undo it first, then change the decision.');
+        }
         $data = $request->validate([
             'decision' => ['nullable', Rule::in(array_keys(ArticleAudit::ACTIONS))],
             'target_id' => ['nullable', 'integer', Rule::exists('blog_details', 'id')->where('status', BlogDetail::PUBLISHED)],
@@ -140,7 +176,7 @@ class ArticleAuditController extends Controller
     {
         $key = $request->validate(['group_key' => 'required|string|max:190'])['group_key'];
         $n = 0;
-        foreach (ArticleAudit::where('group_key', $key)->whereNull('decision')->get() as $a) {
+        foreach (ArticleAudit::where('group_key', $key)->whereNull('decision')->whereNull('applied_at')->get() as $a) {
             $a->update(['decision' => $a->suggestion, 'decision_target_id' => $a->suggestion === 'merge' ? $a->target_article_id : null,
                 'decided_by' => $request->user()->id, 'decided_at' => now()]);
             $n++;

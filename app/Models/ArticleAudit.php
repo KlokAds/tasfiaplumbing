@@ -21,6 +21,9 @@ class ArticleAudit extends Model
         'position' => 'float',
         'decided_at' => 'datetime',
         'computed_at' => 'datetime',
+        'applied_at' => 'datetime',
+        'undone_at' => 'datetime',
+        'applied_snapshot' => 'array',
     ];
 
     public function article()

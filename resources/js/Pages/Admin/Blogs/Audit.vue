@@ -15,6 +15,21 @@
       </template>
     </div>
 
+    <!-- Batch: the only step that changes the website (approved decisions, at most batch_size at a time) -->
+    <div class="admin-card mb-4 px-5 py-4 flex flex-col lg:flex-row lg:items-center justify-between gap-3 text-sm">
+      <div class="min-w-0">
+        <p class="font-bold">Run the approved decisions</p>
+        <p v-if="waitingTotal" class="a-muted">Waiting: <template v-for="(n, key, i) in summary.waiting" :key="key">{{ i ? ', ' : '' }}<b>{{ n }}</b> {{ actions[key] }}</template>.
+          The next {{ Math.min(waitingTotal, summary.batch_size) }} run when you press the button.</p>
+        <p v-else class="a-muted">Nothing waiting. Choose decisions below (or “Accept suggestions”) first.</p>
+        <p class="a-subtle">Merge: 301 redirect to the stronger page, the article leaves the site (kept in the database). Noindex: stays live, hidden from Google. Update / New angle: goes on the writing to-do list. Every step can be undone. Nothing runs by itself.</p>
+        <p v-if="summary.done" class="mt-1">Done so far: <b>{{ summary.done }}</b> ·
+          <button type="button" class="underline" @click="go({ state: 'done', page: '' })">see them</button> ·
+          writing to-do: <button type="button" class="underline" @click="go({ state: 'todo', page: '' })">{{ summary.todo }}</button></p>
+      </div>
+      <button type="button" @click="runBatch" :disabled="!waitingTotal || batching" class="admin-btn-primary shrink-0">{{ batching ? 'Running…' : `Run batch (${Math.min(waitingTotal, summary.batch_size)})` }}</button>
+    </div>
+
     <!-- Suggestions at a glance (click to filter) -->
     <div class="flex flex-wrap gap-2 mb-4">
       <button v-for="(label, key) in actions" :key="key" type="button" @click="go({ suggestion: filters.suggestion === key ? '' : key, page: '' })"
@@ -30,7 +45,9 @@
         <SelectBox :model-value="filters.state || ''" class="admin-input sm:!w-48" @update:model-value="(v) => go({ state: v, page: '' })">
           <option value="">All</option>
           <option value="open">Not decided yet</option>
-          <option value="decided">Decided</option>
+          <option value="decided">Decided, not run yet</option>
+          <option value="done">Done (run in a batch)</option>
+          <option value="todo">Writing to-do (update / new angle)</option>
         </SelectBox>
         <button type="submit" class="admin-btn-secondary">Search</button>
       </form>
@@ -43,7 +60,7 @@
             <h3 class="font-bold">“{{ g.key }}”</h3>
             <p class="text-sm a-muted">{{ g.size }} article{{ g.size === 1 ? '' : 's' }} on this topic · {{ g.clicks.toLocaleString() }} clicks · {{ g.impressions.toLocaleString() }} impressions</p>
           </div>
-          <button v-if="g.rows.some((r) => !r.decision)" type="button" @click="acceptGroup(g)" class="admin-btn-secondary a-btn-sm">Accept suggestions ({{ g.rows.filter((r) => !r.decision).length }})</button>
+          <button v-if="g.rows.some((r) => !r.decision && !r.applied)" type="button" @click="acceptGroup(g)" class="admin-btn-secondary a-btn-sm">Accept suggestions ({{ g.rows.filter((r) => !r.decision && !r.applied).length }})</button>
         </header>
 
         <div class="overflow-x-auto">
@@ -62,7 +79,7 @@
             </thead>
             <tbody>
               <tr v-for="r in g.rows" :key="r.id" class="align-top">
-                <td class="min-w-[16rem] max-w-[22rem]">
+                <td class="min-w-[14rem] max-w-[19rem]">
                   <a :href="r.article.path" target="_blank" rel="noopener" class="font-semibold hover:underline line-clamp-2">{{ r.article.name }}</a>
                   <p v-if="r.top_query" class="text-[13px] a-subtle mt-0.5">Top search: “{{ r.top_query }}”<template v-if="r.position"> · position {{ r.position }}</template></p>
                   <p v-if="r.service" class="text-[13px] a-text-warning mt-0.5">Same search as the service page <a :href="r.service.path" target="_blank" rel="noopener" class="underline">{{ r.service.name }}</a></p>
@@ -78,13 +95,20 @@
                   </template>
                   <span v-else class="a-subtle">—</span>
                 </td>
-                <td class="min-w-[16rem] max-w-[22rem]">
+                <td class="min-w-[14rem] max-w-[18rem]">
                   <span :class="['a-badge', badge(r.suggestion)]">{{ actions[r.suggestion] }}</span>
                   <p class="text-[13px] a-muted mt-1 whitespace-normal">{{ r.reason }}</p>
                   <p v-if="r.target" class="text-[13px] mt-0.5">Into: <a :href="r.target.path" target="_blank" rel="noopener" class="underline">{{ r.target.name }}</a></p>
                 </td>
-                <td class="min-w-[14rem]">
-                  <form @submit.prevent="decide(r)" class="space-y-2">
+                <td class="min-w-[12rem] w-[13rem] !whitespace-normal">
+                  <!-- Already run: what happened, and undo -->
+                  <div v-if="r.applied" class="space-y-1.5 whitespace-normal">
+                    <span :class="['a-badge', badge(r.applied.action)]">Done: {{ actions[r.applied.action] }}</span>
+                    <p v-if="r.applied.to" class="text-[13px] a-muted">301 to <a :href="r.applied.to" target="_blank" rel="noopener" class="underline break-all">{{ r.applied.to }}</a></p>
+                    <p v-else-if="['update', 'retarget'].includes(r.applied.action)" class="text-[13px] a-muted">On the writing to-do list.</p>
+                    <button type="button" @click="undo(r)" class="a-btn-ghost a-btn-sm">Undo</button>
+                  </div>
+                  <form v-else @submit.prevent="decide(r)" class="space-y-2">
                     <SelectBox v-model="pick[r.id].decision" class="admin-input a-input-sm" :aria-label="`Decision for ${r.article.name}`">
                       <option value="">— Not decided —</option>
                       <option v-for="(label, key) in actions" :key="key" :value="key">{{ label }}{{ key === r.suggestion ? ' (suggested)' : '' }}</option>
@@ -112,7 +136,7 @@
 </template>
 
 <script setup>
-import { reactive, ref, watch } from 'vue';
+import { computed, reactive, ref, watch } from 'vue';
 import { router } from '@inertiajs/vue3';
 import AdminLayout from '@/Layouts/AdminLayout.vue';
 import PageHeader from '@/Components/Admin/PageHeader.vue';
@@ -161,6 +185,27 @@ function decide(r) {
 async function acceptGroup(g) {
   const ok = await confirmDialog({ title: `Accept the suggestions for “${g.key}”?`, message: 'Only articles without a decision get one. You can still change each one. Nothing on the website changes yet.', confirmText: 'Accept' });
   if (ok) router.post('/admin/blogs-audit/accept-group', { group_key: g.key }, { preserveScroll: true });
+}
+
+const batching = ref(false);
+const waitingTotal = computed(() => Object.values(props.summary.waiting || {}).reduce((a, n) => a + Number(n), 0));
+
+async function runBatch() {
+  const n = Math.min(waitingTotal.value, props.summary.batch_size);
+  const list = Object.entries(props.summary.waiting || {}).map(([k, v]) => `${v} ${props.actions[k]}`).join(', ');
+  const ok = await confirmDialog({
+    title: `Run the next ${n} decisions?`,
+    message: `Waiting: ${list}. Merged articles get a 301 redirect and leave the site (they stay in the database); noindex articles stay live but hidden from Google. Each step can be undone on this page.`,
+    confirmText: `Run ${n}`,
+  });
+  if (!ok) return;
+  batching.value = true;
+  router.post('/admin/blogs-audit/batch', {}, { preserveScroll: true, onFinish: () => { batching.value = false; } });
+}
+
+async function undo(r) {
+  const ok = await confirmDialog({ title: 'Undo this step?', message: `“${r.article.name}” goes back to how it was before the batch (live again, redirect switched off). Its decision is cleared.`, confirmText: 'Undo' });
+  if (ok) router.post(`/admin/blogs-audit/${r.id}/undo`, {}, { preserveScroll: true });
 }
 
 function runAudit() {

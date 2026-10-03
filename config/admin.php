@@ -65,6 +65,7 @@ return [
         'seen_impressions' => 200, // this many impressions: Google shows it, give it its own angle
         'thin_words' => 300,       // fewer words: thin
         'merge_overlap' => 40,     // this much of the same text as a stronger article: merge
+        'batch_size' => 50,        // approved decisions run per "Run batch" (App\Support\AuditBatch)
     ],
 
     // Byline on articles that have no author of their own and no default author: the team.

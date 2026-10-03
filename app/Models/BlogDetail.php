@@ -17,6 +17,9 @@ class BlogDetail extends Model
     public const SCHEDULED = 'scheduled';
     public const PUBLISHED = 'published';
 
+    /** Merged into another page by the article audit: off the site (301 redirect), kept here. */
+    public const MERGED = 'merged';
+
     protected $fillable = [
         'name', 'desc', 'slug', 'image', 'auth_name', 'meta_title', 'meta_desc', 'meta_tag', 'btn_name',
         'primary_service_id', 'excerpt', 'focus_keyword', 'canonical', 'og_image', 'noindex',

@@ -204,6 +204,9 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', \App\Http\Middleware
         Route::post('/blogs-audit/run', [\App\Http\Controllers\Admin\ArticleAuditController::class, 'run'])->middleware('throttle:6,1')->name('blogs.audit.run');
         Route::post('/blogs-audit/accept-group', [\App\Http\Controllers\Admin\ArticleAuditController::class, 'acceptGroup'])->name('blogs.audit.accept');
         Route::post('/blogs-audit/{audit}/decide', [\App\Http\Controllers\Admin\ArticleAuditController::class, 'decide'])->name('blogs.audit.decide');
+        // Only these change the website: the approved decisions, one batch at a time, and undo.
+        Route::post('/blogs-audit/batch', [\App\Http\Controllers\Admin\ArticleAuditController::class, 'runBatch'])->middleware('throttle:10,1')->name('blogs.audit.batch');
+        Route::post('/blogs-audit/{audit}/undo', [\App\Http\Controllers\Admin\ArticleAuditController::class, 'undo'])->name('blogs.audit.undo');
     });
     Route::post('/blogs-bulk/assign-service', [BlogController::class, 'bulkAssignService'])->middleware('can:articles.edit_all')->name('blogs.bulk-service');
     Route::post('/blogs-bulk/focus-keywords', [BlogController::class, 'bulkFocusKeywords'])->middleware('can:articles.edit_all')->name('blogs.bulk-keywords');

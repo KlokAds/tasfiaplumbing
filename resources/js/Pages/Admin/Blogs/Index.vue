@@ -564,6 +564,7 @@ function status(b) {
   switch (b.status) {
     case 'published': return { label: 'Live', cls: 'a-badge-success' };
     case 'scheduled': return { label: 'Scheduled', cls: 'a-badge-info' };
+    case 'merged': return { label: 'Merged (301)', cls: '' };
     case 'pending': return { label: props.permissions.publish ? 'Needs approval' : 'Waiting approval', cls: 'a-badge-warning' };
     default: return b.review_note ? { label: 'Sent back', cls: 'a-badge-danger' } : { label: 'Draft', cls: '' };
   }
