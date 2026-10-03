@@ -32,6 +32,7 @@ class BlogDetail extends Model
         'submitted_at' => 'datetime',
         'reviewed_at' => 'datetime',
         'scheduled_at' => 'datetime',
+        'reminded_at' => 'datetime',
     ];
 
     protected static function booted(): void

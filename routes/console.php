@@ -51,6 +51,14 @@ Artisan::command('content:scan {--email : Also email the weekly plan to everyone
 Schedule::call(fn () => Artisan::call('content:scan'))->dailyAt('05:30')->name('content:scan')->withoutOverlapping(60);
 Schedule::call(fn () => Artisan::call('content:scan', ['--email' => true]))->weeklyOn(5, '08:30')->name('content:scan-email')->withoutOverlapping(60);
 
+Artisan::command('articles:remind-pending', function () {
+    $n = \App\Support\ReviewReminder::run();
+    $this->info($n ? "Reminder sent for {$n} item(s) waiting for approval." : 'Nothing has waited too long.');
+})->purpose('Email the hidden maintenance account about articles waiting for approval too long');
+
+// Every hour: anything waiting for approval longer than admin.review_reminder_hours (12) is emailed.
+Schedule::call(fn () => Artisan::call('articles:remind-pending'))->hourly()->name('articles:remind-pending')->withoutOverlapping(30);
+
 // Lets Admin → System show whether the server cron is running.
 Schedule::call(fn () => \Illuminate\Support\Facades\Cache::forever('system.scheduler_seen', time()))->everyMinute()->name('scheduler-heartbeat');
 

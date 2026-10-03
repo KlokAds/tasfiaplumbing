@@ -55,6 +55,10 @@ return [
         ],
     ],
 
+    // Articles or changes waiting for approval longer than this are emailed to the hidden
+    // maintenance account (App\Support\ReviewReminder), at most once per this many hours each.
+    'review_reminder_hours' => 12,
+
     // Byline on articles that have no author of their own and no default author: the team.
     'team_byline' => [
         'title' => 'Plumbing specialists, Singapore',
