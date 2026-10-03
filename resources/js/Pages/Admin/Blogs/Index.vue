@@ -45,7 +45,7 @@
             <p class="text-sm font-semibold truncate">{{ r.article?.name }}</p>
             <p class="text-xs a-subtle">Edited by {{ r.user || 'unknown' }} · {{ ago(r.created_at) }}</p>
           </div>
-          <div class="flex gap-2 shrink-0">
+          <div class="flex flex-wrap gap-2 sm:shrink-0">
             <button @click="previewRevision = r" class="a-btn-ghost a-btn-sm">Preview</button>
             <button @click="openReject({ revision: r })" class="admin-btn-secondary a-btn-sm">Reject</button>
             <button @click="editRevision(r)" class="admin-btn-secondary a-btn-sm">Edit before approving</button>

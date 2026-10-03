@@ -25,7 +25,7 @@ class ArticleChanges
     ];
 
     /** Sentences listed per side in the email; the rest are counted. */
-    private const SHOW = 6;
+    private const SHOW = 3;
 
     /**
      * @return array{fields: list<array{label: string, old: string, new: string}>, added: list<string>, removed: list<string>,
@@ -87,7 +87,7 @@ class ArticleChanges
         }
         $value = trim((string) $value);
 
-        return $value === '' ? '—' : Str::limit($value, 220);
+        return $value === '' ? '—' : Str::limit($value, 120);
     }
 
     /** The text as sentences (headings and list items count as one), for comparing. */
@@ -100,7 +100,7 @@ class ArticleChanges
             foreach (preg_split('/(?<=[.!?])\s+(?=[A-Z0-9“"(])/u', trim(preg_replace('/\s+/u', ' ', $block))) as $s) {
                 $s = trim($s);
                 if (mb_strlen($s) >= 3) {
-                    $out[] = Str::limit($s, 240);
+                    $out[] = Str::limit($s, 140);
                 }
             }
         }

@@ -82,13 +82,13 @@
                                 @if (!empty($changes))
                                     {{-- What the change does to the live article: fields before / now, sentences added and removed --}}
                                     <tr>
-                                        <td style="padding:20px 28px 0;">
+                                        <td style="padding:16px 28px 0;">
                                             <p style="margin:0 0 8px;font-size:12px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;">What changed</p>
                                             <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;border-collapse:separate;">
                                                 @foreach ($changes['fields'] as $f)
                                                     <tr>
-                                                        <td style="padding:12px 16px;{{ $loop->first ? '' : 'border-top:1px solid #eef0f3;' }}font-size:14px;line-height:1.5;color:#1e293b;">
-                                                            <p style="margin:0 0 4px;font-size:12px;font-weight:700;color:#475569;">{{ $f['label'] }}</p>
+                                                        <td style="padding:9px 14px;{{ $loop->first ? '' : 'border-top:1px solid #eef0f3;' }}font-size:13px;line-height:1.45;color:#1e293b;">
+                                                            <p style="margin:0 0 2px;font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.04em;">{{ $f['label'] }}</p>
                                                             <p style="margin:0;color:#b91c1c;"><span style="font-weight:700;">Before:</span> <span style="text-decoration:line-through;">{{ $f['old'] }}</span></p>
                                                             <p style="margin:2px 0 0;color:#15803d;"><span style="font-weight:700;">Now:</span> {{ $f['new'] }}</p>
                                                         </td>
@@ -96,14 +96,14 @@
                                                 @endforeach
                                                 @if ($changes['added'] || $changes['removed'])
                                                     <tr>
-                                                        <td style="padding:12px 16px;{{ $changes['fields'] ? 'border-top:1px solid #eef0f3;' : '' }}font-size:14px;line-height:1.55;color:#1e293b;">
+                                                        <td style="padding:9px 14px;{{ $changes['fields'] ? 'border-top:1px solid #eef0f3;' : '' }}font-size:13px;line-height:1.45;color:#1e293b;">
                                                             <p style="margin:0 0 6px;font-size:12px;font-weight:700;color:#475569;">Text · {{ number_format($changes['words'][0]) }} → {{ number_format($changes['words'][1]) }} words</p>
                                                             @foreach ($changes['added'] as $line)
-                                                                <p style="margin:0 0 6px;padding:6px 10px;border-radius:6px;background:#f0fdf4;color:#166534;"><span style="font-weight:700;">+</span> {{ $line }}</p>
+                                                                <p style="margin:0 0 4px;padding:4px 8px;border-radius:6px;background:#f0fdf4;color:#166534;"><span style="font-weight:700;">+</span> {{ $line }}</p>
                                                             @endforeach
                                                             @if ($changes['more_added'])<p style="margin:0 0 6px;color:#166534;font-size:13px;">+ {{ $changes['more_added'] }} more added</p>@endif
                                                             @foreach ($changes['removed'] as $line)
-                                                                <p style="margin:0 0 6px;padding:6px 10px;border-radius:6px;background:#fef2f2;color:#991b1b;"><span style="font-weight:700;">−</span> <span style="text-decoration:line-through;">{{ $line }}</span></p>
+                                                                <p style="margin:0 0 4px;padding:4px 8px;border-radius:6px;background:#fef2f2;color:#991b1b;"><span style="font-weight:700;">−</span> <span style="text-decoration:line-through;">{{ $line }}</span></p>
                                                             @endforeach
                                                             @if ($changes['more_removed'])<p style="margin:0;color:#991b1b;font-size:13px;">− {{ $changes['more_removed'] }} more removed</p>@endif
                                                         </td>
