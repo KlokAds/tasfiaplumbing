@@ -71,7 +71,7 @@
     </div>
     </div>
 
-    <EditorContent v-show="!source" :editor="editor" class="rich-editor-content a-text" :style="{ minHeight }" />
+    <EditorContent v-show="!source" :editor="editor" class="rich-editor-content a-text" :style="{ minHeight }" @click="onTextClick" />
     <textarea v-if="source" v-model="sourceHtml" @input="emit('update:modelValue', sourceHtml)" class="w-full font-mono text-xs p-4 a-panel-2 a-muted outline-none" :style="{ minHeight }"></textarea>
 
     <MediaPicker :show="pickerOpen" @close="pickerOpen = false" @insert="insertImage" />
@@ -226,13 +226,37 @@ const linkUrl = ref('');
 const linkNewTab = ref(false);
 const linkInput = ref(null);
 
+function openLinkBar(focus = true) {
+  const attrs = editor.value.getAttributes('link');
+  linkUrl.value = attrs.href || '';
+  linkNewTab.value = attrs.target === '_blank';
+  linkBar.value = true;
+  if (focus) nextTick(() => linkInput.value?.focus());
+}
+// A click on a link in the text shows its link bar (with its address); a click anywhere else in the
+// text closes it. Checked after the click has moved the cursor, so the link's details are read.
+function onTextClick(event) {
+  const a = event.target?.closest?.('a');
+  if (!a) {
+    linkBar.value = false;
+    return;
+  }
+  // Read the address from the clicked link itself (the cursor may sit on its edge).
+  linkUrl.value = a.getAttribute('href') || '';
+  linkNewTab.value = a.getAttribute('target') === '_blank';
+  linkBar.value = true;
+  // Put the cursor inside the link, so Apply / Remove change this link.
+  try {
+    const pos = editor.value.view.posAtDOM(a, 0);
+    editor.value.commands.setTextSelection(pos + 1);
+  } catch (e) {
+    // the cursor stays where the click put it
+  }
+}
 function toggleLinkBar() {
   linkBar.value = !linkBar.value;
   if (linkBar.value) {
-    const attrs = editor.value.getAttributes('link');
-    linkUrl.value = attrs.href || '';
-    linkNewTab.value = attrs.target === '_blank';
-    nextTick(() => linkInput.value?.focus());
+    openLinkBar();
   }
 }
 function applyLink() {
