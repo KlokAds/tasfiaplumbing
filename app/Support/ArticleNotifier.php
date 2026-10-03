@@ -54,7 +54,7 @@ class ArticleNotifier
 
         self::send(self::publishers($by), new ArticleWorkflow(
             'revision_submitted', $revision->article->name, url('/admin/blogs?tab=review'), $by->name,
-            seo: self::seoReport($proposed),
+            seo: self::seoReport($proposed, $revision->payload['faqs'] ?? null),
         ));
     }
 
@@ -95,44 +95,39 @@ class ArticleNotifier
      * The same SEO check the admin list shows, so the approver sees the quality before opening the article.
      * Returns null when the check cannot run; the email is then sent without it.
      */
-    public static function seoReport(BlogDetail $blog): ?array
+    /**
+     * The scores in the approval email: the same as the article editor (the Content quality
+     * score and its SEO, AEO, GEO and E-E-A-T parts), the SEO errors, and every check that
+     * fails with what to do. $faqs: the FAQs of a change waiting for approval.
+     */
+    public static function seoReport(BlogDetail $blog, ?array $faqs = null): ?array
     {
         try {
             $title = Str::lower(trim($blog->meta_title ?: $blog->name));
             $taken = BlogDetail::query()->whereKeyNot($blog->getKey())->get(['name', 'meta_title'])
                 ->contains(fn ($r) => Str::lower(trim($r->meta_title ?: $r->name)) === $title);
-            $result = SeoAudit::article($blog, $taken ? [$title => 2] : []);
+            $audit = SeoAudit::article($blog, $taken ? [$title => 2] : []);
+            $quality = ContentQuality::forArticle($blog, $faqs);
+            $short = ['seo' => 'SEO', 'aeo' => 'AEO', 'geo' => 'GEO', 'eeat' => 'E-E-A-T'];
+
+            $errors = collect($audit['issues'])->where('level', 'error')->map(fn ($i) => ['level' => 'error', 'message' => $i['message']]);
+            $tips = collect($quality['pillars'])->flatMap(fn ($p, $key) => collect($p['checks'])->reject(fn ($c) => $c['ok'])
+                ->map(fn ($c) => ['level' => 'warning', 'message' => ($short[$key] ?? strtoupper($key)) . ': ' . $c['label'] . '. ' . $c['tip']]));
 
             return [
-                'score' => $result['score'],
-                'errors' => $result['errors'],
-                'warnings' => count($result['issues']) - $result['errors'],
+                'score' => (int) $quality['score'],
+                'errors' => $errors->count(),
+                'warnings' => $tips->count(),
                 'words' => SeoAudit::wordCount($blog->desc),
-                'issues' => collect($result['issues'])->sortBy(fn ($i) => $i['level'] === 'error' ? 0 : 1)
-                    ->map(fn ($i) => ['level' => $i['level'], 'message' => $i['message']])->values()->all(),
-                // The editor's four scores: SEO, answer engines (AEO), AI search (GEO) and trust (E-E-A-T).
-                'pillars' => self::pillars($blog),
+                'issues' => $errors->concat($tips)->values()->all(),
+                'pillars' => collect($quality['pillars'])
+                    ->map(fn ($p, $key) => ['key' => $key, 'label' => $short[$key] ?? strtoupper($key), 'name' => $p['label'], 'score' => (int) $p['score']])
+                    ->values()->all(),
             ];
         } catch (\Throwable $e) {
             Log::warning('SEO report for article email failed', ['article' => $blog->getKey(), 'error' => $e->getMessage()]);
 
             return null;
-        }
-    }
-
-    /** [['key' => 'aeo', 'label' => 'AEO', 'name' => 'Answer engines (AEO)', 'score' => 80], …] or [] if it cannot be worked out. */
-    private static function pillars(BlogDetail $blog): array
-    {
-        try {
-            $short = ['seo' => 'SEO', 'aeo' => 'AEO', 'geo' => 'GEO', 'eeat' => 'E-E-A-T'];
-
-            return collect(ContentQuality::forArticle($blog)['pillars'])
-                ->map(fn ($p, $key) => ['key' => $key, 'label' => $short[$key] ?? strtoupper($key), 'name' => $p['label'], 'score' => (int) $p['score']])
-                ->values()->all();
-        } catch (\Throwable $e) {
-            Log::warning('Content scores for article email failed', ['article' => $blog->getKey(), 'error' => $e->getMessage()]);
-
-            return [];
         }
     }
 

@@ -110,4 +110,26 @@ class ReviewerEditsTest extends TestCase
         $html = \App\Support\ContentHtml::render('<p>Intro</p><h2>What we see on real jobs</h2><p><strong>A recent job:</strong> a shop in Bedok.</p><h2>FAQs</h2><p>End</p>');
         $this->assertMatchesRegularExpression('#<section class="job-notes"><h2[^>]*>What we see on real jobs</h2><p><strong>A recent job:</strong> a shop in Bedok.</p></section><h2#', $html);
     }
+
+    public function test_the_email_for_a_change_counts_the_changes_faqs_like_the_editor(): void
+    {
+        Notification::fake();
+        $owner = $this->user('super-admin');
+        $writer = $this->user('writer');
+        $this->actingAs($writer)->post('/admin/blogs', $this->article(['intent' => 'submit']));
+        $blog = BlogDetail::firstOrFail();
+        $this->actingAs($owner)->post("/admin/blogs/{$blog->id}/approve", ['mode' => 'now']);
+
+        $faqs = [['question' => 'How much?', 'answer' => 'From S$80.'], ['question' => 'How long?', 'answer' => 'About an hour.'], ['question' => 'Warranty?', 'answer' => '90 days.']];
+        $this->actingAs($writer)->post("/admin/blogs/{$blog->id}", $this->article(['intent' => 'submit', 'faqs' => $faqs]));
+
+        Notification::assertSentTo($owner, ArticleWorkflow::class, function ($n) {
+            if ($n->event !== 'revision_submitted') {
+                return false;
+            }
+            $messages = collect($n->seo['issues'])->pluck('message')->join(' ');
+
+            return !str_contains($messages, 'Three or more FAQs') && is_int($n->seo['score']);
+        });
+    }
 }

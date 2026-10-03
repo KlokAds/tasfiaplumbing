@@ -45,7 +45,7 @@ class ArticleWorkflowTest extends TestCase
             // The approval email shows the SEO score and each finding.
             $html = $n->toMail($owner)->render();
 
-            return str_contains($html, 'SEO checklist') && str_contains($html, $n->seo['score'] . '</span>')
+            return str_contains($html, 'Content quality') && str_contains($html, $n->seo['score'] . '</span>')
                 && (empty($n->seo['issues']) || str_contains($html, e($n->seo['issues'][0]['message'])))
                 // ...and the editor's four scores (SEO, AEO, GEO, E-E-A-T).
                 && collect($n->seo['pillars'] ?? [])->pluck('label')->all() === ['SEO', 'AEO', 'GEO', 'E-E-A-T']
