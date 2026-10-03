@@ -142,7 +142,53 @@ class MediaLibrary
         } catch (\Throwable $e) {
         }
 
+        // Not live yet, but a picture they use must not be deleted: changes waiting for approval,
+        // autosaved drafts and the article history (a version can be restored).
+        $names = Schema::hasTable('blog_details') ? DB::table('blog_details')->pluck('name', 'id') : collect();
+        $json = [
+            'article_revisions' => ['Change waiting for approval', fn ($r) => $r->status === 'pending', fn ($r) => '/admin/blogs?tab=review', fn ($r) => $names[$r->article_id] ?? 'Article'],
+            'drafts' => ['Autosaved draft', fn ($r) => true, fn ($r) => $r->type === 'article' ? '/admin/blogs' . ($r->record_id ? '?edit=' . $r->record_id : '') : '/admin', fn ($r) => ucfirst((string) $r->type) . ($r->record_id && $r->type === 'article' ? ': ' . ($names[$r->record_id] ?? '') : '')],
+            'article_versions' => ['Article history', fn ($r) => true, fn ($r) => '/admin/blogs?edit=' . $r->article_id, fn ($r) => $names[$r->article_id] ?? 'Article'],
+        ];
+        foreach ($json as $table => [$label, $keep, $url, $title]) {
+            if (!Schema::hasTable($table)) {
+                continue;
+            }
+            DB::table($table)->orderBy('id')->chunk(200, function ($rows) use ($label, $keep, $url, $title, $add) {
+                foreach ($rows as $row) {
+                    if (!$keep($row)) {
+                        continue;
+                    }
+                    $usage = ['label' => $label, 'title' => Str::limit(strip_tags((string) $title($row)), 70), 'url' => $url($row), 'field' => 'saved copy'];
+                    foreach (self::stringsIn(json_decode((string) $row->payload, true)) as $value) {
+                        $add($value, $usage);
+                        foreach (self::pathsInHtml($value) as $p) {
+                            $add($p, $usage);
+                        }
+                    }
+                }
+            });
+        }
+
         return $map;
+    }
+
+    /** Every string inside decoded JSON (a saved article: fields, text, FAQs). @return list<string> */
+    private static function stringsIn(mixed $value): array
+    {
+        if (is_string($value)) {
+            return [$value];
+        }
+
+        if (!is_array($value)) {
+            return [];
+        }
+        $out = [];
+        foreach ($value as $item) {
+            array_push($out, ...self::stringsIn($item));
+        }
+
+        return $out;
     }
 
     public static function isInUse(string $path, ?array $usage = null): bool
