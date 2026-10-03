@@ -56,6 +56,12 @@ class BlogDetail extends Model
         if ($author && !in_array(strtolower(trim($author->name)), ['admin', 'administrator', 'super admin'], true)) {
             return $author;
         }
+        // An imported byline that names a team member ("Anowar") is that member.
+        $named = trim((string) $this->auth_name);
+        if ($named !== '' && !in_array(strtolower($named), ['admin', 'administrator', 'super admin'], true)
+            && ($member = User::whereRaw('LOWER(name) = ?', [strtolower($named)])->first())) {
+            return $member;
+        }
         $default = SiteSetting::stored('articles.default_author');
 
         return $default ? User::find($default) : null;
@@ -74,10 +80,13 @@ class BlogDetail extends Model
         $brand = SiteSetting::get('business.brand_name') ?: config('app.name');
         $named = $this->auth_name && !in_array(strtolower(trim($this->auth_name)), ['admin', 'administrator', 'super admin'], true);
 
+        // A named person without a team account: "Part of the … team" rather than "Written by the … team".
+        $bio = str_replace(':brand', $brand, (string) config('admin.team_byline.bio'));
+
         return [
             'name' => $named ? $this->auth_name : $brand . ' team',
             'job_title' => config('admin.team_byline.title'),
-            'bio' => str_replace(':brand', $brand, (string) config('admin.team_byline.bio')),
+            'bio' => $named ? preg_replace('/^Written by the (.+?) team\./', 'Part of the $1 team.', $bio) : $bio,
             'social_url' => null,
             'image' => null,
             'team' => true,

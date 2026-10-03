@@ -60,6 +60,22 @@ class AuthorBylineTest extends TestCase
         $this->assertSame('Mei Lin', $blog->fresh()->byline()['name']);
     }
 
+    public function test_an_imported_byline_that_names_a_team_member_uses_their_title_and_bio(): void
+    {
+        $owner = $this->user('super-admin');
+        $this->user('editor', ['name' => 'Anowar', 'job_title' => 'Content Editor', 'bio' => 'Edits our repair guides.']);
+        $this->actingAs($owner)->post('/admin/blogs', ['name' => 'Floor Spring Repair Singapore', 'desc' => '<p>Body</p>', 'faqs' => [], 'intent' => 'publish']);
+        $blog = BlogDetail::firstOrFail();
+        $blog->forceFill(['author_id' => null, 'auth_name' => 'anowar'])->save();
+        $this->assertSame(['Anowar', 'Content Editor', 'Edits our repair guides.'], array_values(collect($blog->fresh()->byline())->only(['name', 'job_title', 'bio'])->all()));
+
+        // A named person without an account keeps the name with a fitting team bio.
+        $blog->forceFill(['auth_name' => 'Karim'])->save();
+        $by = $blog->fresh()->byline();
+        $this->assertSame('Karim', $by['name']);
+        $this->assertStringStartsWith('Part of the ', $by['bio']);
+    }
+
     public function test_the_super_admin_fills_in_a_team_members_bio(): void
     {
         $owner = $this->user('super-admin');
