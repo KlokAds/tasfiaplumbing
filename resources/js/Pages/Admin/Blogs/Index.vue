@@ -217,6 +217,11 @@
               </div>
               <RichEditor v-model="form.desc" min-height="420px" />
               <p v-if="form.errors.desc" class="a-error">{{ form.errors.desc }}</p>
+              <!-- First-hand experience (E-E-A-T): a section with prompts the writer replaces with real job details -->
+              <div class="mt-2 flex flex-wrap items-center gap-2">
+                <button v-if="!hasJobsSection" type="button" @click="addJobsSection" class="a-btn-ghost a-btn-sm">+ Add “From our jobs” section</button>
+                <p v-if="hasJobsPrompts" class="text-xs a-text-warning">Replace every [Replace: …] note in “What we see on real jobs” with real details before you submit or publish.</p>
+              </div>
               <p v-if="form.primary_service_id && !hasServiceLink" class="text-xs a-text-warning mt-1">
                 No link to the service page yet. Link some text to {{ selectedServicePath }} ({{ selectedServiceName }}).
               </p>
@@ -589,6 +594,10 @@ const words = computed(() => (form.desc || '').replace(/<[^>]*>/g, ' ').split(/\
 const selectedService = computed(() => props.services.find(s => s.id === form.primary_service_id));
 const selectedServiceName = computed(() => selectedService.value?.name || '');
 const selectedServicePath = computed(() => (selectedService.value ? `/service/${selectedService.value.slug}` : ''));
+const JOBS_SECTION = '<h2>What we see on real jobs</h2><p>[Replace: where you do this job and what you find most often, e.g. “On HDB and condo jobs, we often find…”]</p><p>[Replace: one short real case: the area and building type (no names), the problem, what our technician found on site and what we did.]</p><p>[Replace: your advice from those jobs, e.g. “We recommend…”, an early warning sign, when to call a professional.]</p><p>[Replace: add a before/after photo from the job with a caption, or delete this line.]</p>';
+const hasJobsSection = computed(() => /What we see on real jobs/i.test(form.desc || ''));
+const hasJobsPrompts = computed(() => (form.desc || '').includes('[Replace:'));
+function addJobsSection() { form.desc = (form.desc || '') + JOBS_SECTION; }
 const hasServiceLink = computed(() => /\/services?\//.test(form.desc || ''));
 
 function openModal(b = null) {

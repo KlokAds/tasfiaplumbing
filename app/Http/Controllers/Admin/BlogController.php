@@ -611,6 +611,11 @@ class BlogController extends Controller
             'author_id' => 'nullable|exists:users,id',
         ], ['scheduled_at.after' => 'The publish time must be in the future.']);
 
+        // The "From our jobs" prompts must be replaced with real details before an article goes for approval or live.
+        if (in_array($request->input('intent'), ['submit', 'publish'], true) && str_contains((string) ($data['desc'] ?? ''), '[Replace:')) {
+            throw \Illuminate\Validation\ValidationException::withMessages(['desc' => 'Replace the [Replace: …] notes in “What we see on real jobs” with real details (or delete them) first.']);
+        }
+
         if (blank($data['slug'] ?? null)) {
             unset($data['slug']);
         }

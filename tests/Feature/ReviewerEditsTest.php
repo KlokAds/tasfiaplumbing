@@ -96,4 +96,12 @@ class ReviewerEditsTest extends TestCase
         $this->actingAs($writer)->get("/admin/blogs?edit={$blog->id}&revision={$revision->id}")
             ->assertInertia(fn ($page) => $page->missing('editBlog.revision_id'));
     }
+
+    public function test_the_from_our_jobs_prompts_must_be_replaced_before_submitting(): void
+    {
+        $writer = $this->user('writer');
+        $desc = '<p>Body</p><h2>What we see on real jobs</h2><p>[Replace: one short real case]</p>';
+        $this->actingAs($writer)->post('/admin/blogs', $this->article(['intent' => 'submit', 'desc' => $desc]))->assertSessionHasErrors('desc');
+        $this->actingAs($writer)->post('/admin/blogs', $this->article(['intent' => 'draft', 'desc' => $desc]))->assertSessionHasNoErrors();
+    }
 }
