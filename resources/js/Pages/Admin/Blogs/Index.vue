@@ -55,6 +55,16 @@
       </ul>
     </section>
 
+    <!-- Default author (approvers): shown on articles that have no author of their own -->
+    <div v-if="permissions.publish && authors.length && currentTab !== 'review'" class="admin-card mb-4 px-5 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <p class="text-sm"><span class="font-bold">Default author</span> <span class="a-muted">for articles without one: the name, job title and bio shown on the page and counted for E-E-A-T.</span>
+        <span v-if="defaultAuthorWarning" class="block a-text-danger font-semibold">{{ defaultAuthorWarning }}</span></p>
+      <SelectBox :model-value="defaultAuthor" class="admin-input sm:w-72" @update:model-value="setDefaultAuthor">
+        <option :value="null">— None (shows the team name) —</option>
+        <option v-for="a in authors" :key="a.id" :value="a.id">{{ a.name }}{{ a.job_title ? ` · ${a.job_title}` : '' }}</option>
+      </SelectBox>
+    </div>
+
     <div v-if="unlinkedCount && permissions.edit_all && currentTab !== 'review'" class="admin-card mb-4 px-5 py-3 flex flex-wrap items-center justify-between gap-3">
       <p class="text-sm"><span class="font-bold">{{ unlinkedCount }}</span> <span class="a-muted">article(s) are not linked to a service page. Every article should support one money page.</span></p>
       <button @click="go({ filter: 'no_service', page: '' })" class="admin-btn-secondary a-btn-sm">Show them</button>
@@ -247,7 +257,12 @@
               <p v-else-if="editing?.published_at" class="text-xs a-muted">Live since {{ when(editing.published_at) }}</p>
 
               <dl class="pt-2 border-t a-border text-xs space-y-1">
-                <div class="flex justify-between gap-2"><dt class="a-subtle">Author</dt><dd class="font-semibold truncate">{{ editing ? (editing.author_name || '—') : `${me.name} (you)` }}</dd></div>
+                <div v-if="permissions.publish && authors.length" class="flex items-center justify-between gap-2"><dt class="a-subtle">Author</dt>
+                  <dd class="min-w-0"><SelectBox v-model="authorPick" class="admin-input a-btn-sm max-w-[13rem]">
+                    <option :value="null">{{ defaultAuthor ? 'Default author' : 'Team name' }}</option>
+                    <option v-for="a in authors" :key="a.id" :value="a.id">{{ a.name }}</option>
+                  </SelectBox></dd></div>
+                <div v-else class="flex justify-between gap-2"><dt class="a-subtle">Author</dt><dd class="font-semibold truncate">{{ editing ? (editing.author_name || '—') : `${me.name} (you)` }}</dd></div>
                 <div v-if="editing?.submitted_at && editing.status === 'pending'" class="flex justify-between gap-2"><dt class="a-subtle">Submitted</dt><dd>{{ ago(editing.submitted_at) }}</dd></div>
               </dl>
             </div>
@@ -438,6 +453,8 @@ const props = defineProps({
   revisions: { type: Array, default: () => [] },
   myRevisions: { type: Array, default: () => [] },
   editBlog: Object,
+  authors: { type: Array, default: () => [] },
+  defaultAuthor: { type: Number, default: null },
   permissions: { type: Object, default: () => ({}) },
 });
 
@@ -558,6 +575,7 @@ const hasConflict = computed(() => !!(titleConflict.value || metaConflict.value)
 const qualityPayload = computed(() => ({
   type: 'article',
   id: editing.value?.id || null,
+  author_id: authorPick.value || null,
   name: form.name, meta_title: form.meta_title, meta_desc: form.meta_desc, excerpt: form.excerpt,
   body: form.desc, focus_keyword: form.focus_keyword, slug: form.slug,
   image: preview.value || editing.value?.image || '',
@@ -694,7 +712,7 @@ async function save(intent) {
   form
     .transform(d => {
       const { schedule_mode, ...rest } = d;
-      return { ...rest, intent, revision_id: editing.value?.revision_id || '', scheduled_at: schedule_mode === 'schedule' ? toIso(d.scheduled_at) : '' };
+      return { ...rest, intent, revision_id: editing.value?.revision_id || '', ...(props.permissions.publish ? { author_id: authorPick.value || '' } : {}), scheduled_at: schedule_mode === 'schedule' ? toIso(d.scheduled_at) : '' };
     })
     .post(url, {
       forceFormData: true,
@@ -768,6 +786,19 @@ async function approveRevision(r) {
     tone: 'primary',
   });
   if (ok) router.post(`/admin/revisions/${r.id}/approve`, {}, { preserveScroll: true, onSuccess: () => { previewRevision.value = null; } });
+}
+
+// ---------- Authors (approvers): per article, and the default for articles without one ----------
+const authorPick = ref(null);
+watch(editing, (b) => { authorPick.value = b?.author_id || null; }, { immediate: true });
+const defaultAuthorWarning = computed(() => {
+  const a = props.authors.find(x => x.id === props.defaultAuthor);
+  if (!a) return '';
+  const missing = [!a.job_title && 'job title', !a.has_bio && 'bio'].filter(Boolean);
+  return missing.length ? `${a.name} has no ${missing.join(' or ')} yet: add it in Team (edit ${a.name}).` : '';
+});
+function setDefaultAuthor(id) {
+  router.post('/admin/blogs-default-author', { author_id: id || '' }, { preserveScroll: true });
 }
 
 // ---------- History (Super Admin): the last three live versions, compare, restore ----------

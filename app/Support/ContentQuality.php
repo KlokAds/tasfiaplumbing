@@ -138,13 +138,13 @@ class ContentQuality
 
     public static function forArticle(\App\Models\BlogDetail $b, ?array $faqs = null): array
     {
-        $author = $b->author;
+        $by = $b->byline();
 
         return self::analyze([
             'type' => 'article', 'name' => $b->name, 'meta_title' => $b->meta_title, 'meta_desc' => $b->meta_desc,
             'excerpt' => $b->excerpt, 'body' => $b->desc, 'focus_keyword' => $b->focus_keyword, 'slug' => $b->slug, 'image' => $b->image,
             'faqs' => $faqs ?? $b->faqs->map->only(['question', 'answer'])->all(),
-            'author' => $author ? ['name' => $author->name, 'job_title' => $author->job_title, 'bio' => $author->bio] : ($b->auth_name ? ['name' => $b->auth_name] : null),
+            'author' => ['name' => $by['name'], 'job_title' => $by['job_title'], 'bio' => $by['bio']],
             'updated_at' => ($b->content_updated_at ?? $b->updated_at)?->toIso8601String(),
             'has_service' => (bool) $b->primary_service_id,
         ]);

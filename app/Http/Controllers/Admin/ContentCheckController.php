@@ -41,6 +41,7 @@ class ContentCheckController extends Controller
             'faqs.*.question' => 'nullable|string|max:500',
             'faqs.*.answer' => 'nullable|string|max:3000',
             'has_service' => 'boolean',
+            'author_id' => 'nullable|integer',
             'warranty' => 'nullable|string|max:255',
             'response_time' => 'nullable|string|max:255',
         ]);
@@ -48,8 +49,11 @@ class ContentCheckController extends Controller
         $user = $request->user();
         if ($data['type'] === 'article') {
             $blog = !empty($data['id']) ? BlogDetail::with('author')->find($data['id']) : null;
-            $author = $blog?->author ?? $user;
-            $data['author'] = ['name' => $author->name, 'job_title' => $author->job_title, 'bio' => $author->bio];
+            // The author picked in the editor, else the article's byline, else (a new article) the writer.
+            $picked = !empty($data['author_id']) ? \App\Models\User::find($data['author_id']) : null;
+            $data['author'] = $picked
+                ? ['name' => $picked->name, 'job_title' => $picked->job_title, 'bio' => $picked->bio]
+                : ($blog ? collect($blog->byline())->only(['name', 'job_title', 'bio'])->all() : ['name' => $user->name, 'job_title' => $user->job_title, 'bio' => $user->bio]);
             $data['updated_at'] = now()->toIso8601String();
         } else {
             $service = !empty($data['id']) ? ServiceDetail::find($data['id']) : null;

@@ -303,14 +303,8 @@ class FrontendController extends Controller
         return Inertia::render('Frontend/Blogs/Show', [
             'blog' => $blog,
             // A generic "Admin" byline hurts trust; show the team name until a real author is set.
-            'author' => $blog->author && !in_array(strtolower(trim($blog->author->name)), ['admin', 'administrator', 'super admin'], true)
-                ? ['image' => $blog->author->photo()] + $blog->author->only(['name', 'job_title', 'bio', 'social_url'])
-                : [
-                    'name' => (!$blog->auth_name || in_array(strtolower(trim($blog->auth_name)), ['admin', 'administrator'], true))
-                        ? (SiteSetting::get('business.brand_name') ?: config('app.name')) . ' team'
-                        : $blog->auth_name,
-                    'job_title' => 'Plumbing specialists, Singapore',
-                ],
+            // The author, or the team with a professional title and bio (BlogDetail::byline).
+            'author' => $blog->byline(),
             'relatedBlogs' => $related,
             'prices' => $blog->primaryService ? $blog->primaryService->prices()->where('is_active', true)->where('is_featured', true)->take(4)->get() : [],
         ]);

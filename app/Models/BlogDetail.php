@@ -46,6 +46,44 @@ class BlogDetail extends Model
         });
     }
 
+    /**
+     * The person shown as the author (page, schema, E-E-A-T score): the article's own author, or,
+     * when it has none (or a generic "Admin" account), the default author chosen on the Articles page.
+     */
+    public function bylineAuthor(): ?User
+    {
+        $author = $this->author;
+        if ($author && !in_array(strtolower(trim($author->name)), ['admin', 'administrator', 'super admin'], true)) {
+            return $author;
+        }
+        $default = SiteSetting::stored('articles.default_author');
+
+        return $default ? User::find($default) : null;
+    }
+
+    /**
+     * What the page, the schema and the E-E-A-T score show as the author: the person (their name,
+     * job title, bio, photo) or, without one, the team with a professional title and bio
+     * (config admin.team_byline). "team" is true for the team byline.
+     */
+    public function byline(): array
+    {
+        if ($by = $this->bylineAuthor()) {
+            return ['name' => $by->name, 'job_title' => $by->job_title, 'bio' => $by->bio, 'social_url' => $by->social_url, 'image' => $by->photo(), 'team' => false];
+        }
+        $brand = SiteSetting::get('business.brand_name') ?: config('app.name');
+        $named = $this->auth_name && !in_array(strtolower(trim($this->auth_name)), ['admin', 'administrator', 'super admin'], true);
+
+        return [
+            'name' => $named ? $this->auth_name : $brand . ' team',
+            'job_title' => config('admin.team_byline.title'),
+            'bio' => str_replace(':brand', $brand, (string) config('admin.team_byline.bio')),
+            'social_url' => null,
+            'image' => null,
+            'team' => true,
+        ];
+    }
+
     public function publicPath(?string $slug = null): string
     {
         return '/blogs/' . ($slug ?? $this->slug);

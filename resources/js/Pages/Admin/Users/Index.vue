@@ -56,6 +56,16 @@
             <label class="admin-label">Job title <span class="font-normal a-subtle">(shown as author title on articles)</span></label>
             <input v-model="form.job_title" type="text" class="admin-input" placeholder="e.g. Senior Plumber" />
           </div>
+          <div class="sm:col-span-2">
+            <label class="admin-label">Bio <span class="font-normal a-subtle">(2–3 sentences: experience, licences; shown under their articles)</span></label>
+            <textarea v-model="form.bio" rows="3" maxlength="1000" class="admin-input"></textarea>
+            <p v-if="form.errors.bio" class="a-error">{{ form.errors.bio }}</p>
+          </div>
+          <div class="sm:col-span-2">
+            <label class="admin-label">Profile link <span class="font-normal a-subtle">(optional, e.g. LinkedIn)</span></label>
+            <input v-model="form.social_url" type="url" class="admin-input" placeholder="https://" />
+            <p v-if="form.errors.social_url" class="a-error">{{ form.errors.social_url }}</p>
+          </div>
         </div>
 
         <div>
@@ -118,14 +128,14 @@ const roleLabel = name => props.roles.find(r => r.name === name)?.label || name 
 
 const modalOpen = ref(false);
 const editing = ref(null);
-const blank = () => ({ name: '', email: '', job_title: '', role: 'writer', password: '', is_active: true });
+const blank = () => ({ name: '', email: '', job_title: '', bio: '', social_url: '', role: 'writer', password: '', is_active: true });
 const form = useForm(blank());
 
 function openModal(u = null) {
   form.clearErrors();
   editing.value = u;
   const data = blank();
-  if (u) Object.assign(data, { name: u.name, email: u.email, job_title: u.job_title || '', role: u.role || 'writer', is_active: u.is_active });
+  if (u) Object.assign(data, { name: u.name, email: u.email, job_title: u.job_title || '', bio: u.bio || '', social_url: u.social_url || '', role: u.role || 'writer', is_active: u.is_active });
   form.defaults(data);
   form.reset();
   modalOpen.value = true;

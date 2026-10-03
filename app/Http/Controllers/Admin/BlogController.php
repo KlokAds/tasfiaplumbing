@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Support\PerPage;
 use App\Http\Controllers\Controller;
 use App\Models\ArticleRevision;
+use App\Models\SiteSetting;
 use App\Models\ArticleVersion;
 use App\Support\ArticleHistory;
 use App\Models\BlogDetail;
@@ -119,6 +120,10 @@ class BlogController extends Controller
                     ->map(fn ($r) => ['id' => $r->id, 'article' => $r->article, 'user' => $r->user?->name, 'payload' => ['desc' => \App\Support\ContentHtml::render((string) ($r->payload['desc'] ?? ''), (string) ($r->payload['name'] ?? ''))] + (array) $r->payload, 'created_at' => $r->created_at->toIso8601String()])
                 : [],
             'myRevisions' => $this->openRevisions($user),
+            // Approvers choose an article's author and the default author (byline, schema, E-E-A-T).
+            'authors' => $canPublish ? User::visible()->orderBy('name')->get(['id', 'name', 'job_title', 'bio'])
+                ->map(fn ($u) => ['id' => $u->id, 'name' => $u->name, 'job_title' => $u->job_title, 'has_bio' => filled($u->bio)]) : [],
+            'defaultAuthor' => (int) SiteSetting::stored('articles.default_author') ?: null,
             'editBlog' => $request->filled('edit') && ($b = BlogDetail::with('faqs')->find($request->integer('edit'))) && $this->canEdit($user, $b)
                 ? $this->withRevision($this->row($b, $dup, $services, $user), $canPublish ? $request->integer('revision') : 0)
                 : null,
@@ -138,7 +143,7 @@ class BlogController extends Controller
 
         $blog = new BlogDetail($this->only($data));
         $blog->scheduled_at = $data['scheduled_at'];
-        $blog->author_id = $user->id;
+        $blog->author_id = $user->can('articles.publish') && !empty($data['author_id']) ? (int) $data['author_id'] : $user->id;
         $blog->auth_name = $user->name;
         $blog->btn_name = 'Read More';
         $this->applyStatus($blog, $intent, $user);
@@ -194,6 +199,10 @@ class BlogController extends Controller
         $revision = $user->can('articles.publish') && $request->filled('revision_id')
             ? ArticleRevision::where('id', $request->integer('revision_id'))->where('article_id', $blog->id)->where('status', 'pending')->first()
             : null;
+
+        if ($user->can('articles.publish') && $request->has('author_id')) {
+            $blog->author_id = $data['author_id'] ?: null; // the approver changed the author
+        }
 
         $oldPath = $blog->publicPath();
         $oldStatus = $blog->status;
@@ -343,6 +352,18 @@ class BlogController extends Controller
     private static function plain(string $html): string
     {
         return trim(preg_replace('/\s+/u', ' ', html_entity_decode(strip_tags(str_replace(['</p>', '<br>', '</li>', '</h2>', '</h3>'], ' ', $html)), ENT_QUOTES | ENT_HTML5, 'UTF-8')));
+    }
+
+    /** The author shown on articles that have none of their own (Articles page, approvers). */
+    public function defaultAuthor(Request $request)
+    {
+        $data = $request->validate(['author_id' => 'nullable|exists:users,id']);
+        SiteSetting::putMany(['articles.default_author' => $data['author_id'] ?? '']);
+        SeoAudit::flush();
+
+        return redirect()->back()->with('success', !empty($data['author_id'])
+            ? 'Default author saved. Articles without an author now show this person, with their job title and bio.'
+            : 'Default author removed.');
     }
 
     public function rejectRevision(Request $request, ArticleRevision $revision)
@@ -587,6 +608,7 @@ class BlogController extends Controller
             'faqs' => 'nullable|array|max:30',
             'faqs.*.question' => 'nullable|string|max:500',
             'faqs.*.answer' => 'nullable|string|max:3000',
+            'author_id' => 'nullable|exists:users,id',
         ], ['scheduled_at.after' => 'The publish time must be in the future.']);
 
         if (blank($data['slug'] ?? null)) {

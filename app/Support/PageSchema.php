@@ -103,7 +103,7 @@ class PageSchema
 
     public static function article(BlogDetail $b): array
     {
-        $author = $b->author;
+        $by = $b->byline();
 
         return array_filter([
             '@type' => 'Article',
@@ -113,13 +113,15 @@ class PageSchema
             'image' => $b->image ? [ResponsiveImage::publicUrl($b->image, config('app.url'))] : null,
             'datePublished' => optional($b->published_at ?? $b->created_at)->toIso8601String(),
             'dateModified' => optional($b->content_updated_at ?? $b->updated_at)->toIso8601String(),
-            'author' => array_filter([
-                '@type' => 'Person',
-                'name' => $author?->name ?? ($b->auth_name ?: SiteSetting::get('business.brand_name')),
-                'jobTitle' => $author?->job_title ?: null,
-                'description' => $author?->bio ?: null,
-                'sameAs' => $author?->social_url ?: null,
-            ]),
+            'author' => $by['team']
+                ? array_filter(['@type' => 'Organization', 'name' => $by['name'], 'description' => $by['bio'] ?: null, 'url' => self::url('/')])
+                : array_filter([
+                    '@type' => 'Person',
+                    'name' => $by['name'],
+                    'jobTitle' => $by['job_title'] ?: null,
+                    'description' => $by['bio'] ?: null,
+                    'sameAs' => $by['social_url'] ?: null,
+                ]),
             'publisher' => ['@id' => self::url('/') . '#business'],
             'mainEntityOfPage' => self::url($b->publicPath()),
             'about' => $b->primaryService ? ['@id' => self::url($b->primaryService->publicPath()) . '#service'] : null,

@@ -22,6 +22,8 @@ class UserController extends Controller
             'name' => $u->name,
             'email' => $u->email,
             'job_title' => $u->job_title,
+            'bio' => $u->bio,
+            'social_url' => $u->social_url,
             'image' => $u->photo(),
             'is_active' => (bool) $u->is_active,
             'role' => $u->roles->first()?->name,
@@ -46,6 +48,8 @@ class UserController extends Controller
             'name' => $data['name'],
             'email' => $data['email'],
             'job_title' => $data['job_title'] ?? null,
+            'bio' => $data['bio'] ?? null,
+            'social_url' => $data['social_url'] ?? null,
             'password' => $data['password'],
             'is_active' => $data['is_active'] ?? true,
         ]);
@@ -73,6 +77,8 @@ class UserController extends Controller
             'name' => $data['name'],
             'email' => $data['email'],
             'job_title' => $data['job_title'] ?? null,
+            'bio' => $data['bio'] ?? null,
+            'social_url' => $data['social_url'] ?? null,
             'is_active' => $data['is_active'] ?? true,
         ]);
         if (!empty($data['password'])) {
@@ -110,6 +116,8 @@ class UserController extends Controller
             'name' => 'required|string|max:120',
             'email' => ['required', 'email', 'max:190', Rule::unique('users', 'email')->ignore($user?->id)],
             'job_title' => 'nullable|string|max:120',
+            'bio' => 'nullable|string|max:1000',
+            'social_url' => 'nullable|url|max:255',
             'role' => ['required', Rule::exists('roles', 'name')],
             'is_active' => 'boolean',
             'password' => [$user ? 'nullable' : 'required', 'string', Password::min(8)->letters()->numbers()],

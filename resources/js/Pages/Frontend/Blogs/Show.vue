@@ -23,7 +23,7 @@
               <img v-if="author.image" :src="img(author.image, 96)" :alt="author.name" class="w-11 h-11 rounded-full object-cover" />
               <span v-else class="w-11 h-11 rounded-full bg-[var(--s-heading)] text-[var(--s-bg)] text-[14px] font-bold flex items-center justify-center">{{ initials }}</span>
               <div class="leading-tight">
-                <p class="font-semibold s-heading text-[15.5px]">{{ author.name }}</p>
+                <p class="font-semibold s-heading text-[15.5px]">{{ author.name }}<span v-if="author.job_title" class="font-normal opacity-75"> · {{ author.job_title }}</span></p>
                 <p class="text-[13.5px] s-subtle mt-0.5">
                   <time v-if="published" :datetime="blog.published_at">{{ date(published) }}</time>
                   <template v-if="updated && date(updated) !== date(published)"> · Updated <time :datetime="blog.content_updated_at">{{ date(updated) }}</time></template>
@@ -94,16 +94,21 @@
             <ShareButtons :title="blog.name" />
           </div>
 
-          <!-- Author -->
-          <aside class="mt-8 card p-6 flex gap-4">
-            <img v-if="author.image" :src="img(author.image, 160)" :alt="author.name" class="w-14 h-14 rounded-full object-cover shrink-0" />
-            <span v-else class="w-14 h-14 rounded-full bg-[var(--s-heading)] text-[var(--s-bg)] font-bold flex items-center justify-center shrink-0">{{ initials }}</span>
-            <div>
-              <p class="text-[13px] font-bold uppercase tracking-[0.1em] s-subtle">Written by</p>
-              <p class="h-card mt-1">{{ author.name }}</p>
-              <p v-if="author.job_title" class="text-[15px] s-muted">{{ author.job_title }}</p>
-              <p v-if="author.bio" class="mt-2 text-[15.5px] s-muted leading-relaxed">{{ author.bio }}</p>
-              <a v-if="author.social_url" :href="author.social_url" target="_blank" rel="noopener me" class="mt-2 inline-block text-[14px] link">Profile →</a>
+          <!-- About the author: the person, or the team with its title and bio -->
+          <aside class="mt-8 card p-6 sm:p-7">
+            <p class="text-[13px] font-bold uppercase tracking-[0.1em] s-subtle">About the author</p>
+            <div class="mt-4 flex gap-4 sm:gap-5">
+              <img v-if="author.image" :src="img(author.image, 160)" :alt="author.name" class="w-16 h-16 rounded-full object-cover shrink-0" />
+              <span v-else class="w-16 h-16 rounded-full bg-[var(--s-heading)] text-[var(--s-bg)] text-[18px] font-bold flex items-center justify-center shrink-0">{{ initials }}</span>
+              <div class="min-w-0">
+                <p class="h-card">{{ author.name }}</p>
+                <p v-if="author.job_title" class="mt-0.5 text-[14.5px] s-muted">{{ author.job_title }}</p>
+                <p v-if="author.bio" class="mt-3 text-[15.5px] s-muted leading-relaxed">{{ author.bio }}</p>
+                <div class="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[14px]">
+                  <span v-if="updated || published" class="s-subtle">Last updated <time :datetime="blog.content_updated_at || blog.published_at">{{ date(updated || published) }}</time></span>
+                  <a v-if="author.social_url" :href="author.social_url" target="_blank" rel="noopener me" class="link">View profile →</a>
+                </div>
+              </div>
             </div>
           </aside>
         </div>

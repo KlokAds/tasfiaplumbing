@@ -37,6 +37,18 @@ class SiteSetting extends Model
         return $values;
     }
 
+    /** A stored value that has no field in config/seo.php (e.g. articles.default_author). */
+    public static function stored(string $key, mixed $default = null): mixed
+    {
+        try {
+            $value = Cache::rememberForever(self::CACHE_KEY, fn () => static::query()->pluck('value', 'key')->all())[$key] ?? null;
+        } catch (\Throwable $e) {
+            $value = null;
+        }
+
+        return ($value === null || $value === '') ? $default : $value;
+    }
+
     public static function get(string $key, mixed $default = null): mixed
     {
         $value = static::values()[$key] ?? null;
