@@ -55,6 +55,7 @@ class ArticleNotifier
         self::send(self::publishers($by), new ArticleWorkflow(
             'revision_submitted', $revision->article->name, url('/admin/blogs?tab=review'), $by->name,
             seo: self::seoReport($proposed, $revision->payload['faqs'] ?? null),
+            changes: ArticleChanges::between($revision->article, (array) $revision->payload),
         ));
     }
 

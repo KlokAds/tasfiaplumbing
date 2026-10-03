@@ -26,6 +26,7 @@ class ArticleWorkflow extends Notification
         public ?string $when = null,
         public ?string $publicUrl = null,
         public ?array $seo = null,
+        public ?array $changes = null, // a change to a live article: App\Support\ArticleChanges
     ) {}
 
     public function via(object $notifiable): array
@@ -57,6 +58,7 @@ class ArticleWorkflow extends Notification
                 'quoteLabel' => $quote ? 'Note from ' . ($this->actor ?: 'the reviewer') : null,
                 'quote' => $quote,
                 'seo' => $this->seo,
+                'changes' => $this->changes,
                 'buttons' => [['label' => $c['button'], 'url' => $this->url]],
                 'after' => $after,
                 'footer' => 'Sent by the ' . self::brand() . ' website admin.',

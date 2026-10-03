@@ -13,6 +13,22 @@
 {{ $quoteLabel ?? '' }}
 {{ $quote }}
 @endif
+@if (!empty($changes))
+
+What changed:
+@foreach ($changes['fields'] as $f)
+- {{ $f['label'] }}: {{ $f['old'] }} → {{ $f['new'] }}
+@endforeach
+@if ($changes['added'] || $changes['removed'])
+- Text: {{ $changes['words'][0] }} → {{ $changes['words'][1] }} words
+@foreach ($changes['added'] as $line)
+  + {{ $line }}
+@endforeach
+@foreach ($changes['removed'] as $line)
+  - {{ $line }}
+@endforeach
+@endif
+@endif
 @if (!empty($seo))
 
 Content quality: {{ $seo['score'] }}/100 ({{ $seo['words'] }} words, {{ $seo['errors'] }} errors, {{ $seo['warnings'] }} suggestions)

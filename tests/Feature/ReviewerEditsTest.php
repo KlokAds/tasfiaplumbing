@@ -132,4 +132,27 @@ class ReviewerEditsTest extends TestCase
             return !str_contains($messages, 'Three or more FAQs') && is_int($n->seo['score']);
         });
     }
+
+    public function test_the_change_email_shows_what_changed_before_and_now(): void
+    {
+        Notification::fake();
+        $owner = $this->user('super-admin');
+        $writer = $this->user('writer');
+        $this->actingAs($writer)->post('/admin/blogs', $this->article(['intent' => 'submit', 'desc' => '<p>Old first line. Same line.</p>']));
+        $blog = BlogDetail::firstOrFail();
+        $this->actingAs($owner)->post("/admin/blogs/{$blog->id}/approve", ['mode' => 'now']);
+
+        $this->actingAs($writer)->post("/admin/blogs/{$blog->id}", $this->article(['intent' => 'submit', 'name' => 'Aircon Chemical Wash Price Singapore', 'desc' => '<p>New first line. Same line.</p>']));
+
+        Notification::assertSentTo($owner, ArticleWorkflow::class, function ($n) use ($owner) {
+            if ($n->event !== 'revision_submitted' || !$n->changes) {
+                return false;
+            }
+            $html = $n->toMail($owner)->render();
+
+            return collect($n->changes['fields'])->contains(fn ($f) => $f['label'] === 'Title' && $f['new'] === 'Aircon Chemical Wash Price Singapore')
+                && $n->changes['added'] === ['New first line.'] && $n->changes['removed'] === ['Old first line.']
+                && str_contains($html, 'What changed') && str_contains($html, 'New first line.');
+        });
+    }
 }
