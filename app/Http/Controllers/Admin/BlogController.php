@@ -51,7 +51,11 @@ class BlogController extends Controller
         }
         match ($tab) {
             'drafts' => $query->where('status', BlogDetail::DRAFT),
-            'review' => $query->where('status', BlogDetail::PENDING),
+            'review' => $canPublish
+                ? $query->where('status', BlogDetail::PENDING)
+                : $query->where(fn ($q) => $q->where('status', BlogDetail::PENDING)
+                    ->orWhereExists(fn ($r) => $r->selectRaw('1')->from('article_revisions')->whereColumn('article_revisions.article_id', 'blog_details.id')
+                        ->where('article_revisions.status', 'pending')->where('article_revisions.user_id', $user->id))),
             'scheduled' => $query->where('status', BlogDetail::SCHEDULED)->reorder('scheduled_at'),
             'published' => $query->where('status', BlogDetail::PUBLISHED),
             default => null,
@@ -99,7 +103,8 @@ class BlogController extends Controller
                 'all' => $scope(BlogDetail::query())->count(),
                 'mine' => BlogDetail::where('author_id', $user->id)->count(),
                 'drafts' => $scope(BlogDetail::where('status', BlogDetail::DRAFT))->count(),
-                'review' => $scope(BlogDetail::where('status', BlogDetail::PENDING))->count() + ($canPublish ? ArticleRevision::where('status', 'pending')->count() : 0),
+                'review' => $scope(BlogDetail::where('status', BlogDetail::PENDING))->count()
+                    + ($canPublish ? ArticleRevision::where('status', 'pending')->count() : ArticleRevision::where('status', 'pending')->where('user_id', $user->id)->count()),
                 'scheduled' => $scope(BlogDetail::where('status', BlogDetail::SCHEDULED))->count(),
                 'published' => $scope(BlogDetail::published())->count(),
             ],
@@ -113,7 +118,7 @@ class BlogController extends Controller
                 : [],
             'myRevisions' => $this->openRevisions($user),
             'editBlog' => $request->filled('edit') && ($b = BlogDetail::with('faqs')->find($request->integer('edit'))) && $this->canEdit($user, $b)
-                ? $this->row($b, $dup, $services, $user)
+                ? $this->withRevision($this->row($b, $dup, $services, $user), $canPublish ? $request->integer('revision') : 0)
                 : null,
             'permissions' => [
                 'publish' => $canPublish,
@@ -166,6 +171,10 @@ class BlogController extends Controller
             $payload = $this->only($data) + ['faqs' => $this->faqRows($request->input('faqs'))];
             if ($image) {
                 $payload['image'] = $image;
+            } elseif ($earlier = ArticleRevision::where('article_id', $blog->id)->where('user_id', $user->id)->where('status', 'pending')->first()?->payload) {
+                if (!empty($earlier['image'])) {
+                    $payload['image'] = $earlier['image'];
+                }
             }
             $revision = ArticleRevision::updateOrCreate(
                 ['article_id' => $blog->id, 'user_id' => $user->id, 'status' => 'pending'],
@@ -179,9 +188,17 @@ class BlogController extends Controller
             return redirect()->back()->with('success', 'Changes sent for approval. The live article stays unchanged until a Super Admin approves them.');
         }
 
+        // A publisher who opened a writer's pending changes (Edit before approving) saves them here.
+        $revision = $user->can('articles.publish') && $request->filled('revision_id')
+            ? ArticleRevision::where('id', $request->integer('revision_id'))->where('article_id', $blog->id)->where('status', 'pending')->first()
+            : null;
+
         $oldPath = $blog->publicPath();
         $oldStatus = $blog->status;
         $blog->fill($this->only($data));
+        if ($revision && !$image && !empty($revision->payload['image'])) {
+            $image = $revision->payload['image']; // the writer's new picture, unless the publisher chose another
+        }
         $blog->scheduled_at = $data['scheduled_at'];
         if ($image) {
             $blog->image = $image;
@@ -192,6 +209,10 @@ class BlogController extends Controller
         Draft::discard($user->id, 'article', $blog->id);
         SeoAudit::flush();
         $this->notifyTransition($blog, $oldStatus, $user);
+        if ($revision && in_array($blog->status, [BlogDetail::PUBLISHED, BlogDetail::SCHEDULED], true)) {
+            $revision->update(['status' => 'approved', 'reviewed_by' => $user->id, 'reviewed_at' => now(), 'note' => 'Edited by the reviewer before approval.']);
+            ArticleNotifier::revisionReviewed($revision->load('article', 'user'), $user, true);
+        }
 
         $message = $this->statusMessage($blog);
         if ($oldPath !== $blog->publicPath()) {
@@ -326,9 +347,12 @@ class BlogController extends Controller
         $status = match ($intent) {
             'publish', 'submit' => $canPublish ? $goLive : BlogDetail::PENDING,
             'unpublish' => $canPublish ? BlogDetail::DRAFT : $blog->status,
-            default => $isLive && $canPublish
-                ? ($blog->status === BlogDetail::PUBLISHED ? BlogDetail::PUBLISHED : $goLive)
-                : BlogDetail::DRAFT,
+            // "Save" by a publisher keeps a submitted article in the review queue (not back to draft).
+            default => $blog->status === BlogDetail::PENDING && $canPublish
+                ? BlogDetail::PENDING
+                : ($isLive && $canPublish
+                    ? ($blog->status === BlogDetail::PUBLISHED ? BlogDetail::PUBLISHED : $goLive)
+                    : BlogDetail::DRAFT),
         };
 
         if ($status === BlogDetail::PENDING && $blog->status !== BlogDetail::PENDING) {
@@ -367,6 +391,32 @@ class BlogController extends Controller
         };
     }
 
+    /**
+     * The editor row with a writer's pending changes laid over it, so a publisher can correct them
+     * before they go live. Saving with "revision_id" applies them and marks the change approved.
+     */
+    private function withRevision(array $row, int $revisionId, bool $forReview = true): array
+    {
+        $revision = $revisionId ? ArticleRevision::with('user:id,name')->where('id', $revisionId)
+            ->where('article_id', $row['id'])->where('status', 'pending')->first() : null;
+        if (!$revision) {
+            return $row;
+        }
+        $payload = (array) $revision->payload;
+        foreach (self::CONTENT_FIELDS as $field) {
+            if (array_key_exists($field, $payload)) {
+                $row[$field] = $payload[$field];
+            }
+        }
+        $row['faqs'] = $payload['faqs'] ?? $row['faqs'] ?? [];
+        if ($forReview) {
+            $row['revision_id'] = $revision->id;
+            $row['revision_by'] = $revision->user?->name;
+        }
+
+        return $row;
+    }
+
     private function row(BlogDetail $b, array $dup, $services, User $user): array
     {
         $row = $b->toArray();
@@ -380,6 +430,15 @@ class BlogController extends Controller
         $edits = isset($this->edits['ids'][$b->getKey()]) ? $this->edits : $this->loadEdits([$b->getKey()]);
         $row['pending_changes'] = isset($edits['pending'][$b->getKey()]);
         $row['edited_at'] = $this->editedAt($b, $edits['approved'][$b->getKey()] ?? null)?->toIso8601String();
+
+        // Someone who cannot publish and has sent changes to this live article: show and edit those changes.
+        if (!$user->can('articles.publish') && $row['pending_changes']) {
+            $own = ArticleRevision::where('article_id', $b->getKey())->where('user_id', $user->id)->where('status', 'pending')->value('id');
+            if ($own) {
+                $row = $this->withRevision($row, $own, false);
+                $row['my_pending'] = true;
+            }
+        }
 
         return $row;
     }

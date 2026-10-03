@@ -48,6 +48,7 @@
           <div class="flex gap-2 shrink-0">
             <button @click="previewRevision = r" class="a-btn-ghost a-btn-sm">Preview</button>
             <button @click="openReject({ revision: r })" class="admin-btn-secondary a-btn-sm">Reject</button>
+            <button @click="editRevision(r)" class="admin-btn-secondary a-btn-sm">Edit before approving</button>
             <button @click="approveRevision(r)" class="admin-btn-primary a-btn-sm">Approve changes</button>
           </div>
         </li>
@@ -164,9 +165,14 @@
           <p class="mt-1 whitespace-pre-line">{{ editing.review_note }}</p>
           <p class="mt-1 text-xs a-muted">Make the changes, then submit for approval again.</p>
         </div>
+        <div v-else-if="editing?.revision_id" class="rounded-xl border a-border a-panel-2 px-4 py-3 text-sm">
+          <p class="font-semibold">Changes from {{ editing.revision_by || 'a team member' }}, waiting for approval</p>
+          <p class="a-muted">Correct anything you need. “Update live article” publishes them and tells the writer they were approved.</p>
+        </div>
         <p v-else-if="liveEditNeedsApproval" class="flex items-start gap-2 text-sm a-muted">
           <svg class="w-4 h-4 mt-0.5 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M12 8h.01M11 12h1v4h1" /></svg>
-          <span v-if="editing?.pending_changes">Changes you sent earlier are still waiting for approval. The live page stays as it is until an admin approves.</span>
+          <span v-if="editing?.my_pending">You are editing the changes you sent; they are still waiting for approval. Submitting again updates them. The live page stays as it is until an admin approves.</span>
+          <span v-else-if="editing?.pending_changes">Changes you sent earlier are still waiting for approval. The live page stays as it is until an admin approves.</span>
           <span v-else>Editing a live article: when you submit, an admin approves the changes before they go live.</span>
         </p>
         <div v-else-if="editing?.status === 'pending' && !permissions.publish" class="rounded-xl border a-border a-panel-2 px-4 py-3 text-sm">
@@ -335,6 +341,7 @@
         <div class="preview-html rounded-xl border a-border p-4 max-h-[60vh] overflow-y-auto a-scroll" v-html="previewRevision.payload.desc"></div>
         <div class="flex justify-end gap-2 pt-3 border-t a-border">
           <button @click="openReject({ revision: previewRevision }); previewRevision = null" class="admin-btn-secondary">Reject</button>
+          <button @click="editRevision(previewRevision)" class="admin-btn-secondary">Edit before approving</button>
           <button @click="approveRevision(previewRevision)" class="admin-btn-primary">Approve changes</button>
         </div>
       </div>
@@ -405,6 +412,7 @@ const emptyText = computed(() => ({
 
 // ---------- Helpers ----------
 function status(b) {
+  if (b.my_pending) return { label: 'Changes waiting approval', cls: 'a-badge-warning' };
   switch (b.status) {
     case 'published': return { label: 'Live', cls: 'a-badge-success' };
     case 'scheduled': return { label: 'Scheduled', cls: 'a-badge-info' };
@@ -608,7 +616,8 @@ const actions = computed(() => {
     { intent: 'unpublish', label: 'Unschedule' },
     { intent: 'publish', label: scheduling ? 'Save schedule' : 'Publish now', primary: true },
   ];
-  const list = [{ intent: 'draft', label: 'Save draft' }];
+  // A submitted article stays in the review queue when the publisher saves it.
+  const list = [{ intent: 'draft', label: s === 'pending' ? 'Save (keep in review)' : 'Save draft' }];
   if (s === 'pending' && editing.value.author_id !== me.value.id) {
     list.push({ intent: 'reject', label: 'Send back', run: () => openReject({ blog: editing.value }) });
   }
@@ -631,7 +640,7 @@ async function save(intent) {
   form
     .transform(d => {
       const { schedule_mode, ...rest } = d;
-      return { ...rest, intent, scheduled_at: schedule_mode === 'schedule' ? toIso(d.scheduled_at) : '' };
+      return { ...rest, intent, revision_id: editing.value?.revision_id || '', scheduled_at: schedule_mode === 'schedule' ? toIso(d.scheduled_at) : '' };
     })
     .post(url, {
       forceFormData: true,
@@ -707,8 +716,16 @@ async function approveRevision(r) {
   if (ok) router.post(`/admin/revisions/${r.id}/approve`, {}, { preserveScroll: true, onSuccess: () => { previewRevision.value = null; } });
 }
 
+/** Open a writer's pending changes to a live article in the editor, to correct them before approving. */
+function editRevision(r) {
+  previewRevision.value = null;
+  router.get(window.location.pathname, { tab: 'review', edit: r.article.id, revision: r.id }, { preserveScroll: true });
+}
+watch(() => props.editBlog, (b) => { if (b?.revision_id) openModal(b); });
+
 onMounted(() => {
   if (props.editBlog) openModal(props.editBlog);
+  // "Edit before approving" reloads the page with the writer's changes in editBlog.
   else if (new URLSearchParams(window.location.search).get('new')) openModal();
 });
 </script>
