@@ -263,6 +263,22 @@
         </li>
       </ul>
     </section>
+    <!-- Website monitor (App\Support\SiteMonitor): the four sites check each other every 5 minutes -->
+    <section v-show="tab === 'server'" class="admin-card overflow-hidden mt-5">
+      <header class="a-card-head"><div><h3 class="a-card-title">Website monitor</h3><p class="a-card-sub">Every 5 minutes this site checks its own database{{ monitor.watched ? ' and ' + monitor.watched : '' }}. After about 10 minutes down, the main admin mailbox gets an email, and another when it works again.</p></div></header>
+      <ul class="a-divide text-sm">
+        <li v-for="(s, name) in monitor.state" :key="name" class="px-5 py-3 flex items-start gap-3">
+          <span :class="['mt-0.5 w-5 h-5 shrink-0 rounded-full grid place-items-center text-[12px] font-bold text-white', s.fails ? 'bg-red-600' : 'bg-emerald-600']">{{ s.fails ? '!' : '✓' }}</span>
+          <div class="min-w-0"><p class="font-semibold">{{ name }}</p><p v-if="s.fails" class="a-muted">{{ s.problem }}</p></div>
+        </li>
+        <li v-if="!Object.keys(monitor.state || {}).length" class="px-5 py-3 a-muted">The first check runs within 5 minutes (needs the scheduled tasks / cron).</li>
+      </ul>
+      <div v-if="monitor.incidents?.length" class="px-5 py-3 border-t a-border text-sm">
+        <p class="font-semibold mb-1">Last problems</p>
+        <p v-for="(i, k) in monitor.incidents" :key="k" class="a-muted">{{ i.name }}: down {{ new Date(i.down).toLocaleString('en-SG') }} – {{ new Date(i.up).toLocaleTimeString('en-SG') }}</p>
+      </div>
+      <p v-if="monitor.last_run" class="px-5 py-2.5 border-t a-border text-[13px] a-subtle">Last check: {{ new Date(monitor.last_run).toLocaleString('en-SG') }}</p>
+    </section>
   </AdminLayout>
 </template>
 
@@ -275,7 +291,7 @@ import PageHeader from '@/Components/Admin/PageHeader.vue';
 import CountryPicker from '@/Components/Admin/CountryPicker.vue';
 import { confirmDialog } from '@/Composables/useConfirm';
 
-const props = defineProps({ status: Object, mail: Object, geo: Object, server: Object, apiKeys: { type: Array, default: null } });
+const props = defineProps({ status: Object, mail: Object, geo: Object, server: Object, apiKeys: { type: Array, default: null }, monitor: { type: Object, default: () => ({ state: {} }) } });
 
 const tab = ref(new URLSearchParams(location.search).get('tab') || 'status');
 function setTab(key) {

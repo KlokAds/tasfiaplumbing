@@ -60,6 +60,14 @@ return [
     // maintenance account (App\Support\ReviewReminder), at most once per this many hours each.
     'review_reminder_hours' => 12,
 
+    // The four websites watch each other in this order (App\Support\SiteMonitor): each checks the next.
+    'monitor_sites' => [
+        'https://tasfiadoorrepairsg.com',
+        'https://tasfiaplumbing.sg',
+        'https://handymanservice-sg.com',
+        'https://tasfiaengineering.com',
+    ],
+
     // Article audit (App\Support\ArticleAuditor): clicks and impressions are over 16 months.
     'audit' => [
         'keep_clicks' => 10,       // this many clicks: keep the article

@@ -26,8 +26,8 @@ class DashboardController extends Controller
         if ($can('enquiries.view')) {
             $kpis[] = [
                 'label' => 'Enquiries (30 days)',
-                'value' => Message::where('created_at', '>=', now()->subDays(30))->count(),
-                'hint' => Message::where('is_read', 0)->count() . ' unread',
+                'value' => Message::notSpam()->where('created_at', '>=', now()->subDays(30))->count(),
+                'hint' => Message::notSpam()->where('is_read', 0)->count() . ' unread',
                 'href' => '/admin/messages',
             ];
         }
@@ -89,7 +89,7 @@ class DashboardController extends Controller
                 ->when(!$can('articles.edit_all'), fn ($q) => $q->where('author_id', $user->id))
                 ->with('author:id,name')->orderBy('scheduled_at')->take(5)->get()
                 ->map(fn ($b) => ['id' => $b->id, 'name' => $b->name, 'by' => $b->author?->name, 'at' => $b->scheduled_at?->toIso8601String()]),
-            'recentMessages' => $can('enquiries.view') ? Message::latest()->take(6)->get(['id', 'name', 'email', 'phone', 'subject', 'is_read', 'created_at']) : [],
+            'recentMessages' => $can('enquiries.view') ? Message::notSpam()->latest()->take(6)->get(['id', 'name', 'email', 'phone', 'subject', 'is_read', 'created_at']) : [],
             'seoByType' => $seo['by_type'],
             'quick' => array_values(array_filter([
                 $can('articles.create') ? ['label' => 'Write article', 'href' => '/admin/blogs?new=1', 'primary' => true] : null,

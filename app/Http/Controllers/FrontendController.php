@@ -350,15 +350,25 @@ class FrontendController extends Controller
             'message' => 'required|string|max:3000',
         ]);
 
-        $message = Message::create([
+        $fields = [
             'name' => strip_tags($validated['name']),
             'email' => filter_var($validated['email'], FILTER_SANITIZE_EMAIL),
             'phone' => strip_tags($validated['phone'] ?? ''),
             'subject' => strip_tags($validated['subject'] ?? 'Website enquiry'),
             'message' => strip_tags($validated['message']),
             'is_read' => 0,
+        ];
+        [$isSpam, $why] = \App\Support\SpamCheck::check($fields);
+        $referer = (string) $request->headers->get('referer');
+        $sameSite = parse_url($referer, PHP_URL_HOST) === parse_url((string) config('app.url'), PHP_URL_HOST);
+        $message = Message::create($fields + [
+            'is_spam' => $isSpam,
+            'spam_reason' => $why,
+            'page' => $sameSite ? mb_substr((string) parse_url($referer, PHP_URL_PATH), 0, 300) : null,
         ]);
-        $this->notifyTeam($message);
+        if (!$isSpam) {
+            $this->notifyTeam($message); // spam goes to the Spam folder quietly
+        }
 
         return redirect()->back()->with('success', 'Thank you! Your message has been sent. We usually reply the same day.');
     }

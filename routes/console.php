@@ -59,6 +59,19 @@ Artisan::command('articles:remind-pending', function () {
 // Every hour: anything waiting for approval longer than admin.review_reminder_hours (12) is emailed.
 Schedule::call(fn () => Artisan::call('articles:remind-pending'))->hourly()->name('articles:remind-pending')->withoutOverlapping(30);
 
+Artisan::command('enquiries:remind', function () {
+    $n = \App\Support\Enquiries::remind();
+    $this->info($n ? "Reminder sent for {$n} enquiry(ies) without a reply." : 'Nothing to remind.');
+})->purpose('Email the team about new enquiries without a reply for 2 hours (8 am - 9 pm)');
+Schedule::call(fn () => Artisan::call('enquiries:remind'))->everyFifteenMinutes()->name('enquiries:remind')->withoutOverlapping(10);
+
+Artisan::command('monitor:sites', function () {
+    foreach (\App\Support\SiteMonitor::run() as $name => $problem) {
+        $this->line(($problem === '' ? 'OK   ' : 'DOWN ') . $name . ($problem ? ' - ' . $problem : ''));
+    }
+})->purpose('Check this site\'s database and the next site in the ring; email the hidden admin when one is down or back');
+Schedule::call(fn () => Artisan::call('monitor:sites'))->everyFiveMinutes()->name('monitor:sites')->withoutOverlapping(5);
+
 Artisan::command('visitors:daily-email', function () {
     $n = \App\Support\VisitorStats::sendDaily();
     $this->info($n ? "Visitor summary emailed to {$n} user(s)." : 'Not sent (switched off, or nobody may see the counter).');

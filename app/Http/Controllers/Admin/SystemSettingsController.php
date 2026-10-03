@@ -34,6 +34,7 @@ class SystemSettingsController extends Controller
             'mail' => SystemSettings::mail() + ['env_mailer' => env('MAIL_MAILER', 'log')],
             // Only a Super Admin sees the API keys tab (never the keys, only saved / last 4).
             'apiKeys' => $request->user()->hasRole(config('admin.super_role')) ? ApiKeys::list() : null,
+            'monitor' => \App\Support\SiteMonitor::status(),
             'geo' => [
                 'mode' => $geo['mode'],
                 'countries' => implode(', ', $geo['countries']),

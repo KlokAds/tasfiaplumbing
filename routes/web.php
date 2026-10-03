@@ -317,6 +317,10 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', \App\Http\Middleware
     Route::get('/messages', [MessageController::class, 'index'])->middleware('can:enquiries.view')->name('messages.index');
     Route::post('/messages/{id}/read', [MessageController::class, 'markAsRead'])->middleware('can:enquiries.edit')->name('messages.read');
     Route::delete('/messages/{id}', [MessageController::class, 'destroy'])->middleware('can:enquiries.delete')->name('messages.destroy');
+    Route::post('/messages/{message}/status', [MessageController::class, 'status'])->middleware('can:enquiries.edit')->name('messages.status');
+    Route::post('/messages/{message}/spam', [MessageController::class, 'spam'])->middleware('can:enquiries.edit')->name('messages.spam');
+    Route::post('/messages-scan-spam', [MessageController::class, 'scanSpam'])->middleware(['can:enquiries.edit', 'throttle:6,1'])->name('messages.scan-spam');
+    Route::post('/messages-templates', [MessageController::class, 'templates'])->middleware('can:enquiries.edit')->name('messages.templates');
 
     // ---------------- Administration ----------------
     Route::middleware('can:settings.view')->group(function () {

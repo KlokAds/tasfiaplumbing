@@ -15,6 +15,9 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        // The /up health page also checks the database (the website monitor reads it).
+        \Illuminate\Support\Facades\Event::listen(\Illuminate\Foundation\Events\DiagnosingHealth::class, fn () => \Illuminate\Support\Facades\DB::select('select 1'));
+
         // SMTP details saved in Admin → System → Site settings override .env.
         // Skipped on a fresh upload with no database yet (the installer runs first).
         if (!\App\Http\Controllers\InstallController::notConfigured()) {

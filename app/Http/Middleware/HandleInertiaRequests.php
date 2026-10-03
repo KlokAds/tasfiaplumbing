@@ -89,7 +89,7 @@ class HandleInertiaRequests extends Middleware
                     ? \Illuminate\Support\Facades\Cache::remember('admin.checklist.must', 300, fn () => rescue(fn () => \App\Support\SiteChecklist::score()['must_open'], 0, false))
                     : 0,
                 'open_404s' => $count('not_found_logs', fn ($q) => $q->where('is_resolved', false)),
-                'unread' => $count('messages', fn ($q) => $q->where('is_read', 0)),
+                'unread' => $count('messages', fn ($q) => $q->where('is_read', 0)->where('is_spam', false)),
                 'review' => $request->user()->can('articles.publish')
                     ? $count('blog_details', fn ($q) => $q->where('status', 'pending')) + $count('article_revisions', fn ($q) => $q->where('status', 'pending'))
                     : 0,
