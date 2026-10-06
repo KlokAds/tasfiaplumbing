@@ -9,8 +9,10 @@
     <!-- Feedback for the writer -->
     <div v-if="feedback.length" class="admin-card mb-6 overflow-hidden">
       <header class="px-5 py-3 border-b a-border flex items-center gap-2">
-        <span class="w-2 h-2 rounded-full bg-amber-500"></span>
+        <span class="w-2 h-2 rounded-full bg-red-600"></span>
         <h3 class="text-sm font-bold">Sent back to you</h3>
+        <span class="a-badge a-badge-danger">{{ feedback.length }}</span>
+        <span class="text-xs a-muted ml-auto hidden sm:inline">Fix what the note says, then submit again.</span>
       </header>
       <ul>
         <li v-for="f in feedback" :key="f.key" class="px-5 py-3 border-b last:border-0 a-border flex flex-col sm:flex-row sm:items-center gap-3 justify-between">
@@ -18,7 +20,7 @@
             <p class="text-sm font-semibold truncate">{{ f.title }} <span class="a-badge ml-1">{{ f.kind }}</span></p>
             <p class="text-xs a-muted mt-0.5 whitespace-pre-line">“{{ f.note }}”</p>
           </div>
-          <button @click="fixAndResubmit(f)" class="admin-btn-secondary a-btn-sm shrink-0">Fix and resubmit</button>
+          <button @click="fixAndResubmit(f)" class="admin-btn-primary a-btn-sm shrink-0">Fix and resubmit</button>
         </li>
       </ul>
     </div>
@@ -150,7 +152,7 @@
                 <div v-if="b.sent_back" class="mt-1 max-w-[22rem] text-[12px] whitespace-normal">
                   <p class="a-text-danger font-semibold">{{ b.sent_back.kind === 'Changes' ? 'Changes sent back' : 'Sent back' }}<span v-if="!b.sent_back.mine && b.sent_back.by" class="font-normal a-muted"> · {{ b.sent_back.by }}</span></p>
                   <p class="a-muted line-clamp-2" :title="b.sent_back.note">{{ b.sent_back.note }}</p>
-                  <button v-if="b.sent_back.mine" @click="fixAndResubmit(b.sent_back.kind === 'Changes' ? { articleId: b.id, revisionId: b.sent_back.revision_id } : { blog: b })" class="link mt-0.5">Fix and resubmit</button>
+                  <button v-if="b.sent_back.mine" @click="fixAndResubmit(b.sent_back.kind === 'Changes' ? { articleId: b.id, revisionId: b.sent_back.revision_id } : { blog: b })" class="admin-btn-primary a-btn-sm mt-1.5">Fix and resubmit</button>
                 </div>
                 <SourceCheckBadge v-if="permissions.publish && b.status === 'pending'" :result="b.source_check" :on="sourceCheck.on" class="mt-1 max-w-[22rem]" />
                 <WritingCheckBadges v-if="permissions.publish && b.status === 'pending'" :check="b.quality_check" class="mt-1 max-w-[22rem]" />

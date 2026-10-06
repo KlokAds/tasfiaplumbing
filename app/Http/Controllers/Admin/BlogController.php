@@ -52,7 +52,7 @@ class BlogController extends Controller
 
         $query = BlogDetail::with(['primaryService:id,name,slug', 'faqs', 'author:id,name'])->latest('updated_at');
         // Sent back: each writer sees their own (articles and changes), approvers everyone's.
-        $this->sentBack = $this->openSentBack($canPublish ? null : $user->id);
+        $this->sentBack = \App\Support\SentBack::changes($canPublish ? null : $user->id);
         $sentBackArticles = fn ($q) => $q->where('status', BlogDetail::DRAFT)->whereNotNull('review_note')->where('review_note', '!=', '');
         if ((!$canAll && $tab !== 'sent_back') || $tab === 'mine') {
             $query->where('author_id', $user->id);
@@ -584,28 +584,6 @@ class BlogController extends Controller
 
     /** Open changes that were sent back (rejected), by article id: index() fills it for the rows. */
     private \Illuminate\Support\Collection $sentBack;
-
-    /**
-     * Changes sent back that nobody has acted on yet: the writer's latest change to that article,
-     * and the article has not been changed since. $userId: only that writer's.
-     */
-    private function openSentBack(?int $userId): \Illuminate\Support\Collection
-    {
-        $rejected = ArticleRevision::where('status', 'rejected')->when($userId, fn ($q) => $q->where('user_id', $userId))
-            ->with(['article:id,content_updated_at', 'user:id,name'])->latest('id')
-            ->get(['id', 'article_id', 'user_id', 'note', 'reviewed_at']);
-        if ($rejected->isEmpty()) {
-            return collect();
-        }
-        $latest = ArticleRevision::whereIn('article_id', $rejected->pluck('article_id')->unique())
-            ->selectRaw('article_id, user_id, MAX(id) as latest_id')->groupBy('article_id', 'user_id')->get()
-            ->mapWithKeys(fn ($r) => [$r->article_id . '-' . $r->user_id => (int) $r->latest_id]);
-
-        return $rejected->filter(fn (ArticleRevision $r) => $r->article
-            && ($latest[$r->article_id . '-' . $r->user_id] ?? $r->id) === $r->id
-            && !($r->article->content_updated_at && $r->reviewed_at && $r->article->content_updated_at->gt($r->reviewed_at)))
-            ->unique('article_id')->keyBy('article_id');
-    }
 
     private function row(BlogDetail $b, array $dup, $services, User $user): array
     {

@@ -90,6 +90,8 @@ class HandleInertiaRequests extends Middleware
                     : 0,
                 'open_404s' => $count('not_found_logs', fn ($q) => $q->where('is_resolved', false)),
                 'unread' => $count('messages', fn ($q) => $q->where('is_read', 0)->where('is_spam', false)),
+                // Sent back to this user (by an approver or automatically), waiting for them to fix and resubmit.
+                'sent_back' => $request->user()->can('articles.create') ? rescue(fn () => \App\Support\SentBack::countFor($request->user()->id), 0, false) : 0,
                 'review' => $request->user()->can('articles.publish')
                     ? $count('blog_details', fn ($q) => $q->where('status', 'pending')) + $count('article_revisions', fn ($q) => $q->where('status', 'pending'))
                     : 0,

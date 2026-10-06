@@ -252,11 +252,13 @@ class AutoApproveTest extends TestCase
             ->has('blogs.data', 1)
             ->where('blogs.data.0.name', 'Live Guide')
             ->where('blogs.data.0.sent_back.kind', 'Changes')
-            ->where('blogs.data.0.sent_back.mine', true));
+            ->where('blogs.data.0.sent_back.mine', true)
+            ->where('admin.counts.sent_back', 1));
 
         $this->actingAs($owner)->get('/admin/blogs?tab=sent_back')->assertInertia(fn ($page) => $page
             ->where('counts.sent_back', 2)
-            ->has('blogs.data', 2));
+            ->has('blogs.data', 2)
+            ->where('admin.counts.sent_back', 0)); // the red count in the sidebar is only your own
 
         // A new change from the writer clears it.
         ArticleRevision::create(['article_id' => $live->id, 'user_id' => $writer->id, 'status' => 'pending', 'payload' => ['name' => 'Live Guide', 'desc' => '<p>Fixed</p>']]);

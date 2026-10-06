@@ -33,7 +33,8 @@
               <svg class="w-[17px] h-[17px] shrink-0 opacity-70" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" :d="icons[item.icon]" /></svg>
               <span class="truncate">{{ item.label }}</span>
             </span>
-            <span v-if="item.badge || item.count != null" class="flex items-center gap-1 shrink-0">
+            <span v-if="item.badge || item.danger || item.count != null" class="flex items-center gap-1 shrink-0">
+              <span v-if="item.danger" :title="item.dangerTitle" class="min-w-5 px-1.5 rounded-full text-[11.5px] font-bold text-center leading-[18px] bg-red-600 text-white">{{ item.danger }}</span>
               <span v-if="item.badge" :title="item.badgeTitle" :class="['min-w-5 px-1.5 rounded-full text-[10.5px] font-bold text-center leading-[18px]', item.alert ? 'bg-[#f59e0b] text-[#1f1300]' : 'bg-white/10 text-white/70']">{{ item.badge }}</span>
               <span v-if="item.count != null" class="min-w-5 px-1.5 rounded-full text-[10.5px] font-semibold text-center leading-[18px] bg-white/10 text-white/75 tabular-nums">{{ Number(item.count).toLocaleString() }}</span>
             </span>
@@ -236,7 +237,7 @@ const groups = computed(() => {
       { label: 'Enquiries', icon: 'mail', badge: c.unread, alert: true, tabs: [{ label: 'Enquiries', href: '/admin/messages', can: 'enquiries.view' }] },
     ] },
     { label: 'Content', items: [
-      { label: 'Articles', icon: 'doc', badge: c.review, badgeTitle: 'Waiting for approval', alert: true, count: c.articles, tabs: [{ label: 'Articles', href: '/admin/blogs', can: 'articles.create' }, { label: 'Audit', href: '/admin/blogs-audit', can: 'articles.publish' }] },
+      { label: 'Articles', icon: 'doc', badge: c.review, badgeTitle: 'Waiting for approval', alert: true, danger: c.sent_back, dangerTitle: 'Sent back to you: fix and resubmit', count: c.articles, tabs: [{ label: 'Articles', href: '/admin/blogs', can: 'articles.create' }, { label: 'Audit', href: '/admin/blogs-audit', can: 'articles.publish' }] },
       { label: 'Services', icon: 'wrench', count: c.services, tabs: [
         { label: 'Services', href: '/admin/services', can: 'services.view' },
         { label: 'Categories', href: '/admin/service-categories', can: 'categories.view' },
@@ -374,6 +375,7 @@ const userOpen = ref(false);
 const bellRef = ref(null);
 const userRef = ref(null);
 const waiting = computed(() => [
+  counts.value.sent_back && { label: 'Sent back to you: fix and resubmit', href: '/admin/blogs?tab=sent_back', count: counts.value.sent_back, cls: 'a-badge-danger' },
   counts.value.review && { label: 'Articles waiting for approval', href: '/admin/blogs?tab=review', count: counts.value.review, cls: 'a-badge-warning' },
   can.value['enquiries.view'] && counts.value.unread && { label: 'Unread enquiries', href: '/admin/messages', count: counts.value.unread, cls: 'a-badge-accent' },
   can.value['redirects.view'] && counts.value.open_404s && { label: 'Broken URLs (404)', href: '/admin/redirects?tab=404', count: counts.value.open_404s, cls: '' },
