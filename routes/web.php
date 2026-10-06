@@ -194,6 +194,9 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', \App\Http\Middleware
         Route::post('/blogs', [BlogController::class, 'store'])->name('blogs.store');
         Route::post('/blogs/{blog}', [BlogController::class, 'update'])->name('blogs.update');
         Route::delete('/blogs/{blog}', [BlogController::class, 'destroy'])->name('blogs.destroy');
+        // Preview with the real article page (signed-in admin users only, never indexed).
+        Route::post('/blogs-preview', [\App\Http\Controllers\Admin\ArticlePreviewController::class, 'fromEditor'])->name('blogs.preview');
+        Route::get('/revisions/{revision}/preview', [\App\Http\Controllers\Admin\ArticlePreviewController::class, 'revision'])->name('revisions.preview');
     });
     Route::middleware('can:articles.publish')->group(function () {
         Route::post('/blogs/{blog}/approve', [BlogController::class, 'approve'])->name('blogs.approve');

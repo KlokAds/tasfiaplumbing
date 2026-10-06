@@ -1,5 +1,9 @@
 <template>
   <FrontendLayout>
+    <!-- Admin preview: not live, not indexed (App\Http\Controllers\Admin\ArticlePreviewController) -->
+    <div v-if="preview" class="sticky top-0 z-[70] bg-amber-400 text-black text-center text-[15px] font-semibold px-4 py-2.5">
+      Preview, not live yet. Only signed-in admin users can see this page. Close this tab to go back to the editor.
+    </div>
     <!-- Reading progress -->
     <div class="fixed top-0 inset-x-0 z-[60] h-[3px] pointer-events-none" aria-hidden="true">
       <div class="h-full bg-[var(--s-accent)] origin-left" :style="{ transform: `scaleX(${progress})` }"></div>
@@ -166,6 +170,7 @@ import { useContact } from '@/Composables/useContact';
 import { img, srcset } from '@/utils/img';
 
 const props = defineProps({
+  preview: { type: Boolean, default: false },
   blog: Object,
   author: { type: Object, default: () => ({}) },
   relatedBlogs: { type: Array, default: () => [] },
@@ -194,10 +199,12 @@ const parsed = computed(() => {
     while (used.has(id)) id += '-2';
     used.add(id);
     // Empty headings (left over from the editor) stay out of the table of contents.
-    if (level === '2' && text) toc.push({ id, text });
+    if (text) toc.push({ id, text, level });
     return /\sid=/.test(attrs) ? m : `<h${level}${attrs} id="${id}">${inner}</h${level}>`;
   });
-  return { html, toc };
+  // The sections are the H2s; an article with fewer than three uses its H3s too, so the list still shows.
+  const h2 = toc.filter(h => h.level === '2');
+  return { html, toc: h2.length >= 3 ? h2 : toc };
 });
 const html = computed(() => parsed.value.html);
 const toc = computed(() => parsed.value.toc);

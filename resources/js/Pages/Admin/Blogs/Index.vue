@@ -20,7 +20,10 @@
             <p class="text-sm font-semibold truncate">{{ f.title }} <span class="a-badge ml-1">{{ f.kind }}</span></p>
             <p class="text-xs a-muted mt-0.5 whitespace-pre-line">“{{ f.note }}”</p>
           </div>
-          <button @click="fixAndResubmit(f)" class="admin-btn-primary a-btn-sm shrink-0">Fix and resubmit</button>
+          <div class="flex items-center gap-2 shrink-0">
+            <a v-if="f.revisionId" :href="`/admin/revisions/${f.revisionId}/preview`" target="_blank" rel="noopener" class="a-btn-ghost a-btn-sm">Preview</a>
+            <button @click="fixAndResubmit(f)" class="admin-btn-primary a-btn-sm">Fix and resubmit</button>
+          </div>
         </li>
       </ul>
     </div>
@@ -51,6 +54,7 @@
           </div>
           <div class="flex flex-wrap gap-2 sm:shrink-0">
             <button @click="previewRevision = r" class="a-btn-ghost a-btn-sm">Preview</button>
+            <a :href="`/admin/revisions/${r.id}/preview`" target="_blank" rel="noopener" class="a-btn-ghost a-btn-sm">As a page</a>
             <button @click="openReject({ revision: r })" class="admin-btn-secondary a-btn-sm">Reject</button>
             <button @click="editRevision(r)" class="admin-btn-secondary a-btn-sm">Edit before approving</button>
             <button @click="approveRevision(r)" class="admin-btn-primary a-btn-sm">Approve changes</button>
@@ -374,6 +378,7 @@
           <div class="flex flex-wrap justify-end gap-2">
             <button type="button" @click="closeModal" class="a-btn-ghost">Close</button>
             <button v-if="canDelete(editing)" type="button" @click="remove(editing)" class="a-btn-ghost !a-text-danger">Delete</button>
+            <button type="button" @click="openPreview" class="admin-btn-secondary" title="See it on the real article page in a new tab (nothing is saved)">Preview</button>
             <button v-for="a in actions" :key="a.intent + a.label" type="button" :disabled="form.processing || (a.intent !== 'draft' && a.intent !== 'unpublish' && a.intent !== 'reject' && hasConflict)" :title="hasConflict ? 'Fix the duplicate title first' : ''" @click="a.run ? a.run() : save(a.intent)"
               :class="a.primary ? 'admin-btn-primary' : 'admin-btn-secondary'">{{ form.processing && busy === a.intent ? 'Saving…' : a.label }}</button>
           </div>
@@ -1004,6 +1009,30 @@ async function restoreVersion(v) {
     preserveScroll: true,
     onSuccess: () => { viewVersion.value = null; history.value = null; closeModal(); },
   });
+}
+
+/**
+ * "Preview": what is in the editor now, on the real article page in a new tab. Posted as a form
+ * so long articles fit; nothing is saved.
+ */
+function openPreview() {
+  const f = document.createElement('form');
+  f.method = 'post';
+  f.action = '/admin/blogs-preview';
+  f.target = '_blank';
+  const add = (name, value) => {
+    const i = document.createElement('input');
+    i.type = 'hidden';
+    i.name = name;
+    i.value = value;
+    f.appendChild(i);
+  };
+  add('_token', document.querySelector('meta[name="csrf-token"]')?.content || '');
+  add('id', editing.value?.id || '');
+  add('payload', JSON.stringify({ ...form.data(), image: editing.value?.image || '' }));
+  document.body.appendChild(f);
+  f.submit();
+  f.remove();
 }
 
 /**

@@ -107,7 +107,7 @@ const editor = useEditor({
       code: false,
       link: { openOnClick: false, autolink: true, HTMLAttributes: { target: null, rel: null } },
     }),
-    // data-align: left / right float the photo so the following text wraps beside it.
+    // data-align: left / center / right lines the photo up on its own line (text does not wrap beside it).
     Image.extend({
       addAttributes() {
         return {
@@ -381,8 +381,8 @@ function toggleSource() {
 .rich-editor-content :deep(img.ProseMirror-selectednode) { outline: 3px solid var(--a-accent); }
 .rich-editor-content :deep(.tiptap) { display: flow-root; }
 .rich-editor-content :deep([data-resize-container]) { display: block !important; max-width: 100%; text-align: center; }
-.rich-editor-content :deep([data-resize-container]:has(img[data-align='left'])) { float: left; clear: both; max-width: 60%; margin: 0.35em 1.25em 0.75em 0; text-align: left; }
-.rich-editor-content :deep([data-resize-container]:has(img[data-align='right'])) { float: right; clear: both; max-width: 60%; margin: 0.35em 0 0.75em 1.25em; text-align: right; }
+.rich-editor-content :deep([data-resize-container]:has(img[data-align='left'])) { float: none; clear: both; max-width: 100%; margin: 0.5em auto 0.75em 0; text-align: left; }
+.rich-editor-content :deep([data-resize-container]:has(img[data-align='right'])) { float: none; clear: both; max-width: 100%; margin: 0.5em 0 0.75em auto; text-align: right; }
 .rich-editor-content :deep(h2), .rich-editor-content :deep(h3), .rich-editor-content :deep(hr), .rich-editor-content :deep(table) { clear: both; }
 .rich-editor-content :deep([data-resize-wrapper]) { display: inline-block !important; max-width: 100%; }
 .rich-editor-content :deep([data-resize-handle]) { width: 12px; height: 12px; margin: -6px; border-radius: 3px; background: var(--a-accent); border: 2px solid #fff; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35); opacity: 0; transition: opacity 0.12s; z-index: 2; }

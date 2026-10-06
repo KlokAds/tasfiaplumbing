@@ -251,8 +251,9 @@
     .site .prose-site { display: flow-root; }
     .site .prose-site h2, .site .prose-site h3, .site .prose-site hr, .site .prose-site table { clear: both; }
     @media (min-width: 640px) {
-        .site .prose-site img[data-align='left'] { float: left; clear: both; max-width: 50%; margin: 0.35em 1.5em 1em 0; }
-        .site .prose-site img[data-align='right'] { float: right; clear: both; max-width: 50%; margin: 0.35em 0 1em 1.5em; }
+        /* A left or right photo stays on its own line: text wrapped beside it looked broken. */
+        .site .prose-site img[data-align='left'] { display: block; float: none; max-width: 100%; margin: 0.6em auto 1em 0; }
+        .site .prose-site img[data-align='right'] { display: block; float: none; max-width: 100%; margin: 0.6em 0 1em auto; }
     }
     .site .prose-site .ta-center { text-align: center; }
     .site .prose-site .ta-right { text-align: right; }
