@@ -251,9 +251,16 @@
     .site .prose-site { display: flow-root; }
     .site .prose-site h2, .site .prose-site h3, .site .prose-site hr, .site .prose-site table { clear: both; }
     @media (min-width: 640px) {
-        /* A left or right photo stays on its own line: text wrapped beside it looked broken. */
+        /* A left or right photo with its paragraph beside it as a neat column (the text does not run on under
+           the photo), from tablets up; on phones the photo sits on its own line above the text. */
         .site .prose-site img[data-align='left'] { display: block; float: none; max-width: 100%; margin: 0.6em auto 1em 0; }
         .site .prose-site img[data-align='right'] { display: block; float: none; max-width: 100%; margin: 0.6em 0 1em auto; }
+        @media (min-width: 768px) {
+            .site .prose-site img[data-align='left'] { float: left; max-width: 45%; margin: 0.35em 1.75em 1em 0; }
+            .site .prose-site img[data-align='right'] { float: right; max-width: 45%; margin: 0.35em 0 1em 1.75em; }
+            .site .prose-site img[data-align] + p { display: flow-root; }
+            .site .prose-site img[data-align] + p + *, .site .prose-site img[data-align] + :not(p) { clear: both; }
+        }
     }
     .site .prose-site .ta-center { text-align: center; }
     .site .prose-site .ta-right { text-align: right; }

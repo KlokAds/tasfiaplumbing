@@ -39,6 +39,7 @@ class HandleInertiaRequests extends Middleware
             ...parent::share($request),
             'serviceCategories' => $nav['serviceCategories'],
             'topLocations' => $nav['topLocations'],
+            'allLocations' => $nav['allLocations'] ?? [],
             'footerTopServices' => $nav['footerTopServices'],
             'hasPrices' => $nav['hasPrices'] ?? false,
             'auth' => [
@@ -231,16 +232,21 @@ class HandleInertiaRequests extends Middleware
                 $locations = \App\Models\Location::where('is_active', true)->orderByDesc('is_featured')->orderBy('sort_order')->take(12)->get(['name', 'slug'])
                     ->map(fn ($l) => ['name' => $l->name, 'href' => $l->publicPath()])->all();
 
+                // Every area page, for the footer (by region) and the area search in the phone menu.
+                $allLocations = \App\Models\Location::where('is_active', true)->orderBy('name')->get(['name', 'slug', 'region'])
+                    ->map(fn ($l) => ['name' => $l->name, 'href' => $l->publicPath(), 'region' => $l->region])->all();
+
                 return [
                     'serviceCategories' => $groups->all(),
                     'topLocations' => $locations,
+                    'allLocations' => $allLocations,
                     'footerTopServices' => $services->take(6)->map(fn ($s) => ['name' => $s->name, 'href' => $s->publicPath()])->values()->all(),
                     // Price list links are only shown once there are prices to show.
                     'hasPrices' => \App\Models\Price::where('is_active', true)->exists(),
                 ];
             });
         } catch (\Throwable $e) {
-            return $memo = ['serviceCategories' => [], 'topLocations' => [], 'footerTopServices' => [], 'hasPrices' => false];
+            return $memo = ['serviceCategories' => [], 'topLocations' => [], 'allLocations' => [], 'footerTopServices' => [], 'hasPrices' => false];
         }
     }
 }
