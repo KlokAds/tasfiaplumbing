@@ -105,6 +105,12 @@ Artisan::command('articles:auto-approve', function () {
 // Every minute: 100/100 articles and changes whose 10 minutes have passed are approved for the Super Admin.
 Schedule::call(fn () => Artisan::call('articles:auto-approve'))->everyMinute()->name('articles:auto-approve')->withoutOverlapping(10);
 
+Artisan::command('locations:towns {--dry : Only show what would change}', function () {
+    $r = \App\Support\LocationPages::sync((bool) $this->option('dry'));
+    $this->info(($this->option('dry') ? 'Would add ' : 'Added ') . "{$r['created']} area pages, filled {$r['filled']} empty ones, kept {$r['kept']} written ones; "
+        . "linked services to {$r['services']}, added FAQs to {$r['faqs']}.");
+})->purpose('Add the Singapore area pages (Locations) that are missing and fill the empty ones; written pages are kept');
+
 // Lets Admin → System show whether the server cron is running.
 Schedule::call(fn () => \Illuminate\Support\Facades\Cache::forever('system.scheduler_seen', time()))->everyMinute()->name('scheduler-heartbeat');
 

@@ -1,6 +1,6 @@
 <template>
   <FrontendLayout>
-    <PageHero :title="location.meta_title || `Plumbing services in ${location.name}`" :eyebrow="location.region ? `${location.region} Singapore` : 'Singapore'"
+    <PageHero :title="(location.meta_title || '').split(' | ')[0] || `Plumbing services in ${location.name}`" :eyebrow="location.region ? `${location.region} Singapore` : 'Singapore'"
       :lead="location.intro" :image="location.image ? '/' + location.image : null"
       :crumbs="[{ label: 'Areas we serve', href: '/locations' }, { label: location.name }]">
       <template #below>

@@ -77,6 +77,20 @@ return [
         'batch_size' => 50,        // approved decisions run per "Run batch" (App\Support\AuditBatch)
     ],
 
+    // Area pages (Admin → Locations, `php artisan locations:towns`): this site's trade, in plain words.
+    'location_pages' => [
+        'title' => 'Plumber',
+        'brand' => 'Tasfia Plumbing',
+        'short' => 'tap, sink, pipe, toilet and water heater repairs and replacement',
+        'work' => [
+            'hdb' => 'In HDB flats we replace taps and shower mixers, fix leaking pipes under the sink, change toilet bowls and flush systems, and install water heaters.',
+            'condo' => 'In condominiums we replace basins, sinks and basin cabinets, fix bottle traps and sink pipes, and change water heaters and shower mixers.',
+            'landed' => 'For landed homes we repair and replace leaking pipes, water heaters, toilet bowls, taps and basins on every floor.',
+            'commercial' => 'For shops, offices and factories we fix leaking pipes, taps, sinks and toilets so the place keeps running.',
+        ],
+        'quote' => 'Send us photos and a short note of the job through the form on this page or on WhatsApp. We reply with a price and the earliest time we can come.',
+    ],
+
     // Byline on articles that have no author of their own and no default author: the team.
     'team_byline' => [
         'title' => 'Plumbing specialists, Singapore',
