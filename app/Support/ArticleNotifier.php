@@ -23,7 +23,8 @@ class ArticleNotifier
         $auto = AutoApprove::plan($blog, $seo);
         self::send(self::publishers($by), new ArticleWorkflow(
             'submitted', $blog->name, self::adminUrl($blog, 'review'), $by->name, null, self::when($blog->scheduled_at),
-            seo: $seo, autoApprove: $auto ? self::when($auto) : null,
+            seo: $seo, autoApprove: $auto['at'] && $auto['approve'] ? self::when($auto['at']) : null,
+            autoSendBack: $auto['at'] && !$auto['approve'] ? self::when($auto['at']) : null,
         ));
     }
 
@@ -51,14 +52,16 @@ class ArticleNotifier
                 'revision_updated', $item->article->name, url('/admin/blogs?tab=review'), $by->name,
                 seo: $seo,
                 changes: ArticleChanges::between($item->article, (array) $item->payload),
-                autoApprove: $auto ? self::when($auto) : null,
+                autoApprove: $auto['at'] && $auto['approve'] ? self::when($auto['at']) : null,
+            autoSendBack: $auto['at'] && !$auto['approve'] ? self::when($auto['at']) : null,
             ));
 
             return;
         }
         self::send(self::publishers($by), new ArticleWorkflow(
             'updated', $item->name, self::adminUrl($item, 'review'), $by->name, null, self::when($item->scheduled_at),
-            seo: $seo, autoApprove: $auto ? self::when($auto) : null,
+            seo: $seo, autoApprove: $auto['at'] && $auto['approve'] ? self::when($auto['at']) : null,
+            autoSendBack: $auto['at'] && !$auto['approve'] ? self::when($auto['at']) : null,
         ));
     }
 
@@ -95,7 +98,8 @@ class ArticleNotifier
             'revision_submitted', $revision->article->name, url('/admin/blogs?tab=review'), $by->name,
             seo: $seo,
             changes: ArticleChanges::between($revision->article, (array) $revision->payload),
-            autoApprove: $auto ? self::when($auto) : null,
+            autoApprove: $auto['at'] && $auto['approve'] ? self::when($auto['at']) : null,
+            autoSendBack: $auto['at'] && !$auto['approve'] ? self::when($auto['at']) : null,
         ));
     }
 

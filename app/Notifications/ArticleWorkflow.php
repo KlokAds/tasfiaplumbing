@@ -29,6 +29,7 @@ class ArticleWorkflow extends Notification
         public ?array $seo = null,
         public ?array $changes = null, // a change to a live article: App\Support\ArticleChanges
         public ?string $autoApprove = null, // Content quality 100/100: when it is approved automatically
+        public ?string $autoSendBack = null, // not ready: when it is sent back automatically with what to fix
     ) {}
 
     public function via(object $notifiable): array
@@ -52,6 +53,12 @@ class ArticleWorkflow extends Notification
             array_unshift($after, "**Content quality is 100/100**, so this is approved automatically on **{$this->autoApprove}** "
                 . '(' . \App\Support\AutoApprove::MINUTES . ' minutes after this email) on behalf of the Super Admin. '
                 . 'Approve, send back or reject it before then if you want to decide yourself. Any new edit restarts the time.');
+        }
+        if ($this->autoSendBack) {
+            array_unshift($after, ($this->seo ? "**Content quality is {$this->seo['score']}/100.** " : '')
+                . "If nobody approves or sends it back by **{$this->autoSendBack}** (" . \App\Support\AutoApprove::MINUTES . ' minutes after this email), '
+                . 'it is sent back to the writer automatically on behalf of the Super Admin, with the checks below as the note on what to fix. '
+                . 'Approve it before then if you want it published as it is.');
         }
 
         return (new MailMessage)

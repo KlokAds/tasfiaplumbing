@@ -5,42 +5,51 @@ namespace App\Support;
 use App\Models\ArticleRevision;
 use App\Models\BlogDetail;
 use App\Models\User;
+use App\Notifications\ArticleAutoSentBack;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\Log;
 
 /**
- * An article or a change to a live article with a Content quality score of 100/100 is approved
- * automatically 10 minutes after the approval email, on behalf of the Super Admin (the hidden
+ * The automatic review, 10 minutes after the approval email, on behalf of the Super Admin (the hidden
  * owner account). An approver can still approve, send back or reject it in those 10 minutes.
  *
- * At the due time everything is checked again: still 100/100, no SEO errors, no template text,
- * no AI-style phrases or duplicate text, and the source check (when a Brave key is saved) found
- * no copied sentences. If any of it fails, the item waits for a person as usual.
+ * - Content quality 100/100, no SEO errors, no template text, no AI-style phrases or duplicate text,
+ *   no title or focus keyword of another article, and the source check (when a Brave key is saved)
+ *   found no copied sentences: approved.
+ * - Anything else: sent back to the writer with what to fix as the note, and the hidden admin gets an email.
+ *
+ * Everything is checked again at the due time. auto_approve_at is the time of this automatic review.
  */
 class AutoApprove
 {
     public const MINUTES = 10;
 
+    /** How long an item may wait for the source check after its time before a person has to decide. */
+    private const SOURCE_WAIT_MINUTES = 120;
+
     /** Tests replace the score: fn (BlogDetail $proposed, ?array $faqs, ?array $writing) => ['score' => .., 'errors' => .., 'issues' => ..]. */
     public static ?\Closure $reportUsing = null;
 
     /**
-     * Called when the approval email goes out (and when the writer changes the item): returns the
-     * auto-approve time, or null when the item does not qualify. Saved on the item.
+     * Called when the approval email goes out (and when the writer changes the item): saves the time of
+     * the automatic review on the item. 'approve' says what it would do with the item as it is now.
+     *
+     * @return array{at: ?CarbonInterface, approve: bool}
      */
-    public static function plan(BlogDetail|ArticleRevision $item, ?array $report): ?CarbonInterface
+    public static function plan(BlogDetail|ArticleRevision $item, ?array $report): array
     {
         if (self::$reportUsing) {
             [$proposed, $faqs] = self::proposed($item);
             $report = self::report($proposed, $faqs, $item->quality_check);
         }
-        $at = self::qualifies($report, self::writing($item)) && !self::clash($item) ? now()->addMinutes(self::MINUTES) : null;
+        // No score (the check failed): a person decides.
+        $at = $report ? now()->addMinutes(self::MINUTES) : null;
         $item->forceFill(['auto_approve_at' => $at])->saveQuietly();
 
-        return $at;
+        return ['at' => $at, 'approve' => $at && self::qualifies($report, $item->quality_check) && !self::clash($item)];
     }
 
-    /** A person took over (a publisher saved it): no automatic approval. */
+    /** A person took over (a publisher saved it): no automatic review. */
     public static function cancel(BlogDetail|ArticleRevision $item): void
     {
         if ($item->auto_approve_at) {
@@ -48,7 +57,7 @@ class AutoApprove
         }
     }
 
-    /** The scheduled run (every minute). Returns how many were approved. */
+    /** The scheduled run (every minute). Returns how many were approved or sent back. */
     public static function due(): int
     {
         $articles = BlogDetail::where('status', BlogDetail::PENDING)->whereNotNull('auto_approve_at')->where('auto_approve_at', '<=', now())->get();
@@ -58,17 +67,14 @@ class AutoApprove
         }
         $owner = self::owner();
         if (!$owner) {
-            Log::warning('Auto-approve skipped: no active Super Admin account');
+            Log::warning('Automatic review skipped: no active Super Admin account');
 
             return 0;
         }
 
         $done = 0;
-        foreach ($articles as $blog) {
-            $done += self::run($blog, $owner) ? 1 : 0;
-        }
-        foreach ($changes as $revision) {
-            $done += self::run($revision, $owner) ? 1 : 0;
+        foreach ($articles->concat($changes) as $item) {
+            $done += self::run($item, $owner) ? 1 : 0;
         }
 
         return $done;
@@ -77,13 +83,24 @@ class AutoApprove
     private static function run(BlogDetail|ArticleRevision $item, User $owner): bool
     {
         try {
-            $why = self::blocker($item);
-            if ($why === 'wait') {
-                return false; // the source check has not run on this text yet: try again next minute
-            }
-            if ($why) {
+            $found = self::problems($item);
+            if ($found['stop']) {
                 $item->forceFill(['auto_approve_at' => null])->saveQuietly();
-                Log::info('Auto-approve stopped, waits for a person', ['item' => $item::class . ':' . $item->getKey(), 'reason' => $why]);
+                Log::info('Automatic review stopped, a person decides', ['item' => $item::class . ':' . $item->getKey(), 'reason' => $found['stop']]);
+
+                return false;
+            }
+            if ($found['problems']) {
+                self::sendBack($item, $owner, self::note($found));
+
+                return true;
+            }
+            if ($found['wait']) {
+                // The source check has not run on this text yet: try again next minute, for a while.
+                if ($item->auto_approve_at->copy()->addMinutes(self::SOURCE_WAIT_MINUTES)->isPast()) {
+                    $item->forceFill(['auto_approve_at' => null])->saveQuietly();
+                    Log::info('Automatic review stopped: the source check did not run', ['item' => $item::class . ':' . $item->getKey()]);
+                }
 
                 return false;
             }
@@ -91,52 +108,79 @@ class AutoApprove
 
             return true;
         } catch (\Throwable $e) {
-            Log::warning('Auto-approve failed', ['item' => $item::class . ':' . $item->getKey(), 'error' => $e->getMessage()]);
+            Log::warning('Automatic review failed', ['item' => $item::class . ':' . $item->getKey(), 'error' => $e->getMessage()]);
 
             return false;
         }
     }
 
-    /** Null when it can be approved, 'wait' to check again later, otherwise the reason it cannot. */
-    private static function blocker(BlogDetail|ArticleRevision $item): ?string
+    /**
+     * What stops an approval, as things the writer can fix.
+     *
+     * @return array{stop: ?string, wait: bool, score: ?int, problems: list<string>}
+     */
+    private static function problems(BlogDetail|ArticleRevision $item): array
     {
+        $out = ['stop' => null, 'wait' => false, 'score' => null, 'problems' => []];
         $isChange = $item instanceof ArticleRevision;
         if ($isChange && !$item->article) {
-            return 'article missing';
+            return ['stop' => 'article missing'] + $out;
         }
+        [$proposed, $faqs] = self::proposed($item);
+        $report = self::report($proposed, $faqs, $item->quality_check);
+        if (!$report) {
+            return ['stop' => 'the score could not be worked out'] + $out;
+        }
+        $out['score'] = (int) $report['score'];
+
         $fields = $isChange
             ? (array) $item->payload
             : $item->only(['name', 'excerpt', 'desc', 'meta_title', 'meta_desc']) + ['faqs' => $item->faqs()->get(['question', 'answer'])->toArray()];
-        if (TemplateText::inArticle($fields)) {
-            return 'template text';
+        if ($template = TemplateText::inArticle($fields)) {
+            $out['problems'][] = TemplateText::message($template);
+        }
+        if ($clash = self::clash($item)) {
+            $out['problems'][] = $clash;
         }
 
         if (SourceCheck::enabled()) {
             $check = $item->source_check;
             $html = (string) ($isChange ? ($item->payload['desc'] ?? '') : $item->desc);
             if (!empty($check['found'])) {
-                return 'copied sentences found';
+                $examples = collect($check['matches'] ?? [])->take(3)->map(fn ($m) => '“' . $m['sentence'] . '”')->implode(' ');
+                $out['problems'][] = "{$check['found']} sentence(s) are already on other websites (copied text). Rewrite them in your own words, from your own jobs. {$examples}";
+            } elseif (SourceCheck::sentences($html) && (!$check || ($check['hash'] ?? null) !== SourceCheck::hash($html) || !empty($check['error']))) {
+                $out['wait'] = true;
             }
-            if (SourceCheck::sentences($html) && (!$check || ($check['hash'] ?? null) !== SourceCheck::hash($html) || !empty($check['error']))) {
-                return 'wait';
+        }
+
+        if (!self::qualifies($report, $item->quality_check)) {
+            foreach (collect($report['issues'] ?? [])->pluck('message')->take(12) as $message) {
+                $out['problems'][] = $message;
+            }
+            if (!($report['issues'] ?? [])) {
+                $out['problems'][] = 'Open the article and follow the Content quality checks until the score is 100/100.';
             }
         }
 
-        if ($clash = self::clash($item)) {
-            return $clash;
-        }
+        return $out;
+    }
 
-        [$proposed, $faqs] = self::proposed($item);
-        if (!self::qualifies(self::report($proposed, $faqs, $item->quality_check), $item->quality_check)) {
-            return 'score below 100';
-        }
+    /** The note the writer gets (and the hidden admin sees). */
+    private static function note(array $found): string
+    {
+        $head = $found['score'] !== null && $found['score'] < 100
+            ? "Sent back automatically: Content quality is {$found['score']}/100. It is published automatically at 100/100."
+            : 'Sent back automatically: the article cannot be published as it is.';
+        $lines = collect($found['problems'])->unique()->values()->map(fn ($p, $i) => ($i + 1) . '. ' . $p);
+        $note = $head . "\n\nFix these, then submit it again:\n" . $lines->implode("\n");
 
-        return null;
+        return mb_strlen($note) > 3500 ? mb_substr($note, 0, 3490) . '…' : $note;
     }
 
     /**
      * The title, SEO title or focus keyword is the same as another article's (live, waiting, or in another
-     * change waiting for approval): often the text of one article pasted into another. A person decides.
+     * change waiting for approval): often the text of one article pasted into another.
      */
     public static function clash(BlogDetail|ArticleRevision $item): ?string
     {
@@ -152,11 +196,12 @@ class AutoApprove
                 ->get(['payload'])->map(fn ($r) => array_intersect_key((array) $r->payload, array_flip(['name', 'meta_title', 'focus_keyword']))));
 
         foreach ($others as $o) {
+            $name = '“' . ($o['name'] ?? '') . '”';
             if ($mine->intersect([$norm($o['name'] ?? ''), $norm($o['meta_title'] ?? '')])->filter()->isNotEmpty()) {
-                return 'same title as another article';
+                return "The title is the same as another article, {$name}. If this text belongs to that article, put it there; otherwise give this one its own title.";
             }
             if ($keyword !== '' && $keyword === $norm($o['focus_keyword'] ?? '')) {
-                return 'same focus keyword as another article';
+                return "The focus keyword “{$proposed->focus_keyword}” is the same as another article, {$name}. Two pages on one keyword compete in Google: if this text belongs to that article, put it there; otherwise choose another keyword.";
             }
         }
 
@@ -171,11 +216,6 @@ class AutoApprove
     private static function report(BlogDetail $proposed, ?array $faqs, ?array $writing): ?array
     {
         return self::$reportUsing ? (self::$reportUsing)($proposed, $faqs, $writing) : ArticleNotifier::seoReport($proposed, $faqs, $writing);
-    }
-
-    private static function writing(BlogDetail|ArticleRevision $item): ?array
-    {
-        return $item->quality_check;
     }
 
     /** @return array{0: BlogDetail, 1: ?array} the article as it would be after approval, and the FAQs of a change */
@@ -223,6 +263,36 @@ class AutoApprove
         SeoAudit::flush();
         ArticleNotifier::revisionReviewed($revision->load('user'), $owner, true);
         Log::info('Change auto-approved (100/100)', ['article' => $blog->id, 'revision' => $revision->id]);
+    }
+
+    /** The same steps as BlogController::reject / rejectRevision, with the note, plus an email to the hidden admin. */
+    private static function sendBack(BlogDetail|ArticleRevision $item, User $owner, string $note): void
+    {
+        if ($item instanceof ArticleRevision) {
+            $item->forceFill(['auto_approve_at' => null])->fill(['status' => 'rejected', 'note' => $note, 'reviewed_by' => $owner->id, 'reviewed_at' => now()])->save();
+            ArticleNotifier::revisionReviewed($item->load('article', 'user'), $owner, false);
+            $title = (string) ($item->payload['name'] ?? $item->article->name);
+            $by = $item->user?->name;
+            $kind = 'a change to a live article';
+            $url = url("/admin/blogs?tab=all&edit={$item->article_id}");
+        } else {
+            $item->forceFill(['auto_approve_at' => null])->fill(['status' => BlogDetail::DRAFT, 'reviewed_by' => $owner->id, 'reviewed_at' => now(), 'review_note' => $note])->save();
+            ArticleNotifier::rejected($item, $owner, $note);
+            $title = (string) $item->name;
+            $by = $item->author?->name ?? $item->auth_name;
+            $kind = 'a new article';
+            $url = url("/admin/blogs?tab=all&edit={$item->id}");
+        }
+        Log::info('Sent back automatically', ['item' => $item::class . ':' . $item->getKey()]);
+
+        $admins = User::where('is_hidden', true)->where('is_active', true)->role(config('admin.super_role'))->get()->filter(fn ($u) => filled($u->email));
+        foreach ($admins as $admin) {
+            try {
+                $admin->notify(new ArticleAutoSentBack($title, $kind, $by, $note, $url));
+            } catch (\Throwable $e) {
+                Log::warning('Sent-back email to the hidden admin failed', ['user' => $admin->id, 'error' => $e->getMessage()]);
+            }
+        }
     }
 
     /** The hidden owner account (Super Admin); any active Super Admin when there is none. */

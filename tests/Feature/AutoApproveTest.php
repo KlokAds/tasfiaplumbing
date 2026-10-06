@@ -38,11 +38,11 @@ class AutoApproveTest extends TestCase
         return User::factory()->create(['is_active' => true] + $attrs)->assignRole($role);
     }
 
-    private function submit(User $writer): BlogDetail
+    private function submit(User $writer, string $name = 'Floor Spring Repair Guide'): BlogDetail
     {
-        $this->actingAs($writer)->post('/admin/blogs', ['name' => 'Floor Spring Repair Guide', 'desc' => '<p>We replaced the floor spring at a shop in Tampines last week.</p>', 'faqs' => [], 'intent' => 'submit']);
+        $this->actingAs($writer)->post('/admin/blogs', ['name' => $name, 'desc' => '<p>We replaced the floor spring at a shop in Tampines last week.</p>', 'faqs' => [], 'intent' => 'submit']);
 
-        return BlogDetail::firstOrFail();
+        return BlogDetail::where('name', $name)->firstOrFail();
     }
 
     public function test_a_100_article_is_published_10_minutes_after_the_email(): void
@@ -70,36 +70,60 @@ class AutoApproveTest extends TestCase
         Notification::assertSentTo($writer, ArticleWorkflow::class, fn ($n) => $n->event === 'approved');
     }
 
-    public function test_below_100_or_an_approver_taking_over_means_no_automatic_approval(): void
+    public function test_below_100_it_is_sent_back_after_10_minutes_with_what_to_fix(): void
+    {
+        Notification::fake();
+        $owner = $this->user('super-admin', ['is_hidden' => true]);
+        $approver = $this->user('super-admin');
+        $writer = $this->user('writer');
+        AutoApprove::$reportUsing = fn () => ['score' => $this->score, 'errors' => 0, 'warnings' => 1, 'pillars' => [], 'words' => 900,
+            'issues' => $this->score === 100 ? [] : [['level' => 'warning', 'message' => 'AEO: Short first paragraph. Answer the question in the first 2 sentences.']]];
+
+        $this->score = 88;
+        $blog = $this->submit($writer);
+        $this->assertNotNull($blog->auto_approve_at);
+        Notification::assertSentTo($approver, ArticleWorkflow::class, fn ($n) => $n->event === 'submitted' && $n->autoApprove === null && $n->autoSendBack !== null
+            && str_contains($n->toMail($approver)->render(), 'sent back to the writer automatically'));
+
+        $this->travel(9)->minutes();
+        $this->assertSame(0, AutoApprove::due(), 'not before 10 minutes');
+        $this->travel(2)->minutes();
+        $this->assertSame(1, AutoApprove::due());
+
+        $blog->refresh();
+        $this->assertSame(BlogDetail::DRAFT, $blog->status);
+        $this->assertSame($owner->id, $blog->reviewed_by);
+        $this->assertStringContainsString('Content quality is 88/100', $blog->review_note);
+        $this->assertStringContainsString('1. AEO: Short first paragraph.', $blog->review_note);
+        Notification::assertSentTo($writer, ArticleWorkflow::class, fn ($n) => $n->event === 'rejected' && str_contains((string) $n->note, 'Short first paragraph'));
+        Notification::assertSentTo($owner, \App\Notifications\ArticleAutoSentBack::class, fn ($n) => str_contains($n->toMail($owner)->render(), 'Short first paragraph'));
+        Notification::assertNotSentTo($approver, \App\Notifications\ArticleAutoSentBack::class);
+    }
+
+    public function test_the_check_runs_again_at_the_time_and_an_approver_saving_it_stops_it(): void
     {
         Notification::fake();
         $this->user('super-admin', ['is_hidden' => true]);
         $approver = $this->user('super-admin');
         $writer = $this->user('writer');
 
-        $this->score = 96;
+        // 100 when submitted, 90 at the time (for example a duplicate appeared): sent back, not published.
         $blog = $this->submit($writer);
-        $this->assertNull($blog->auto_approve_at);
-        Notification::assertSentTo($approver, ArticleWorkflow::class, fn ($n) => $n->event === 'submitted' && $n->autoApprove === null);
-
-        // 100 now, but the score fell before the time came: it waits for a person.
-        $this->score = 100;
-        AutoApprove::plan($blog, (AutoApprove::$reportUsing)());
         $this->score = 90;
         $this->travel(11)->minutes();
-        $this->assertSame(0, AutoApprove::due());
-        $this->assertSame(BlogDetail::PENDING, $blog->fresh()->status);
-        $this->assertNull($blog->fresh()->auto_approve_at);
+        $this->assertSame(1, AutoApprove::due());
+        $this->assertSame(BlogDetail::DRAFT, $blog->fresh()->status);
 
-        // An approver saved it: they decide.
+        // An approver saved another one: they decide.
         $this->score = 100;
-        AutoApprove::plan($blog->fresh(), (AutoApprove::$reportUsing)());
-        $this->actingAs($approver)->post("/admin/blogs/{$blog->id}", ['name' => 'Floor Spring Repair Guide', 'desc' => '<p>Edited by the approver.</p>', 'faqs' => [], 'intent' => 'draft']);
-        $this->assertSame(BlogDetail::PENDING, $blog->fresh()->status);
-        $this->assertNull($blog->fresh()->auto_approve_at);
+        $other = $this->submit($writer, 'Glass Door Hinge Guide');
+        $this->assertNotNull($other->auto_approve_at);
+        $this->actingAs($approver)->post("/admin/blogs/{$other->id}", ['name' => 'Glass Door Hinge Guide', 'desc' => '<p>Edited by the approver.</p>', 'faqs' => [], 'intent' => 'draft']);
+        $this->assertSame(BlogDetail::PENDING, $other->fresh()->status);
+        $this->assertNull($other->fresh()->auto_approve_at);
     }
 
-    public function test_copied_text_or_template_text_stops_it(): void
+    public function test_it_waits_for_the_source_check_and_copied_text_is_sent_back(): void
     {
         Notification::fake();
         $this->user('super-admin', ['is_hidden' => true]);
@@ -111,10 +135,11 @@ class AutoApproveTest extends TestCase
         $this->assertSame(0, AutoApprove::due(), 'waits for the source check');
         $this->assertNotNull($blog->fresh()->auto_approve_at);
 
-        $blog->forceFill(['source_check' => ['hash' => SourceCheck::hash($blog->desc), 'total' => 1, 'found' => 1, 'matches' => []]])->saveQuietly();
-        $this->assertSame(0, AutoApprove::due());
-        $this->assertNull($blog->fresh()->auto_approve_at);
-        $this->assertSame(BlogDetail::PENDING, $blog->fresh()->status);
+        $blog->forceFill(['source_check' => ['hash' => SourceCheck::hash($blog->desc), 'total' => 1, 'found' => 1,
+            'matches' => [['sentence' => 'We replaced the floor spring at a shop in Tampines last week.', 'urls' => ['https://other.example/a']]]]])->saveQuietly();
+        $this->assertSame(1, AutoApprove::due());
+        $this->assertSame(BlogDetail::DRAFT, $blog->fresh()->status);
+        $this->assertStringContainsString('already on other websites', $blog->fresh()->review_note);
     }
 
     public function test_a_100_change_to_a_live_article_goes_live_after_10_minutes(): void
@@ -138,7 +163,7 @@ class AutoApproveTest extends TestCase
         Notification::assertSentTo($writer, ArticleWorkflow::class, fn ($n) => $n->event === 'revision_approved');
     }
 
-    public function test_the_text_of_another_article_pasted_in_is_not_approved(): void
+    public function test_the_text_of_another_article_pasted_in_is_sent_back(): void
     {
         Notification::fake();
         $this->user('super-admin', ['is_hidden' => true]);
@@ -149,13 +174,12 @@ class AutoApproveTest extends TestCase
         // The sliding door article pasted into the spotlight article: same focus keyword.
         $this->actingAs($writer)->post("/admin/blogs/{$spotlight->id}", ['name' => 'Sliding Door Track Guide', 'focus_keyword' => 'Sliding door track repair', 'desc' => '<p>Track text.</p>', 'faqs' => [], 'intent' => 'submit']);
         $revision = ArticleRevision::firstOrFail();
-        $this->assertNull($revision->auto_approve_at);
-        $this->assertSame('same focus keyword as another article', AutoApprove::clash($revision));
+        $this->assertStringContainsString('is the same as another article, “Sliding Door Track Repair”', (string) AutoApprove::clash($revision));
 
-        // Planned anyway (as before this check): at the time it is stopped.
-        $revision->forceFill(['auto_approve_at' => now()->subMinute()])->saveQuietly();
-        $this->assertSame(0, AutoApprove::due());
-        $this->assertSame('pending', $revision->fresh()->status);
-        $this->assertSame('<p>Spotlight</p>', $spotlight->fresh()->desc);
+        $this->travel(11)->minutes();
+        $this->assertSame(1, AutoApprove::due());
+        $this->assertSame('rejected', $revision->fresh()->status);
+        $this->assertStringContainsString('focus keyword', $revision->fresh()->note);
+        $this->assertSame('<p>Spotlight</p>', $spotlight->fresh()->desc, 'the live article stays');
     }
 }
