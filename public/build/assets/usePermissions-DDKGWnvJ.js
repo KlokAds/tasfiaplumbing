@@ -1,1 +1,0 @@
-import{a as e,y as t}from"./app-Ck-eNDAD.js";function n(){let n=e(),r=t(()=>n.props.admin?.can||{}),i=e=>!!r.value[e];return{can:i,canAny:(...e)=>e.some(i)}}export{n as t};

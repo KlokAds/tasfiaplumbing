@@ -101,11 +101,16 @@ function submit() {
   const data = { ...form.data() };
   const link = waUrl.value ? whatsappLink(data) : null;
 
-  // One click does both: the request is saved and emailed, and WhatsApp opens with the
-  // message written. The tab has to open inside the click or the browser blocks it.
-  let win = null;
+  // One click does both: WhatsApp opens with the message written, and the request is saved and
+  // emailed. WhatsApp opens straight away, inside the click: a blank tab sent there after the save
+  // stays on about:blank in many phone and in-app browsers. The form is checked first (validate).
+  let opened = false;
   if (link) {
-    win = window.open('about:blank', '_blank');
+    const win = window.open(link, '_blank');
+    if (win) {
+      opened = true;
+      try { win.opener = null; } catch (e) { /* already on WhatsApp */ }
+    }
   }
 
   form.transform(d => ({ ...d, subject: d.subject || props.subject || 'Website enquiry' }))
@@ -117,16 +122,10 @@ function submit() {
           (window.dataLayer = window.dataLayer || []).push({ event: 'generate_lead', form_name: props.idPrefix, service: data.subject || props.subject, page_path: location.pathname });
         }
         form.reset();
-        if (link) {
-          if (win && !win.closed) {
-            win.opener = null;
-            win.location.href = link;
-          } else {
-            window.location.href = link; // pop-up blocked: go to WhatsApp in this tab
-          }
+        if (link && !opened) {
+          window.location.href = link; // pop-up blocked: go to WhatsApp in this tab
         }
       },
-      onError: () => { if (win && !win.closed) win.close(); },
     });
 }
 </script>
