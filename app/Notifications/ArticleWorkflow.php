@@ -28,6 +28,7 @@ class ArticleWorkflow extends Notification
         public ?string $publicUrl = null,
         public ?array $seo = null,
         public ?array $changes = null, // a change to a live article: App\Support\ArticleChanges
+        public ?string $autoApprove = null, // Content quality 100/100: when it is approved automatically
     ) {}
 
     public function via(object $notifiable): array
@@ -46,6 +47,11 @@ class ArticleWorkflow extends Notification
         $after = $c['next'];
         if ($this->publicUrl && in_array($this->event, ['approved', 'published', 'revision_approved'], true)) {
             $after[] = 'Live page: ' . $this->publicUrl;
+        }
+        if ($this->autoApprove) {
+            array_unshift($after, "**Content quality is 100/100**, so this is approved automatically on **{$this->autoApprove}** "
+                . '(' . \App\Support\AutoApprove::MINUTES . ' minutes after this email) on behalf of the Super Admin. '
+                . 'Approve, send back or reject it before then if you want to decide yourself. Any new edit restarts the time.');
         }
 
         return (new MailMessage)

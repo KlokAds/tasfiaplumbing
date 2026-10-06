@@ -229,6 +229,9 @@ class BlogController extends Controller
         Draft::discard($user->id, 'article', $blog->id);
         SeoAudit::flush();
         $this->notifyTransition($blog, $oldStatus, $user);
+        if ($blog->status === BlogDetail::PENDING && $user->can('articles.publish')) {
+            \App\Support\AutoApprove::cancel($blog); // an approver is working on it: no automatic approval
+        }
         if ($oldStatus === BlogDetail::PENDING && $blog->status === BlogDetail::PENDING && !$user->can('articles.publish')) {
             ArticleNotifier::updatedAfterSubmit($blog, $user); // the writer changed it while it waits
         }

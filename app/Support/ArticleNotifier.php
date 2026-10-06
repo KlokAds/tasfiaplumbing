@@ -19,9 +19,11 @@ class ArticleNotifier
 {
     public static function submitted(BlogDetail $blog, User $by): void
     {
+        $seo = self::seoReport($blog, null, $blog->quality_check);
+        $auto = AutoApprove::plan($blog, $seo);
         self::send(self::publishers($by), new ArticleWorkflow(
             'submitted', $blog->name, self::adminUrl($blog, 'review'), $by->name, null, self::when($blog->scheduled_at),
-            seo: self::seoReport($blog, null, $blog->quality_check),
+            seo: $seo, autoApprove: $auto ? self::when($auto) : null,
         ));
     }
 
@@ -32,23 +34,31 @@ class ArticleNotifier
     public static function updatedAfterSubmit(BlogDetail|ArticleRevision $item, User $by): void
     {
         $isChange = $item instanceof ArticleRevision;
+        if ($isChange) {
+            $proposed = clone $item->article;
+            $proposed->forceFill(array_intersect_key((array) $item->payload, $proposed->getAttributes()));
+            $seo = self::seoReport($proposed, $item->payload['faqs'] ?? null, $item->quality_check);
+        } else {
+            $seo = self::seoReport($item, null, $item->quality_check);
+        }
+        // Every change restarts the 10 minutes of the automatic approval (or stops it below 100/100).
+        $auto = AutoApprove::plan($item, $seo);
         if (!\Illuminate\Support\Facades\Cache::add('article-updated:' . ($isChange ? 'r' : 'a') . $item->getKey(), 1, now()->addHour())) {
             return;
         }
         if ($isChange) {
-            $proposed = clone $item->article;
-            $proposed->forceFill(array_intersect_key((array) $item->payload, $proposed->getAttributes()));
             self::send(self::publishers($by), new ArticleWorkflow(
                 'revision_updated', $item->article->name, url('/admin/blogs?tab=review'), $by->name,
-                seo: self::seoReport($proposed, $item->payload['faqs'] ?? null, $item->quality_check),
+                seo: $seo,
                 changes: ArticleChanges::between($item->article, (array) $item->payload),
+                autoApprove: $auto ? self::when($auto) : null,
             ));
 
             return;
         }
         self::send(self::publishers($by), new ArticleWorkflow(
             'updated', $item->name, self::adminUrl($item, 'review'), $by->name, null, self::when($item->scheduled_at),
-            seo: self::seoReport($item, null, $item->quality_check),
+            seo: $seo, autoApprove: $auto ? self::when($auto) : null,
         ));
     }
 
@@ -79,10 +89,13 @@ class ArticleNotifier
         $proposed = clone $revision->article;
         $proposed->forceFill(array_intersect_key((array) $revision->payload, $proposed->getAttributes()));
 
+        $seo = self::seoReport($proposed, $revision->payload['faqs'] ?? null, $revision->quality_check);
+        $auto = AutoApprove::plan($revision, $seo);
         self::send(self::publishers($by), new ArticleWorkflow(
             'revision_submitted', $revision->article->name, url('/admin/blogs?tab=review'), $by->name,
-            seo: self::seoReport($proposed, $revision->payload['faqs'] ?? null, $revision->quality_check),
+            seo: $seo,
             changes: ArticleChanges::between($revision->article, (array) $revision->payload),
+            autoApprove: $auto ? self::when($auto) : null,
         ));
     }
 

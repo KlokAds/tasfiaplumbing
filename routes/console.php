@@ -97,6 +97,14 @@ Artisan::command('articles:source-check', function () {
 // Every minute: articles and changes waiting for approval get a source check (only when a Brave key is saved).
 Schedule::call(fn () => Artisan::call('articles:source-check'))->everyMinute()->name('articles:source-check')->withoutOverlapping(10);
 
+Artisan::command('articles:auto-approve', function () {
+    $n = \App\Support\AutoApprove::due();
+    $this->info($n ? "Auto-approved {$n} item(s)." : 'Nothing due.');
+})->purpose('Approve articles and changes with Content quality 100/100, 10 minutes after the approval email');
+
+// Every minute: 100/100 articles and changes whose 10 minutes have passed are approved for the Super Admin.
+Schedule::call(fn () => Artisan::call('articles:auto-approve'))->everyMinute()->name('articles:auto-approve')->withoutOverlapping(10);
+
 // Lets Admin → System show whether the server cron is running.
 Schedule::call(fn () => \Illuminate\Support\Facades\Cache::forever('system.scheduler_seen', time()))->everyMinute()->name('scheduler-heartbeat');
 

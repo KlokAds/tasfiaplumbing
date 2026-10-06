@@ -38,6 +38,7 @@ class BlogDetail extends Model
         'reminded_at' => 'datetime',
         'source_check' => 'array',
         'quality_check' => 'array',
+        'auto_approve_at' => 'datetime',
     ];
 
     protected static function booted(): void
