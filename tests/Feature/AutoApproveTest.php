@@ -55,8 +55,10 @@ class AutoApproveTest extends TestCase
         $blog = $this->submit($writer);
         $this->assertSame(BlogDetail::PENDING, $blog->status);
         $this->assertNotNull($blog->auto_approve_at);
-        Notification::assertSentTo($approver, ArticleWorkflow::class, fn ($n) => $n->event === 'submitted' && $n->autoApprove !== null
-            && str_contains($n->toMail($approver)->render(), 'approved automatically'));
+        Notification::assertSentTo($owner, ArticleWorkflow::class, fn ($n) => $n->event === 'submitted' && $n->autoApprove !== null && $n->withMail
+            && $n->via($owner) === ['database', 'mail'] && str_contains($n->toMail($owner)->render(), 'approved automatically'));
+        // Other Super Admins: the bell only, no email.
+        Notification::assertSentTo($approver, ArticleWorkflow::class, fn ($n) => $n->event === 'submitted' && $n->via($approver) === ['database']);
 
         $this->travel(9)->minutes();
         $this->assertSame(0, AutoApprove::due(), 'not before 10 minutes');

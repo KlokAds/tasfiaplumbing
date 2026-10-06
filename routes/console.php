@@ -36,12 +36,12 @@ Artisan::command('google:sync {task? : reports, index or reviews; runs it now}',
 // Checks every 5 minutes which Google task is due; how often each runs is set in the admin.
 Schedule::call(fn () => Artisan::call('google:sync'))->everyFiveMinutes()->name('google:sync')->withoutOverlapping(30);
 
-Artisan::command('content:scan {--email : Also email the weekly plan to everyone who approves articles}', function () {
+Artisan::command('content:scan {--email : Also email the weekly plan to the hidden Super Admin}', function () {
     $scan = \App\Support\ContentScan::refresh();
     $a = $scan['types']['article'];
     $this->info("Scanned {$a['total']} articles and {$scan['types']['service']['total']} services; " . count($scan['plan']['articles']) . ' articles planned for this week.');
     if ($this->option('email')) {
-        $to = \App\Support\ArticleNotifier::publishers();
+        $to = \App\Support\ArticleNotifier::owners()->filter(fn ($u) => filled($u->email));
         \Illuminate\Support\Facades\Notification::send($to, new \App\Notifications\WeeklyContentPlan($scan));
         $this->info('Emailed the plan to ' . $to->count() . ' people.');
     }

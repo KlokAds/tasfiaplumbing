@@ -52,7 +52,8 @@ class SourceCheckTest extends TestCase
     public function test_waiting_articles_are_checked_and_copied_text_is_reported(): void
     {
         Notification::fake();
-        $owner = $this->user('super-admin');
+        $owner = $this->user('super-admin', ['is_hidden' => true]);
+        $approver = $this->user('super-admin');
         $writer = $this->user('writer');
         SourceCheck::saveKey(self::KEY);
         Http::fake(function ($request) {
@@ -72,6 +73,7 @@ class SourceCheckTest extends TestCase
         $this->assertSame(1, $check['found']);
         $this->assertSame(['https://other-site.example/floor-spring'], $check['matches'][0]['urls'], 'our own site is not a match');
         Notification::assertSentTo($owner, SourceCheckFound::class);
+        Notification::assertNotSentTo($approver, SourceCheckFound::class, 'only the hidden Super Admin is emailed');
 
         // Unchanged text is not searched again.
         $this->assertSame(0, SourceCheck::due());

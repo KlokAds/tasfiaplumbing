@@ -21,7 +21,7 @@ class ArticleNotifier
     {
         $seo = self::seoReport($blog, null, $blog->quality_check);
         $auto = AutoApprove::plan($blog, $seo);
-        self::send(self::publishers($by), new ArticleWorkflow(
+        self::sendToApprovers($by, new ArticleWorkflow(
             'submitted', $blog->name, self::adminUrl($blog, 'review'), $by->name, null, self::when($blog->scheduled_at),
             seo: $seo, autoApprove: $auto['at'] && $auto['approve'] ? self::when($auto['at']) : null,
             autoSendBack: $auto['at'] && !$auto['approve'] ? self::when($auto['at']) : null,
@@ -48,7 +48,7 @@ class ArticleNotifier
             return;
         }
         if ($isChange) {
-            self::send(self::publishers($by), new ArticleWorkflow(
+            self::sendToApprovers($by, new ArticleWorkflow(
                 'revision_updated', $item->article->name, url('/admin/blogs?tab=review'), $by->name,
                 seo: $seo,
                 changes: ArticleChanges::between($item->article, (array) $item->payload),
@@ -58,7 +58,7 @@ class ArticleNotifier
 
             return;
         }
-        self::send(self::publishers($by), new ArticleWorkflow(
+        self::sendToApprovers($by, new ArticleWorkflow(
             'updated', $item->name, self::adminUrl($item, 'review'), $by->name, null, self::when($item->scheduled_at),
             seo: $seo, autoApprove: $auto['at'] && $auto['approve'] ? self::when($auto['at']) : null,
             autoSendBack: $auto['at'] && !$auto['approve'] ? self::when($auto['at']) : null,
@@ -94,7 +94,7 @@ class ArticleNotifier
 
         $seo = self::seoReport($proposed, $revision->payload['faqs'] ?? null, $revision->quality_check);
         $auto = AutoApprove::plan($revision, $seo);
-        self::send(self::publishers($by), new ArticleWorkflow(
+        self::sendToApprovers($by, new ArticleWorkflow(
             'revision_submitted', $revision->article->name, url('/admin/blogs?tab=review'), $by->name,
             seo: $seo,
             changes: ArticleChanges::between($revision->article, (array) $revision->payload),
@@ -128,13 +128,31 @@ class ArticleNotifier
         $by = $isChange ? $item->user?->name : ($item->author?->name ?? $item->auth_name);
         $owners = User::where('is_hidden', true)->where('is_active', true)->role(config('admin.super_role'))->get();
 
-        foreach (self::publishers()->merge($owners)->unique('id')->filter(fn ($u) => filled($u->email)) as $user) {
+        foreach ($owners->filter(fn ($u) => filled($u->email)) as $user) {
             try {
                 $user->notify(new \App\Notifications\SourceCheckFound($title, $isChange ? 'a change to a live article' : 'a new article', $by, $result));
             } catch (\Throwable $e) {
                 Log::warning('Source check email failed', ['user' => $user->id, 'error' => $e->getMessage()]);
             }
         }
+    }
+
+    /** The hidden Super Admin account(s): the owner's mailbox, the only one that gets emails about approvals. */
+    public static function owners(): Collection
+    {
+        return User::where('is_hidden', true)->where('is_active', true)->role(config('admin.super_role'))->get();
+    }
+
+    /**
+     * Something for the approvers: the hidden Super Admin gets the email (and the bell); the other
+     * approvers see it in the bell only.
+     */
+    private static function sendToApprovers(?User $by, ArticleWorkflow $notification): void
+    {
+        $bellOnly = clone $notification;
+        $bellOnly->withMail = false;
+        self::send(self::publishers($by), $bellOnly);
+        self::send(self::owners()->reject(fn (User $u) => $u->id === $by?->id), $notification);
     }
 
     /** Everyone who can approve: Super Admins plus any role given articles.publish. */

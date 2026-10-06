@@ -93,7 +93,8 @@ class EnquiryFollowUpTest extends TestCase
     public function test_enquiries_without_a_reply_are_reminded_once_in_the_daytime(): void
     {
         Notification::fake();
-        $owner = User::factory()->create(['is_active' => true])->assignRole('super-admin');
+        $owner = User::factory()->create(['is_active' => true, 'is_hidden' => true])->assignRole('super-admin');
+        $admin = User::factory()->create(['is_active' => true])->assignRole('super-admin');
         Carbon::setTestNow(Carbon::parse('2026-10-05 10:00', config('admin.timezone')));
         $old = Message::create(['name' => 'Mei', 'email' => 'm@g.com', 'phone' => '91234567', 'message' => 'Door', 'status' => 'new']);
         $old->forceFill(['created_at' => now()->subHours(3)])->save();
@@ -103,6 +104,7 @@ class EnquiryFollowUpTest extends TestCase
 
         $this->assertSame(1, Enquiries::remind());
         Notification::assertSentTo($owner, EnquiryReminder::class, fn ($n) => count($n->messages) === 1 && $n->messages[0]->id === $old->id);
+        Notification::assertNotSentTo($admin, EnquiryReminder::class, 'only the hidden Super Admin is emailed');
         $this->assertSame(0, Enquiries::remind(), 'each enquiry is reminded once');
 
         Carbon::setTestNow(Carbon::parse('2026-10-05 23:00', config('admin.timezone')));

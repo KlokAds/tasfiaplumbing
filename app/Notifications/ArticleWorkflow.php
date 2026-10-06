@@ -18,6 +18,9 @@ class ArticleWorkflow extends Notification
 {
     use Queueable;
 
+    /** False: the bell only. Approvers other than the hidden Super Admin get no email (App\Support\ArticleNotifier). */
+    public bool $withMail = true;
+
     public function __construct(
         public string $event,
         public string $title,
@@ -34,7 +37,7 @@ class ArticleWorkflow extends Notification
 
     public function via(object $notifiable): array
     {
-        return filled($notifiable->email) ? ['database', 'mail'] : ['database'];
+        return $this->withMail && filled($notifiable->email) ? ['database', 'mail'] : ['database'];
     }
 
     public function toMail(object $notifiable): MailMessage

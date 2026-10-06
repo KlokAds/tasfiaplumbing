@@ -87,13 +87,15 @@ class WritingGuideTest extends TestCase
     public function test_the_scan_command_emails_the_plan(): void
     {
         Notification::fake();
-        $owner = User::factory()->create(['is_active' => true])->assignRole(config('admin.super_role'));
+        $owner = User::factory()->create(['is_active' => true, 'is_hidden' => true])->assignRole(config('admin.super_role'));
+        $admin = User::factory()->create(['is_active' => true])->assignRole(config('admin.super_role'));
         $this->oldArticle($owner, 'Live Guide');
 
         $this->artisan('content:scan')->assertSuccessful();
         Notification::assertNothingSent();
 
         $this->artisan('content:scan', ['--email' => true])->assertSuccessful();
+        Notification::assertNotSentTo($admin, WeeklyContentPlan::class, 'only the hidden Super Admin is emailed');
         Notification::assertSentTo($owner, WeeklyContentPlan::class, function ($n) use ($owner) {
             $mail = $n->toMail($owner);
 
