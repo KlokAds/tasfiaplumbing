@@ -137,4 +137,25 @@ class AutoApproveTest extends TestCase
         $this->assertSame('<p>New text from a real job in Bedok.</p>', $blog->fresh()->desc);
         Notification::assertSentTo($writer, ArticleWorkflow::class, fn ($n) => $n->event === 'revision_approved');
     }
+
+    public function test_the_text_of_another_article_pasted_in_is_not_approved(): void
+    {
+        Notification::fake();
+        $this->user('super-admin', ['is_hidden' => true]);
+        $writer = $this->user('editor');
+        BlogDetail::create(['name' => 'Sliding Door Track Repair', 'desc' => '<p>Track</p>', 'status' => BlogDetail::PUBLISHED, 'focus_keyword' => 'sliding door track repair']);
+        $spotlight = BlogDetail::create(['name' => 'Spotlight Replacement', 'desc' => '<p>Spotlight</p>', 'status' => BlogDetail::PUBLISHED, 'author_id' => $writer->id]);
+
+        // The sliding door article pasted into the spotlight article: same focus keyword.
+        $this->actingAs($writer)->post("/admin/blogs/{$spotlight->id}", ['name' => 'Sliding Door Track Guide', 'focus_keyword' => 'Sliding door track repair', 'desc' => '<p>Track text.</p>', 'faqs' => [], 'intent' => 'submit']);
+        $revision = ArticleRevision::firstOrFail();
+        $this->assertNull($revision->auto_approve_at);
+        $this->assertSame('same focus keyword as another article', AutoApprove::clash($revision));
+
+        // Planned anyway (as before this check): at the time it is stopped.
+        $revision->forceFill(['auto_approve_at' => now()->subMinute()])->saveQuietly();
+        $this->assertSame(0, AutoApprove::due());
+        $this->assertSame('pending', $revision->fresh()->status);
+        $this->assertSame('<p>Spotlight</p>', $spotlight->fresh()->desc);
+    }
 }

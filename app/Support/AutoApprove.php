@@ -34,7 +34,7 @@ class AutoApprove
             [$proposed, $faqs] = self::proposed($item);
             $report = self::report($proposed, $faqs, $item->quality_check);
         }
-        $at = self::qualifies($report, self::writing($item)) ? now()->addMinutes(self::MINUTES) : null;
+        $at = self::qualifies($report, self::writing($item)) && !self::clash($item) ? now()->addMinutes(self::MINUTES) : null;
         $item->forceFill(['auto_approve_at' => $at])->saveQuietly();
 
         return $at;
@@ -122,9 +122,42 @@ class AutoApprove
             }
         }
 
+        if ($clash = self::clash($item)) {
+            return $clash;
+        }
+
         [$proposed, $faqs] = self::proposed($item);
         if (!self::qualifies(self::report($proposed, $faqs, $item->quality_check), $item->quality_check)) {
             return 'score below 100';
+        }
+
+        return null;
+    }
+
+    /**
+     * The title, SEO title or focus keyword is the same as another article's (live, waiting, or in another
+     * change waiting for approval): often the text of one article pasted into another. A person decides.
+     */
+    public static function clash(BlogDetail|ArticleRevision $item): ?string
+    {
+        [$proposed] = self::proposed($item);
+        $norm = fn ($v) => mb_strtolower(trim(preg_replace('/\s+/u', ' ', (string) $v)));
+        $mine = collect([$proposed->name, $proposed->meta_title])->map($norm)->filter()->unique();
+        $keyword = $norm($proposed->focus_keyword);
+
+        $others = BlogDetail::query()->whereKeyNot($proposed->getKey())->where('status', '!=', 'merged')
+            ->get(['name', 'meta_title', 'focus_keyword'])->map(fn ($b) => $b->only(['name', 'meta_title', 'focus_keyword']))
+            ->concat(ArticleRevision::where('status', 'pending')->where('article_id', '!=', $proposed->getKey())
+                ->when($item instanceof ArticleRevision, fn ($q) => $q->whereKeyNot($item->getKey()))
+                ->get(['payload'])->map(fn ($r) => array_intersect_key((array) $r->payload, array_flip(['name', 'meta_title', 'focus_keyword']))));
+
+        foreach ($others as $o) {
+            if ($mine->intersect([$norm($o['name'] ?? ''), $norm($o['meta_title'] ?? '')])->filter()->isNotEmpty()) {
+                return 'same title as another article';
+            }
+            if ($keyword !== '' && $keyword === $norm($o['focus_keyword'] ?? '')) {
+                return 'same focus keyword as another article';
+            }
         }
 
         return null;
