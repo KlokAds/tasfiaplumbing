@@ -34,8 +34,12 @@ class ContentQuality
     private const AUTHORITY_HOSTS = ['gov.sg', 'bca.gov.sg', 'hdb.gov.sg', 'pub.gov.sg', 'nea.gov.sg', 'ema.gov.sg', 'spgroup.com.sg',
         'scdf.gov.sg', 'ura.gov.sg', 'mom.gov.sg', 'nparks.gov.sg', 'wikipedia.org', 'who.int', 'edu.sg'];
 
+    // Words of someone who did the work: "we see", "on real jobs", "8 years of experience", a before-and-after.
     private const EXPERIENCE_PHRASES = ['we ', 'our team', 'our technician', 'our engineer', 'in our experience', 'we have', "we've", 'we found',
-        'we recommend', 'on site', 'on-site', 'last month', 'last year', 'recently', 'case study', 'customer', 'client', 'project'];
+        'we recommend', 'on site', 'on-site', 'last month', 'last year', 'recently', 'case study', 'customer', 'client', 'project',
+        'we see', 'we often', 'we usually', 'we check', 'we replaced', 'we fixed', 'we installed', 'real jobs', 'our jobs', 'jobs we',
+        'years of experience', "years' experience", 'before-and-after', 'before and after', 'our plumber', 'our electrician',
+        'our handyman', 'our installer', 'our crew', 'our workers'];
 
     /**
      * @param array{type?: string, name?: string, meta_title?: string, meta_desc?: string, excerpt?: string, body?: string,
