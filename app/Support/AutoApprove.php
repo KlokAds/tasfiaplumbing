@@ -5,7 +5,6 @@ namespace App\Support;
 use App\Models\ArticleRevision;
 use App\Models\BlogDetail;
 use App\Models\User;
-use App\Notifications\ArticleAutoSentBack;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\Log;
 
@@ -224,10 +223,7 @@ class AutoApprove
         if (!$item instanceof ArticleRevision) {
             return [$item, null];
         }
-        $proposed = clone $item->article;
-        $proposed->forceFill(array_intersect_key((array) $item->payload, $proposed->getAttributes()));
-
-        return [$proposed, $item->payload['faqs'] ?? null];
+        return [ArticleNotifier::proposed($item), $item->payload['faqs'] ?? null];
     }
 
     /** The same steps as BlogController::approve with "publish now" (or the writer's requested time, if it is still ahead). */
@@ -241,7 +237,7 @@ class AutoApprove
         $blog->auto_approve_at = null;
         $blog->save();
         SeoAudit::flush();
-        ArticleNotifier::approved($blog, $owner);
+        ArticleNotifier::approved($blog, $owner, auto: true);
         Log::info('Article auto-approved (100/100)', ['article' => $blog->id, 'status' => $blog->status]);
     }
 
@@ -261,38 +257,21 @@ class AutoApprove
 
         $revision->forceFill(['auto_approve_at' => null])->fill(['status' => 'approved', 'reviewed_by' => $owner->id, 'reviewed_at' => now(), 'note' => 'Approved automatically: Content quality 100/100.'])->save();
         SeoAudit::flush();
-        ArticleNotifier::revisionReviewed($revision->load('user'), $owner, true);
+        ArticleNotifier::revisionReviewed($revision->load('user'), $owner, true, auto: true);
         Log::info('Change auto-approved (100/100)', ['article' => $blog->id, 'revision' => $revision->id]);
     }
 
-    /** The same steps as BlogController::reject / rejectRevision, with the note, plus an email to the hidden admin. */
+    /** The same steps as BlogController::reject / rejectRevision, with the note (the hidden admin is emailed by ArticleNotifier). */
     private static function sendBack(BlogDetail|ArticleRevision $item, User $owner, string $note): void
     {
         if ($item instanceof ArticleRevision) {
             $item->forceFill(['auto_approve_at' => null])->fill(['status' => 'rejected', 'note' => $note, 'reviewed_by' => $owner->id, 'reviewed_at' => now()])->save();
-            ArticleNotifier::revisionReviewed($item->load('article', 'user'), $owner, false);
-            $title = (string) ($item->payload['name'] ?? $item->article->name);
-            $by = $item->user?->name;
-            $kind = 'a change to a live article';
-            $url = url("/admin/blogs?tab=all&edit={$item->article_id}");
+            ArticleNotifier::revisionReviewed($item->load('article', 'user'), $owner, false, auto: true);
         } else {
             $item->forceFill(['auto_approve_at' => null])->fill(['status' => BlogDetail::DRAFT, 'reviewed_by' => $owner->id, 'reviewed_at' => now(), 'review_note' => $note])->save();
-            ArticleNotifier::rejected($item, $owner, $note);
-            $title = (string) $item->name;
-            $by = $item->author?->name ?? $item->auth_name;
-            $kind = 'a new article';
-            $url = url("/admin/blogs?tab=all&edit={$item->id}");
+            ArticleNotifier::rejected($item, $owner, $note, auto: true);
         }
         Log::info('Sent back automatically', ['item' => $item::class . ':' . $item->getKey()]);
-
-        $admins = User::where('is_hidden', true)->where('is_active', true)->role(config('admin.super_role'))->get()->filter(fn ($u) => filled($u->email));
-        foreach ($admins as $admin) {
-            try {
-                $admin->notify(new ArticleAutoSentBack($title, $kind, $by, $note, $url));
-            } catch (\Throwable $e) {
-                Log::warning('Sent-back email to the hidden admin failed', ['user' => $admin->id, 'error' => $e->getMessage()]);
-            }
-        }
     }
 
     /** The hidden owner account (Super Admin); any active Super Admin when there is none. */

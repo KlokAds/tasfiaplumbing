@@ -70,6 +70,26 @@ class AutoApproveTest extends TestCase
         $this->assertSame($owner->id, $blog->reviewed_by, 'approved on behalf of the hidden Super Admin');
         $this->assertNull($blog->auto_approve_at);
         Notification::assertSentTo($writer, ArticleWorkflow::class, fn ($n) => $n->event === 'approved');
+        // The hidden admin hears about it too.
+        Notification::assertSentTo($owner, \App\Notifications\ArticleDecision::class, fn ($n) => $n->decision === 'approved' && $n->auto
+            && str_contains($n->toMail($owner)->render(), 'Content quality is 100/100'));
+    }
+
+    public function test_an_approver_deciding_by_hand_is_emailed_to_the_hidden_admin(): void
+    {
+        Notification::fake();
+        $owner = $this->user('super-admin', ['is_hidden' => true]);
+        $approver = $this->user('super-admin');
+        $writer = $this->user('writer');
+        $blog = $this->submit($writer);
+        $this->actingAs($approver)->post("/admin/blogs/{$blog->id}/reject", ['note' => 'Add a photo from the job.']);
+
+        Notification::assertSentTo($owner, \App\Notifications\ArticleDecision::class, fn ($n) => $n->decision === 'sent_back' && !$n->auto
+            && str_contains($n->toMail($owner)->render(), 'Add a photo from the job.') && str_contains($n->toMail($owner)->render(), 'by ' . e($approver->name)));
+
+        $other = $this->submit($writer, 'Glass Door Hinge Guide');
+        $this->actingAs($approver)->post("/admin/blogs/{$other->id}/approve", ['mode' => 'now']);
+        Notification::assertSentTo($owner, \App\Notifications\ArticleDecision::class, fn ($n) => $n->decision === 'approved' && $n->title === 'Glass Door Hinge Guide');
     }
 
     public function test_below_100_it_is_sent_back_after_10_minutes_with_what_to_fix(): void
@@ -98,8 +118,9 @@ class AutoApproveTest extends TestCase
         $this->assertStringContainsString('Content quality is 88/100', $blog->review_note);
         $this->assertStringContainsString('1. AEO: Short first paragraph.', $blog->review_note);
         Notification::assertSentTo($writer, ArticleWorkflow::class, fn ($n) => $n->event === 'rejected' && str_contains((string) $n->note, 'Short first paragraph'));
-        Notification::assertSentTo($owner, \App\Notifications\ArticleAutoSentBack::class, fn ($n) => str_contains($n->toMail($owner)->render(), 'Short first paragraph'));
-        Notification::assertNotSentTo($approver, \App\Notifications\ArticleAutoSentBack::class);
+        Notification::assertSentTo($owner, \App\Notifications\ArticleDecision::class, fn ($n) => $n->decision === 'sent_back' && $n->auto
+            && str_contains($n->toMail($owner)->render(), 'Short first paragraph'));
+        Notification::assertNotSentTo($approver, \App\Notifications\ArticleDecision::class);
     }
 
     public function test_the_check_runs_again_at_the_time_and_an_approver_saving_it_stops_it(): void
@@ -183,5 +204,17 @@ class AutoApproveTest extends TestCase
         $this->assertSame('rejected', $revision->fresh()->status);
         $this->assertStringContainsString('focus keyword', $revision->fresh()->note);
         $this->assertSame('<p>Spotlight</p>', $spotlight->fresh()->desc, 'the live article stays');
+    }
+
+    public function test_a_change_with_new_text_counts_as_updated_now(): void
+    {
+        $writer = $this->user('editor');
+        $blog = BlogDetail::create(['name' => 'Old Guide', 'desc' => '<p>Old</p>', 'status' => BlogDetail::PUBLISHED]);
+        $blog->forceFill(['content_updated_at' => now()->subYears(2)])->saveQuietly();
+        $change = ArticleRevision::create(['article_id' => $blog->id, 'user_id' => $writer->id, 'status' => 'pending', 'payload' => ['name' => 'Old Guide', 'desc' => '<p>New</p>']]);
+        $same = ArticleRevision::create(['article_id' => $blog->id, 'user_id' => $writer->id, 'status' => 'pending', 'payload' => ['name' => 'Old Guide 2', 'desc' => '<p>Old</p>']]);
+
+        $this->assertTrue(\App\Support\ArticleNotifier::proposed($change->load('article'))->content_updated_at->gt(now()->subMinute()));
+        $this->assertTrue(\App\Support\ArticleNotifier::proposed($same->load('article'))->content_updated_at->lt(now()->subYear()), 'same text: not fresher');
     }
 }

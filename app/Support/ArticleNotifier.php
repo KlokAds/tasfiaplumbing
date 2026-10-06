@@ -36,8 +36,7 @@ class ArticleNotifier
     {
         $isChange = $item instanceof ArticleRevision;
         if ($isChange) {
-            $proposed = clone $item->article;
-            $proposed->forceFill(array_intersect_key((array) $item->payload, $proposed->getAttributes()));
+            $proposed = self::proposed($item);
             $seo = self::seoReport($proposed, $item->payload['faqs'] ?? null, $item->quality_check);
         } else {
             $seo = self::seoReport($item, null, $item->quality_check);
@@ -65,18 +64,26 @@ class ArticleNotifier
         ));
     }
 
-    public static function approved(BlogDetail $blog, User $by): void
+    /** $auto: approved by App\Support\AutoApprove (10 minutes after the approval email). */
+    public static function approved(BlogDetail $blog, User $by, bool $auto = false): void
     {
         $event = $blog->status === BlogDetail::SCHEDULED ? 'scheduled' : 'approved';
         self::send(self::author($blog, $by), new ArticleWorkflow(
             $event, $blog->name, self::adminUrl($blog), $by->name, null, self::when($blog->scheduled_at), url($blog->publicPath()),
         ));
+        self::tellOwners($by, $auto, new \App\Notifications\ArticleDecision(
+            $event, $blog->name, $blog->author?->name ?? $blog->auth_name, $by->name, $auto, self::adminUrl($blog),
+            null, url($blog->publicPath()), self::when($blog->scheduled_at),
+        ));
     }
 
-    public static function rejected(BlogDetail $blog, User $by, string $note): void
+    public static function rejected(BlogDetail $blog, User $by, string $note, bool $auto = false): void
     {
         self::send(self::author($blog, $by), new ArticleWorkflow(
             'rejected', $blog->name, self::adminUrl($blog, 'mine'), $by->name, $note,
+        ));
+        self::tellOwners($by, $auto, new \App\Notifications\ArticleDecision(
+            'sent_back', $blog->name, $blog->author?->name ?? $blog->auth_name, $by->name, $auto, self::adminUrl($blog), $note,
         ));
     }
 
@@ -89,8 +96,7 @@ class ArticleNotifier
 
     public static function revisionSubmitted(ArticleRevision $revision, User $by): void
     {
-        $proposed = clone $revision->article;
-        $proposed->forceFill(array_intersect_key((array) $revision->payload, $proposed->getAttributes()));
+        $proposed = self::proposed($revision);
 
         $seo = self::seoReport($proposed, $revision->payload['faqs'] ?? null, $revision->quality_check);
         $auto = AutoApprove::plan($revision, $seo);
@@ -103,8 +109,12 @@ class ArticleNotifier
         ));
     }
 
-    public static function revisionReviewed(ArticleRevision $revision, User $by, bool $approved): void
+    public static function revisionReviewed(ArticleRevision $revision, User $by, bool $approved, bool $auto = false): void
     {
+        self::tellOwners($by, $auto, new \App\Notifications\ArticleDecision(
+            $approved ? 'change_approved' : 'change_rejected', $revision->article->name, $revision->user?->name, $by->name, $auto,
+            self::adminUrl($revision->article), $approved ? null : $revision->note, url($revision->article->publicPath()),
+        ));
         $user = $revision->user;
         if (!$user || $user->id === $by->id) {
             return;
@@ -137,6 +147,21 @@ class ArticleNotifier
         }
     }
 
+    /**
+     * The live article as it would be once a change is approved (for the scores). Approving new text
+     * makes it "updated now" (HasSeo), so the freshness check counts it as updated.
+     */
+    public static function proposed(ArticleRevision $revision): BlogDetail
+    {
+        $proposed = clone $revision->article;
+        $proposed->forceFill(array_intersect_key((array) $revision->payload, $proposed->getAttributes()));
+        if ((string) ($revision->payload['desc'] ?? '') !== (string) $revision->article->desc) {
+            $proposed->content_updated_at = now();
+        }
+
+        return $proposed;
+    }
+
     /** The hidden Super Admin account(s): the owner's mailbox, the only one that gets emails about approvals. */
     public static function owners(): Collection
     {
@@ -153,6 +178,21 @@ class ArticleNotifier
         $bellOnly->withMail = false;
         self::send(self::publishers($by), $bellOnly);
         self::send(self::owners()->reject(fn (User $u) => $u->id === $by?->id), $notification);
+    }
+
+    /**
+     * Every approval and send-back is emailed to the hidden Super Admin. Not when they decided it
+     * themselves, except an automatic decision (made on their behalf).
+     */
+    private static function tellOwners(User $by, bool $auto, \App\Notifications\ArticleDecision $notification): void
+    {
+        foreach (self::owners()->filter(fn (User $u) => filled($u->email) && ($auto || $u->id !== $by->id)) as $owner) {
+            try {
+                $owner->notify($notification);
+            } catch (\Throwable $e) {
+                Log::warning('Article decision email to the hidden admin failed', ['user' => $owner->id, 'error' => $e->getMessage()]);
+            }
+        }
     }
 
     /** Everyone who can approve: Super Admins plus any role given articles.publish. */
