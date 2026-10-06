@@ -95,7 +95,11 @@ class WritingGuideTest extends TestCase
         Notification::assertNothingSent();
 
         $this->artisan('content:scan', ['--email' => true])->assertSuccessful();
-        Notification::assertNotSentTo($admin, WeeklyContentPlan::class, 'only the hidden Super Admin is emailed');
+        Notification::assertSentTo($admin, WeeklyContentPlan::class);
+        $writer = User::factory()->create(['is_active' => true])->assignRole('writer');
+        Notification::fake();
+        $this->artisan('content:scan', ['--email' => true])->assertSuccessful();
+        Notification::assertSentTo($writer, WeeklyContentPlan::class);
         Notification::assertSentTo($owner, WeeklyContentPlan::class, function ($n) use ($owner) {
             $mail = $n->toMail($owner);
 

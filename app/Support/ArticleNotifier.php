@@ -130,7 +130,7 @@ class ArticleNotifier
         ));
     }
 
-    /** The source check found sentences on other websites: the approvers and the hidden admin (the owner's mailbox). */
+    /** The source check found sentences on other websites: the writer, the approvers and the hidden admin (the owner's mailbox). */
     public static function sourceFound(BlogDetail|ArticleRevision $item, array $result): void
     {
         $isChange = $item instanceof ArticleRevision;
@@ -138,7 +138,8 @@ class ArticleNotifier
         $by = $isChange ? $item->user?->name : ($item->author?->name ?? $item->auth_name);
         $owners = User::where('is_hidden', true)->where('is_active', true)->role(config('admin.super_role'))->get();
 
-        foreach ($owners->filter(fn ($u) => filled($u->email)) as $user) {
+        $writer = $isChange ? $item->user : $item->author;
+        foreach (self::publishers()->merge($owners)->push($writer)->filter()->unique('id')->filter(fn ($u) => filled($u->email) && $u->is_active !== false) as $user) {
             try {
                 $user->notify(new \App\Notifications\SourceCheckFound($title, $isChange ? 'a change to a live article' : 'a new article', $by, $result));
             } catch (\Throwable $e) {
@@ -160,6 +161,20 @@ class ArticleNotifier
         }
 
         return $proposed;
+    }
+
+    /** Everyone who writes or approves articles, and the hidden Super Admin (for the weekly content plan). */
+    public static function team(): Collection
+    {
+        $users = self::publishers();
+        try {
+            $users = $users->merge(User::visible()->permission('articles.create')->get());
+        } catch (\Throwable) {
+            // permission not seeded yet
+        }
+
+        return $users->merge(self::owners())->unique('id')
+            ->filter(fn (User $u) => $u->is_active !== false && filled($u->email))->values();
     }
 
     /** The hidden Super Admin account(s): the owner's mailbox, the only one that gets emails about approvals. */

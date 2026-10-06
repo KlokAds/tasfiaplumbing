@@ -73,7 +73,8 @@ class SourceCheckTest extends TestCase
         $this->assertSame(1, $check['found']);
         $this->assertSame(['https://other-site.example/floor-spring'], $check['matches'][0]['urls'], 'our own site is not a match');
         Notification::assertSentTo($owner, SourceCheckFound::class);
-        Notification::assertNotSentTo($approver, SourceCheckFound::class, 'only the hidden Super Admin is emailed');
+        Notification::assertSentTo($approver, SourceCheckFound::class);
+        Notification::assertSentTo($writer, SourceCheckFound::class);
 
         // Unchanged text is not searched again.
         $this->assertSame(0, SourceCheck::due());

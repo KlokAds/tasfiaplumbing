@@ -47,8 +47,9 @@ class Enquiries
             return 0;
         }
 
-        // Only the hidden Super Admin (the owner's mailbox); the team sees new enquiries in the bell.
-        $to = User::where('is_hidden', true)->where('is_active', true)->role(config('admin.super_role'))->get()->filter(fn ($u) => filled($u->email));
+        // Everyone who handles enquiries, and the hidden Super Admin (the owner's mailbox).
+        $to = User::where('is_active', true)->whereNotNull('email')->get()
+            ->filter(fn ($u) => $u->can('enquiries.view') || ($u->is_hidden && $u->hasRole(config('admin.super_role'))));
         foreach ($to as $user) {
             try {
                 $user->notify(new EnquiryReminder($due->all()));
