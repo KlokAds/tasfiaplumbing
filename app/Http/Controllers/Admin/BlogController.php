@@ -51,11 +51,17 @@ class BlogController extends Controller
         $tab = $request->input('tab', 'all');
 
         $query = BlogDetail::with(['primaryService:id,name,slug', 'faqs', 'author:id,name'])->latest('updated_at');
-        if (!$canAll || $tab === 'mine') {
+        // Sent back: each writer sees their own (articles and changes), approvers everyone's.
+        $this->sentBack = $this->openSentBack($canPublish ? null : $user->id);
+        $sentBackArticles = fn ($q) => $q->where('status', BlogDetail::DRAFT)->whereNotNull('review_note')->where('review_note', '!=', '');
+        if ((!$canAll && $tab !== 'sent_back') || $tab === 'mine') {
             $query->where('author_id', $user->id);
         }
         match ($tab) {
             'drafts' => $query->where('status', BlogDetail::DRAFT),
+            'sent_back' => $query->where(fn ($q) => $q
+                ->where(fn ($a) => $sentBackArticles($a)->when(!$canPublish, fn ($w) => $w->where('author_id', $user->id)))
+                ->orWhereIn('id', $this->sentBack->keys())),
             'review' => $canPublish
                 ? $query->where('status', BlogDetail::PENDING)
                 : $query->where(fn ($q) => $q->where('status', BlogDetail::PENDING)
@@ -109,6 +115,7 @@ class BlogController extends Controller
                 'all' => $scope(BlogDetail::query())->count(),
                 'mine' => BlogDetail::where('author_id', $user->id)->count(),
                 'drafts' => $scope(BlogDetail::where('status', BlogDetail::DRAFT))->count(),
+                'sent_back' => $sentBackArticles(BlogDetail::query())->when(!$canPublish, fn ($q) => $q->where('author_id', $user->id))->count() + $this->sentBack->count(),
                 'review' => $scope(BlogDetail::where('status', BlogDetail::PENDING))->count()
                     + ($canPublish ? ArticleRevision::where('status', 'pending')->count() : ArticleRevision::where('status', 'pending')->where('user_id', $user->id)->count()),
                 'scheduled' => $scope(BlogDetail::where('status', BlogDetail::SCHEDULED))->count(),
@@ -129,7 +136,7 @@ class BlogController extends Controller
             'defaultAuthor' => (int) SiteSetting::stored('articles.default_author') ?: null,
             'sourceCheck' => $canPublish ? \App\Support\SourceCheck::status($user->hasRole(config('admin.super_role'))) : ['on' => false],
             'editBlog' => $request->filled('edit') && ($b = BlogDetail::with('faqs')->find($request->integer('edit'))) && $this->canEdit($user, $b)
-                ? $this->withRevision($this->row($b, $dup, $services, $user), $canPublish ? $request->integer('revision') : 0)
+                ? $this->withOwnChange($this->withRevision($this->row($b, $dup, $services, $user), $canPublish ? $request->integer('revision') : 0), $request->integer('resume'), $user)
                 : null,
             'permissions' => [
                 'publish' => $canPublish,
@@ -551,9 +558,64 @@ class BlogController extends Controller
         return $row;
     }
 
+    /**
+     * "Fix and resubmit" on a change that was sent back: the editor opens with the writer's own
+     * change (not the live article), so they fix it instead of writing it again. Saving sends it
+     * for approval again.
+     */
+    private function withOwnChange(array $row, int $revisionId, User $user): array
+    {
+        $revision = $revisionId ? ArticleRevision::where('id', $revisionId)->where('article_id', $row['id'])
+            ->where('user_id', $user->id)->whereIn('status', ['rejected', 'pending'])->first() : null;
+        if (!$revision) {
+            return $row;
+        }
+        $payload = (array) $revision->payload;
+        foreach (self::CONTENT_FIELDS as $field) {
+            if (array_key_exists($field, $payload)) {
+                $row[$field] = $payload[$field];
+            }
+        }
+        $row['faqs'] = $payload['faqs'] ?? $row['faqs'] ?? [];
+        $row['resumed_note'] = $revision->status === 'rejected' ? $revision->note : null;
+
+        return $row;
+    }
+
+    /** Open changes that were sent back (rejected), by article id: index() fills it for the rows. */
+    private \Illuminate\Support\Collection $sentBack;
+
+    /**
+     * Changes sent back that nobody has acted on yet: the writer's latest change to that article,
+     * and the article has not been changed since. $userId: only that writer's.
+     */
+    private function openSentBack(?int $userId): \Illuminate\Support\Collection
+    {
+        $rejected = ArticleRevision::where('status', 'rejected')->when($userId, fn ($q) => $q->where('user_id', $userId))
+            ->with(['article:id,content_updated_at', 'user:id,name'])->latest('id')
+            ->get(['id', 'article_id', 'user_id', 'note', 'reviewed_at']);
+        if ($rejected->isEmpty()) {
+            return collect();
+        }
+        $latest = ArticleRevision::whereIn('article_id', $rejected->pluck('article_id')->unique())
+            ->selectRaw('article_id, user_id, MAX(id) as latest_id')->groupBy('article_id', 'user_id')->get()
+            ->mapWithKeys(fn ($r) => [$r->article_id . '-' . $r->user_id => (int) $r->latest_id]);
+
+        return $rejected->filter(fn (ArticleRevision $r) => $r->article
+            && ($latest[$r->article_id . '-' . $r->user_id] ?? $r->id) === $r->id
+            && !($r->article->content_updated_at && $r->reviewed_at && $r->article->content_updated_at->gt($r->reviewed_at)))
+            ->unique('article_id')->keyBy('article_id');
+    }
+
     private function row(BlogDetail $b, array $dup, $services, User $user): array
     {
         $row = $b->toArray();
+        $change = isset($this->sentBack) ? $this->sentBack->get($b->id) : null;
+        $row['sent_back'] = $change
+            ? ['kind' => 'Changes', 'note' => $change->note, 'by' => $change->user?->name, 'revision_id' => $change->id, 'mine' => $change->user_id === $user->id]
+            : ($b->status === BlogDetail::DRAFT && filled($b->review_note)
+                ? ['kind' => 'Article', 'note' => $b->review_note, 'by' => $b->author?->name ?? $b->auth_name, 'revision_id' => null, 'mine' => $b->author_id === $user->id]
+                : null);
         if (!$user->can('articles.publish')) {
             unset($row['source_check'], $row['quality_check']); // for approvers only
         }

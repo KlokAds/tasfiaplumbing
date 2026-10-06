@@ -217,4 +217,49 @@ class AutoApproveTest extends TestCase
         $this->assertTrue(\App\Support\ArticleNotifier::proposed($change->load('article'))->content_updated_at->gt(now()->subMinute()));
         $this->assertTrue(\App\Support\ArticleNotifier::proposed($same->load('article'))->content_updated_at->lt(now()->subYear()), 'same text: not fresher');
     }
+
+    public function test_a_change_sent_back_opens_with_the_writers_own_text_to_fix(): void
+    {
+        $writer = $this->user('editor');
+        $other = $this->user('editor');
+        $blog = BlogDetail::create(['name' => 'Live Guide', 'desc' => '<p>Live text</p>', 'status' => BlogDetail::PUBLISHED]);
+        $revision = ArticleRevision::create(['article_id' => $blog->id, 'user_id' => $writer->id, 'status' => 'rejected', 'note' => 'Add the price.',
+            'payload' => ['name' => 'Live Guide', 'desc' => '<p>My changed text</p>', 'faqs' => [['question' => 'Q?', 'answer' => 'A.']]]]);
+
+        $this->actingAs($writer)->get("/admin/blogs?edit={$blog->id}&resume={$revision->id}")->assertInertia(fn ($page) => $page
+            ->where('editBlog.desc', '<p>My changed text</p>')
+            ->where('editBlog.resumed_note', 'Add the price.')
+            ->where('editBlog.faqs.0.question', 'Q?'));
+
+        // Someone else's change is not loaded: they see the live article.
+        $this->actingAs($other)->get("/admin/blogs?edit={$blog->id}&resume={$revision->id}")->assertInertia(fn ($page) => $page
+            ->where('editBlog.desc', '<p>Live text</p>')
+            ->missing('editBlog.resumed_note'));
+    }
+
+    public function test_the_sent_back_tab_shows_each_writer_their_own_and_approvers_everyone(): void
+    {
+        $owner = $this->user('super-admin');
+        $writer = $this->user('editor');
+        $other = $this->user('editor');
+        $live = BlogDetail::create(['name' => 'Live Guide', 'desc' => '<p>Live</p>', 'status' => BlogDetail::PUBLISHED]);
+        ArticleRevision::create(['article_id' => $live->id, 'user_id' => $writer->id, 'status' => 'rejected', 'note' => 'Add the price.', 'reviewed_at' => now(),
+            'payload' => ['name' => 'Live Guide', 'desc' => '<p>Mine</p>']]);
+        BlogDetail::create(['name' => 'Draft Back', 'desc' => '<p>x</p>', 'status' => BlogDetail::DRAFT, 'author_id' => $other->id, 'review_note' => 'Too short.']);
+
+        $this->actingAs($writer)->get('/admin/blogs?tab=sent_back')->assertInertia(fn ($page) => $page
+            ->where('counts.sent_back', 1)
+            ->has('blogs.data', 1)
+            ->where('blogs.data.0.name', 'Live Guide')
+            ->where('blogs.data.0.sent_back.kind', 'Changes')
+            ->where('blogs.data.0.sent_back.mine', true));
+
+        $this->actingAs($owner)->get('/admin/blogs?tab=sent_back')->assertInertia(fn ($page) => $page
+            ->where('counts.sent_back', 2)
+            ->has('blogs.data', 2));
+
+        // A new change from the writer clears it.
+        ArticleRevision::create(['article_id' => $live->id, 'user_id' => $writer->id, 'status' => 'pending', 'payload' => ['name' => 'Live Guide', 'desc' => '<p>Fixed</p>']]);
+        $this->actingAs($writer)->get('/admin/blogs?tab=sent_back')->assertInertia(fn ($page) => $page->where('counts.sent_back', 0));
+    }
 }

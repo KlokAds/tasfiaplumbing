@@ -18,7 +18,7 @@
             <p class="text-sm font-semibold truncate">{{ f.title }} <span class="a-badge ml-1">{{ f.kind }}</span></p>
             <p class="text-xs a-muted mt-0.5 whitespace-pre-line">“{{ f.note }}”</p>
           </div>
-          <button v-if="f.blog" @click="openModal(f.blog)" class="admin-btn-secondary a-btn-sm shrink-0">Fix and resubmit</button>
+          <button @click="fixAndResubmit(f)" class="admin-btn-secondary a-btn-sm shrink-0">Fix and resubmit</button>
         </li>
       </ul>
     </div>
@@ -29,7 +29,7 @@
       <button v-for="t in tabs" :key="t.key" @click="go({ tab: t.key === 'all' ? '' : t.key, page: '' })"
         :class="['a-tab flex items-center gap-2 whitespace-nowrap', currentTab === t.key && 'a-tab-active']">
         {{ t.label }}
-        <span v-if="counts[t.key] !== undefined" :class="['a-badge', t.key === 'review' && counts.review ? 'a-badge-warning' : '']">{{ counts[t.key] }}</span>
+        <span v-if="counts[t.key] !== undefined" :class="['a-badge', t.key === 'review' && counts.review ? 'a-badge-warning' : '', t.key === 'sent_back' && counts.sent_back ? 'a-badge-danger' : '']">{{ counts[t.key] }}</span>
       </button>
     </nav>
 
@@ -147,6 +147,11 @@
                 <span :class="['a-badge', status(b).cls]">{{ status(b).label }}</span> <ChangeBadge :created="b.created_at" :updated="b.edited_at" :pending="b.pending_changes" class="ml-1" />
                 <p v-if="b.status === 'scheduled' || (b.status === 'pending' && b.scheduled_at)" class="text-[11px] a-subtle mt-0.5">{{ b.status === 'pending' ? 'Wants ' : '' }}{{ when(b.scheduled_at) }}</p>
                 <p v-else-if="b.status === 'pending'" class="text-[11px] a-subtle mt-0.5">Sent {{ ago(b.submitted_at) }}</p>
+                <div v-if="b.sent_back" class="mt-1 max-w-[22rem] text-[12px] whitespace-normal">
+                  <p class="a-text-danger font-semibold">{{ b.sent_back.kind === 'Changes' ? 'Changes sent back' : 'Sent back' }}<span v-if="!b.sent_back.mine && b.sent_back.by" class="font-normal a-muted"> · {{ b.sent_back.by }}</span></p>
+                  <p class="a-muted line-clamp-2" :title="b.sent_back.note">{{ b.sent_back.note }}</p>
+                  <button v-if="b.sent_back.mine" @click="fixAndResubmit(b.sent_back.kind === 'Changes' ? { articleId: b.id, revisionId: b.sent_back.revision_id } : { blog: b })" class="link mt-0.5">Fix and resubmit</button>
+                </div>
                 <SourceCheckBadge v-if="permissions.publish && b.status === 'pending'" :result="b.source_check" :on="sourceCheck.on" class="mt-1 max-w-[22rem]" />
                 <WritingCheckBadges v-if="permissions.publish && b.status === 'pending'" :check="b.quality_check" class="mt-1 max-w-[22rem]" />
               </td>
@@ -199,6 +204,10 @@
           <p class="font-semibold">Sent back by the reviewer</p>
           <p class="mt-1 whitespace-pre-line">{{ editing.review_note }}</p>
           <p class="mt-1 text-xs a-muted">Make the changes, then submit for approval again.</p>
+        </div>
+        <div v-else-if="editing?.resumed_note" class="rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm">
+          <p class="font-semibold">Your changes that were sent back are loaded. Fix these, then submit again:</p>
+          <p class="mt-1 whitespace-pre-line">{{ editing.resumed_note }}</p>
         </div>
         <div v-else-if="editing?.revision_id" class="rounded-xl border a-border a-panel-2 px-4 py-3 text-sm">
           <p class="font-semibold">Changes from {{ editing.revision_by || 'a team member' }}, waiting for approval</p>
@@ -548,6 +557,7 @@ const tabs = computed(() => [
   { key: 'all', label: props.permissions.edit_all ? 'All' : 'My articles' },
   ...(props.permissions.edit_all ? [{ key: 'mine', label: 'Mine' }] : []),
   { key: 'drafts', label: 'Drafts' },
+  { key: 'sent_back', label: 'Sent back' },
   { key: 'review', label: props.permissions.publish ? 'Needs approval' : 'Waiting approval' },
   { key: 'scheduled', label: 'Scheduled' },
   { key: 'published', label: 'Published' },
@@ -557,6 +567,7 @@ const emptyText = computed(() => ({
   review: props.permissions.publish ? 'Nothing waiting for approval.' : 'Nothing waiting for approval.',
   scheduled: 'No articles scheduled.',
   drafts: 'No drafts.',
+  sent_back: 'Nothing sent back.',
   published: 'No published articles match.',
 }[currentTab.value] || 'No articles match.'));
 
@@ -597,7 +608,7 @@ const feedback = computed(() => {
     .map(b => ({ key: 'b' + b.id, title: b.name, note: b.review_note, kind: 'Article', blog: b }));
   const revs = props.myRevisions
     .filter(r => r.status === 'rejected' && r.note)
-    .map(r => ({ key: 'r' + r.id, title: r.article?.name, note: r.note, kind: 'Changes', blog: props.blogs.data.find(b => b.id === r.article_id) }));
+    .map(r => ({ key: 'r' + r.id, title: r.article?.name, note: r.note, kind: 'Changes', articleId: r.article_id, revisionId: r.id }));
   return [...own, ...revs].slice(0, 5);
 });
 
@@ -993,12 +1004,24 @@ async function restoreVersion(v) {
   });
 }
 
+/**
+ * "Fix and resubmit": an article sent back opens in the editor; a change sent back opens with the
+ * writer's own change loaded (the server adds it to editBlog), wherever it is in the list.
+ */
+function fixAndResubmit(f) {
+  if (f.blog) {
+    openModal(f.blog);
+    return;
+  }
+  router.get(window.location.pathname, { edit: f.articleId, resume: f.revisionId }, { preserveScroll: true });
+}
+
 /** Open a writer's pending changes to a live article in the editor, to correct them before approving. */
 function editRevision(r) {
   previewRevision.value = null;
   router.get(window.location.pathname, { tab: 'review', edit: r.article.id, revision: r.id }, { preserveScroll: true });
 }
-watch(() => props.editBlog, (b) => { if (b?.revision_id) openModal(b); });
+watch(() => props.editBlog, (b) => { if (b?.revision_id || b?.resumed_note !== undefined) openModal(b); });
 
 onMounted(() => {
   if (props.editBlog) openModal(props.editBlog);
