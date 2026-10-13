@@ -348,7 +348,28 @@ class FrontendController extends Controller
             'phone' => 'nullable|string|max:40',
             'subject' => 'nullable|string|max:200',
             'message' => 'required|string|max:3000',
+            'help' => 'nullable|in:visit,photos',
+            'visit_date' => 'nullable|required_if:help,visit|date|after_or_equal:today|before:+61 days',
+            'visit_time' => 'nullable|in:any,morning,afternoon,evening',
+            'postal_code' => ['nullable', 'regex:/^\d{6}$/'],
+            'property' => 'nullable|in:HDB,Condo,Landed,Shop / office',
+            'photos' => 'nullable|array|max:3',
+            'photos.*' => 'file|mimes:jpg,jpeg,png,webp,heic,heif|max:12288',
+        ], [
+            'visit_date.required_if' => 'Please choose a day for the visit.',
+            'visit_date.after_or_equal' => 'Please choose today or a later day.',
+            'postal_code.regex' => 'A Singapore postal code has 6 digits.',
+            'photos.max' => 'Up to 3 photos.',
+            'photos.*.mimes' => 'Photos must be JPG, PNG, WebP or HEIC.',
+            'photos.*.max' => 'Each photo can be up to 12 MB.',
         ]);
+
+        // Photos of the job stay private (only signed-in staff see them in Enquiries).
+        $photos = [];
+        foreach ($request->file('photos', []) as $file) {
+            $photos[] = $file->store('enquiries/' . now()->format('Y/m'), 'local');
+        }
+        $visit = ($validated['help'] ?? null) === 'visit';
 
         $fields = [
             'name' => strip_tags($validated['name']),
@@ -362,6 +383,12 @@ class FrontendController extends Controller
         $referer = (string) $request->headers->get('referer');
         $sameSite = parse_url($referer, PHP_URL_HOST) === parse_url((string) config('app.url'), PHP_URL_HOST);
         $message = Message::create($fields + [
+            'wants_visit' => $visit,
+            'visit_date' => $visit ? $validated['visit_date'] : null,
+            'visit_time' => $visit ? ($validated['visit_time'] ?? 'any') : null,
+            'postal_code' => $validated['postal_code'] ?? null,
+            'property' => $validated['property'] ?? null,
+            'photos' => $photos ?: null,
             'is_spam' => $isSpam,
             'spam_reason' => $why,
             'page' => $sameSite ? mb_substr((string) parse_url($referer, PHP_URL_PATH), 0, 300) : null,

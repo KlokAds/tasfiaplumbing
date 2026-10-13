@@ -108,6 +108,15 @@ class MessageController extends Controller
         return redirect()->back()->with('success', 'Message marked as read.');
     }
 
+    /** A photo the customer sent with the quote form (private disk). */
+    public function photo(Message $message, int $index)
+    {
+        $path = ($message->photos ?? [])[$index] ?? null;
+        abort_unless($path && \Illuminate\Support\Facades\Storage::disk('local')->exists($path), 404);
+
+        return \Illuminate\Support\Facades\Storage::disk('local')->response($path, null, ['Cache-Control' => 'private, max-age=3600']);
+    }
+
     public function destroy($id)
     {
         $message = Message::findOrFail($id);
