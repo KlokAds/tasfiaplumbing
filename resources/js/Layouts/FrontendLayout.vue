@@ -64,8 +64,7 @@
           <button type="button" @click="searchOpen = true" class="w-10 h-10 rounded-full flex items-center justify-center s-muted hover:bg-[var(--s-surface-2)] hover:text-[var(--s-heading)]" aria-label="Search the website" title="Search (Ctrl K)">
             <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M21 21l-5.2-5.2M17 10.5a6.5 6.5 0 11-13 0 6.5 6.5 0 0113 0z" /></svg>
           </button>
-          <a v-if="company.tel" :href="'tel:' + tel" class="hidden 2xl:inline-flex whitespace-nowrap px-2 text-[15px] font-semibold s-heading hover:text-[var(--s-accent-text)]">{{ company.phone }}</a>
-          <a v-if="company.tel" :href="'tel:' + tel" class="hidden xl:flex 2xl:hidden w-10 h-10 rounded-full items-center justify-center s-heading hover:bg-[var(--s-surface-2)]" :aria-label="'Call ' + company.phone" :title="company.phone">
+          <a v-if="company.tel" :href="'tel:' + tel" class="hidden xl:flex w-10 h-10 rounded-full items-center justify-center s-heading hover:bg-[var(--s-surface-2)]" :aria-label="'Call ' + company.phone" :title="company.phone">
             <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 6.75c0 8.28 6.72 15 15 15h2.25a2.25 2.25 0 002.25-2.25v-1.37c0-.52-.35-.97-.85-1.09l-4.42-1.1a1.12 1.12 0 00-1.17.42l-.97 1.29a1.12 1.12 0 01-1.21.38 12.04 12.04 0 01-7.14-7.14 1.12 1.12 0 01.38-1.21l1.29-.97c.36-.27.52-.73.42-1.17l-1.1-4.42a1.12 1.12 0 00-1.09-.85H4.5A2.25 2.25 0 002.25 4.5v2.25z" /></svg>
           </a>
           <WhatsAppButton size="sm" class="hidden sm:inline-flex !px-5 !py-2.5 !text-[15px]">Get a free quote</WhatsAppButton>
@@ -89,7 +88,7 @@
               </div>
               <div class="relative mt-5 space-y-2">
                 <Link href="/services" class="btn btn-sm w-full bg-white !text-[#0f3f8a] hover:bg-[#e9f2fe]" @click="open = null">All {{ serviceCount }} services</Link>
-                <Link v-if="hasPrices" href="/pricing" class="btn btn-light btn-sm w-full" @click="open = null">Price list</Link>
+                <Link href="/pricing" class="btn btn-light btn-sm w-full" @click="open = null">Pricing</Link>
               </div>
             </div>
 
@@ -150,7 +149,7 @@
                 </div>
                 <div class="p-3 grid grid-cols-2 gap-2 border-t s-border">
                   <Link href="/services" class="btn btn-secondary btn-sm" @click="mobileOpen = false">All services</Link>
-                  <Link v-if="hasPrices" href="/pricing" class="btn btn-secondary btn-sm" @click="mobileOpen = false">Price list</Link>
+                  <Link href="/pricing" class="btn btn-secondary btn-sm" @click="mobileOpen = false">Pricing</Link>
                 </div>
               </div>
             </div>
@@ -232,7 +231,7 @@
             <p class="text-[13px] font-semibold uppercase tracking-[0.1em] s-subtle">Company</p>
             <ul class="mt-5 space-y-3 text-[15px]">
               <li v-for="l in footerCompany" :key="l.href"><Link :href="l.href" class="s-muted hover:text-[var(--s-heading)]">{{ l.label }}</Link></li>
-              <li v-if="hasPrices"><Link href="/pricing" class="s-muted hover:text-[var(--s-heading)]">Price list</Link></li>
+              <li><Link href="/pricing" class="s-muted hover:text-[var(--s-heading)]">Pricing</Link></li>
             </ul>
           </nav>
 
@@ -344,10 +343,8 @@ const primaryBefore = [
   { label: 'Home', href: '/' },
   { label: 'About', href: '/about' },
 ];
-// Price list links are shown only once there are prices (HandleInertiaRequests: hasPrices).
-const hasPrices = computed(() => !!page.props.hasPrices);
 const primaryAfter = computed(() => [
-  ...(hasPrices.value ? [{ label: 'Pricing', href: '/pricing' }] : []),
+  { label: 'Pricing', href: '/pricing' },
   { label: 'Projects', href: '/projects' },
   { label: 'Articles', href: '/blogs' },
   { label: 'Contact', href: '/contact' },

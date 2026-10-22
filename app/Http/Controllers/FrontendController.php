@@ -228,13 +228,21 @@ class FrontendController extends Controller
             ->whereHas('prices', fn ($q) => $q->where('is_active', true))
             ->get(['id', 'name', 'slug', 'category_id']);
         $lastReviewed = Price::where('is_active', true)->max('last_reviewed_at');
+        // Services without a published price are still listed, priced on request.
+        $unpriced = $this->liveServices()
+            ->with('category:id,name,slug,sort_order')
+            ->whereDoesntHave('prices', fn ($q) => $q->where('is_active', true))
+            ->get(['id', 'name', 'slug', 'category_id', 'short_summary']);
 
-        PageSchema::set(PageSchema::breadcrumbs([['Price list', '/pricing']]));
+        PageSchema::set(PageSchema::breadcrumbs([['Pricing', '/pricing']]));
 
         return Inertia::render('Frontend/Pricing', [
             'groups' => $services->groupBy(fn ($s) => $s->category?->name ?? 'Other services')
                 ->map(fn ($list, $name) => ['name' => $name, 'services' => $list->values()])->values(),
             'lastReviewed' => $lastReviewed,
+            'onRequest' => $unpriced->sortBy(fn ($s) => [$s->category?->sort_order ?? 999, $s->name])
+                ->groupBy(fn ($s) => $s->category?->name ?? 'Other services')
+                ->map(fn ($list, $name) => ['name' => $name, 'services' => $list->values()])->values(),
         ]);
     }
 
