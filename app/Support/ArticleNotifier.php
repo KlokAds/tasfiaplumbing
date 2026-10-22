@@ -65,7 +65,8 @@ class ArticleNotifier
     }
 
     /** $auto: approved by App\Support\AutoApprove (10 minutes after the approval email). */
-    public static function approved(BlogDetail $blog, User $by, bool $auto = false): void
+    /** $note: shown to the owners only (e.g. the copy check was skipped). */
+    public static function approved(BlogDetail $blog, User $by, bool $auto = false, ?string $note = null): void
     {
         $event = $blog->status === BlogDetail::SCHEDULED ? 'scheduled' : 'approved';
         self::send(self::author($blog, $by), new ArticleWorkflow(
@@ -73,7 +74,7 @@ class ArticleNotifier
         ));
         self::tellOwners($by, $auto, new \App\Notifications\ArticleDecision(
             $event, $blog->name, $blog->author?->name ?? $blog->auth_name, $by->name, $auto, self::adminUrl($blog),
-            null, url($blog->publicPath()), self::when($blog->scheduled_at),
+            $note, url($blog->publicPath()), self::when($blog->scheduled_at),
         ));
     }
 
@@ -109,11 +110,11 @@ class ArticleNotifier
         ));
     }
 
-    public static function revisionReviewed(ArticleRevision $revision, User $by, bool $approved, bool $auto = false): void
+    public static function revisionReviewed(ArticleRevision $revision, User $by, bool $approved, bool $auto = false, ?string $note = null): void
     {
         self::tellOwners($by, $auto, new \App\Notifications\ArticleDecision(
             $approved ? 'change_approved' : 'change_rejected', $revision->article->name, $revision->user?->name, $by->name, $auto,
-            self::adminUrl($revision->article), $approved ? null : $revision->note, url($revision->article->publicPath()),
+            self::adminUrl($revision->article), $approved ? $note : $revision->note, url($revision->article->publicPath()),
         ));
         $user = $revision->user;
         if (!$user || $user->id === $by->id) {

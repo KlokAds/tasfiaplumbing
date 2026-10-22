@@ -16,6 +16,8 @@ use Illuminate\Support\Facades\Log;
  *   no title or focus keyword of another article, and the source check (when a Brave key is saved)
  *   found no copied sentences: approved.
  * - Anything else: sent back to the writer with what to fix as the note, and the hidden admin gets an email.
+ * - When this month's source-check searches are used up, it does not wait for that check: the other
+ *   checks decide, and the owners' email says the copy check was skipped.
  *
  * Everything is checked again at the due time. auto_approve_at is the time of this automatic review.
  */
@@ -25,6 +27,9 @@ class AutoApprove
 
     /** How long an item may wait for the source check after its time before a person has to decide. */
     private const SOURCE_WAIT_MINUTES = 120;
+
+    /** Shown to the owners (and on the change) when an item is approved without the copy check. */
+    public const SKIPPED_NOTE = "The copy check was skipped: this month's web searches for it are used up (monthly limit in Admin → System → Site status & email → API keys). The other checks passed.";
 
     /** Tests replace the score: fn (BlogDetail $proposed, ?array $faqs, ?array $writing) => ['score' => .., 'errors' => .., 'issues' => ..]. */
     public static ?\Closure $reportUsing = null;
@@ -103,7 +108,8 @@ class AutoApprove
 
                 return false;
             }
-            $item instanceof ArticleRevision ? self::approveChange($item, $owner) : self::approveArticle($item, $owner);
+            $skipped = $found['skipped'] ? self::SKIPPED_NOTE : null;
+            $item instanceof ArticleRevision ? self::approveChange($item, $owner, $skipped) : self::approveArticle($item, $owner, $skipped);
 
             return true;
         } catch (\Throwable $e) {
@@ -116,11 +122,11 @@ class AutoApprove
     /**
      * What stops an approval, as things the writer can fix.
      *
-     * @return array{stop: ?string, wait: bool, score: ?int, problems: list<string>}
+     * @return array{stop: ?string, wait: bool, skipped: bool, score: ?int, problems: list<string>}
      */
     private static function problems(BlogDetail|ArticleRevision $item): array
     {
-        $out = ['stop' => null, 'wait' => false, 'score' => null, 'problems' => []];
+        $out = ['stop' => null, 'wait' => false, 'skipped' => false, 'score' => null, 'problems' => []];
         $isChange = $item instanceof ArticleRevision;
         if ($isChange && !$item->article) {
             return ['stop' => 'article missing'] + $out;
@@ -149,7 +155,12 @@ class AutoApprove
                 $examples = collect($check['matches'] ?? [])->take(3)->map(fn ($m) => '“' . $m['sentence'] . '”')->implode(' ');
                 $out['problems'][] = "{$check['found']} sentence(s) are already on other websites (copied text). Rewrite them in your own words, from your own jobs. {$examples}";
             } elseif (SourceCheck::sentences($html) && (!$check || ($check['hash'] ?? null) !== SourceCheck::hash($html) || !empty($check['error']))) {
-                $out['wait'] = true;
+                // Not checked yet: wait for the check, unless this month's searches are used up (it would never run).
+                if (SourceCheck::left() < SourceCheck::SENTENCES) {
+                    $out['skipped'] = true;
+                } else {
+                    $out['wait'] = true;
+                }
             }
         }
 
@@ -227,7 +238,7 @@ class AutoApprove
     }
 
     /** The same steps as BlogController::approve with "publish now" (or the writer's requested time, if it is still ahead). */
-    private static function approveArticle(BlogDetail $blog, User $owner): void
+    private static function approveArticle(BlogDetail $blog, User $owner, ?string $skipped = null): void
     {
         $blog->scheduled_at = $blog->scheduled_at && $blog->scheduled_at->isFuture() ? $blog->scheduled_at : null;
         $blog->status = $blog->scheduled_at ? BlogDetail::SCHEDULED : BlogDetail::PUBLISHED;
@@ -237,12 +248,12 @@ class AutoApprove
         $blog->auto_approve_at = null;
         $blog->save();
         SeoAudit::flush();
-        ArticleNotifier::approved($blog, $owner, auto: true);
-        Log::info('Article auto-approved (100/100)', ['article' => $blog->id, 'status' => $blog->status]);
+        ArticleNotifier::approved($blog, $owner, auto: true, note: $skipped);
+        Log::info('Article auto-approved (100/100)', ['article' => $blog->id, 'status' => $blog->status, 'copy_check' => $skipped ? 'skipped' : 'done']);
     }
 
     /** The same steps as BlogController::approveRevision. */
-    private static function approveChange(ArticleRevision $revision, User $owner): void
+    private static function approveChange(ArticleRevision $revision, User $owner, ?string $skipped = null): void
     {
         $blog = $revision->article;
         $payload = (array) $revision->payload;
@@ -255,10 +266,10 @@ class AutoApprove
         $blog->syncFaqs($payload['faqs'] ?? []);
         ArticleHistory::record($blog, $before, $owner, 'change_approved');
 
-        $revision->forceFill(['auto_approve_at' => null])->fill(['status' => 'approved', 'reviewed_by' => $owner->id, 'reviewed_at' => now(), 'note' => 'Approved automatically: Content quality 100/100.'])->save();
+        $revision->forceFill(['auto_approve_at' => null])->fill(['status' => 'approved', 'reviewed_by' => $owner->id, 'reviewed_at' => now(), 'note' => 'Approved automatically: Content quality 100/100.' . ($skipped ? ' ' . $skipped : '')])->save();
         SeoAudit::flush();
-        ArticleNotifier::revisionReviewed($revision->load('user'), $owner, true, auto: true);
-        Log::info('Change auto-approved (100/100)', ['article' => $blog->id, 'revision' => $revision->id]);
+        ArticleNotifier::revisionReviewed($revision->load('user'), $owner, true, auto: true, note: $skipped);
+        Log::info('Change auto-approved (100/100)', ['article' => $blog->id, 'revision' => $revision->id, 'copy_check' => $skipped ? 'skipped' : 'done']);
     }
 
     /** The same steps as BlogController::reject / rejectRevision, with the note (the hidden admin is emailed by ArticleNotifier). */

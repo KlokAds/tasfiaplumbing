@@ -165,6 +165,27 @@ class AutoApproveTest extends TestCase
         $this->assertStringContainsString('already on other websites', $blog->fresh()->review_note);
     }
 
+    public function test_with_the_months_searches_used_up_it_does_not_wait_for_the_source_check(): void
+    {
+        Notification::fake();
+        $owner = $this->user('super-admin', ['is_hidden' => true]);
+        $writer = $this->user('writer');
+        SourceCheck::saveKey('BSA-test-key-1234567890');
+        \App\Models\SiteSetting::updateOrCreate(
+            ['key' => 'source_check.used.' . now()->timezone(config('admin.timezone'))->format('Y-m')],
+            ['value' => (string) SourceCheck::monthlyLimit()],
+        );
+        $this->assertSame(0, SourceCheck::left());
+
+        $blog = $this->submit($writer);
+        $this->travel(11)->minutes();
+        $this->assertSame(1, AutoApprove::due(), 'approved on the other checks');
+        $this->assertSame(BlogDetail::PUBLISHED, $blog->fresh()->status);
+        // The owners are told the copy check was skipped.
+        Notification::assertSentTo($owner, \App\Notifications\ArticleDecision::class, fn ($n) => $n->decision === 'approved'
+            && $n->note === AutoApprove::SKIPPED_NOTE && str_contains($n->toMail($owner)->render(), 'copy check was skipped'));
+    }
+
     public function test_a_100_change_to_a_live_article_goes_live_after_10_minutes(): void
     {
         Notification::fake();

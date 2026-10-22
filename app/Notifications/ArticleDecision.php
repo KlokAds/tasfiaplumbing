@@ -67,7 +67,7 @@ class ArticleDecision extends Notification
                 'title' => $subject,
                 'greeting' => 'Hi ' . strtok((string) $notifiable->name, ' ') . ',',
                 'lines' => [$line],
-                'quoteLabel' => $this->note ? 'Note sent to the writer' : null,
+                'quoteLabel' => $this->note ? ($this->sentBack() || $this->decision === 'change_rejected' ? 'Note sent to the writer' : 'Note') : null,
                 'quote' => $this->note,
                 'seo' => null,
                 'buttons' => [['label' => 'Open the article', 'url' => $this->url]],
