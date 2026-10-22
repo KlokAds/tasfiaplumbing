@@ -344,8 +344,8 @@ class FrontendController extends Controller
 
         $validated = $request->validate([
             'name' => 'required|string|max:150',
-            'email' => 'required|email|max:150',
-            'phone' => 'nullable|string|max:40',
+            'email' => 'nullable|email|max:150',
+            'phone' => ['required', 'string', 'max:40', 'regex:/(\d\D*){8}/'], // 8+ digits, spaces allowed
             'subject' => 'nullable|string|max:200',
             'message' => 'required|string|max:3000',
             'help' => 'nullable|in:visit,photos',
@@ -359,6 +359,8 @@ class FrontendController extends Controller
             'visit_date.required_if' => 'Please choose a day for the visit.',
             'visit_date.after_or_equal' => 'Please choose today or a later day.',
             'postal_code.regex' => 'A Singapore postal code has 6 digits.',
+            'phone.required' => 'Please enter your phone number.',
+            'phone.regex' => 'Please enter your phone number.',
             'photos.max' => 'Up to 3 photos.',
             'photos.*.mimes' => 'Photos must be JPG, PNG, WebP or HEIC.',
             'photos.*.max' => 'Each photo can be up to 12 MB.',
@@ -373,7 +375,7 @@ class FrontendController extends Controller
 
         $fields = [
             'name' => strip_tags($validated['name']),
-            'email' => filter_var($validated['email'], FILTER_SANITIZE_EMAIL),
+            'email' => filter_var($validated['email'] ?? '', FILTER_SANITIZE_EMAIL) ?: null,
             'phone' => strip_tags($validated['phone'] ?? ''),
             'subject' => strip_tags($validated['subject'] ?? 'Website enquiry'),
             'message' => strip_tags($validated['message']),

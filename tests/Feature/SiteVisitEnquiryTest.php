@@ -73,4 +73,18 @@ class SiteVisitEnquiryTest extends TestCase
         $this->assertNull($m->visit_label);
         $this->assertCount(1, $m->photos);
     }
+
+    public function test_a_phone_is_needed_and_the_email_is_optional(): void
+    {
+        Notification::fake();
+
+        $this->post('/messages', ['name' => 'Ah Seng', 'phone' => '9123 4567', 'subject' => 'Leaking tap', 'message' => 'Kitchen tap drips.'])
+            ->assertSessionHasNoErrors();
+        $this->assertDatabaseHas('messages', ['name' => 'Ah Seng', 'email' => null, 'phone' => '9123 4567']);
+
+        $this->post('/messages', ['name' => 'No Phone', 'email' => 'np@example.com', 'subject' => 'Tap', 'message' => 'Drips.'])
+            ->assertSessionHasErrors('phone');
+        $this->post('/messages', ['name' => 'Short', 'phone' => '1234', 'subject' => 'Tap', 'message' => 'Drips.'])
+            ->assertSessionHasErrors('phone');
+    }
 }

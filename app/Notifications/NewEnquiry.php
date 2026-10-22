@@ -30,9 +30,14 @@ class NewEnquiry extends Notification
             ['label' => 'Open in admin', 'url' => $open, 'style' => $digits ? 'secondary' : 'primary'],
         ]));
 
-        return (new MailMessage)
-            ->subject('New enquiry: ' . ($m->subject ?: 'Website') . ' · ' . $m->name)
-            ->replyTo($m->email, $m->name)
+        $mail = (new MailMessage)
+            ->subject('New enquiry: ' . ($m->subject ?: 'Website') . ' · ' . $m->name);
+        // Email is optional on the form: replying to this email reaches the customer only when they gave one.
+        if ($m->email) {
+            $mail->replyTo($m->email, $m->name);
+        }
+
+        return $mail
             ->view(['emails.notice', 'emails.notice-text'], [
                 'preheader' => \Illuminate\Support\Str::limit(trim((string) $m->message), 110),
                 'badge' => 'New enquiry',
@@ -40,7 +45,7 @@ class NewEnquiry extends Notification
                 'fields' => array_values(array_filter([
                     ['Name', $m->name],
                     $m->phone ? ['Phone', \App\Http\Middleware\HandleInertiaRequests::formatPhone($m->phone)[0] ?: $m->phone, 'tel:+' . $digits] : null,
-                    ['Email', $m->email, 'mailto:' . $m->email],
+                    $m->email ? ['Email', $m->email, 'mailto:' . $m->email] : null,
                     ['About', $m->subject ?: 'Website enquiry'],
                     $m->wants_visit ? ['Free site visit', $m->visit_label] : null,
                     $m->postal_code ? ['Postal code', $m->postal_code] : null,
@@ -51,7 +56,7 @@ class NewEnquiry extends Notification
                 'quoteLabel' => 'Message',
                 'quote' => trim((string) $m->message),
                 'buttons' => $buttons,
-                'after' => ['Reply fast: most customers ask two or three companies. Replying to this email answers the customer directly.'],
+                'after' => [$m->email ? 'Reply fast: most customers ask two or three companies. Replying to this email answers the customer directly.' : 'Reply fast: most customers ask two or three companies. The customer left no email, so reply on WhatsApp or call.'],
                 // Opening this email marks the enquiry as read in the admin (when images are shown).
                 'pixel' => \Illuminate\Support\Facades\URL::signedRoute('mail.seen', ['message' => $m->id]),
                 'footer' => 'You get this because this address receives website enquiries.',
