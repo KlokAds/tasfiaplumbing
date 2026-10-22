@@ -101,11 +101,11 @@
     }
     .site .eyebrow-light { color: #9fd0ff; }
     .site .h-display {
-        font-family: var(--font-display); font-weight: 700; letter-spacing: -0.035em; line-height: 1.08;
+        font-family: var(--font-display); font-weight: 700; letter-spacing: -0.02em; line-height: 1.08;
         font-size: clamp(2.4rem, 4.6vw, 3.75rem); color: var(--s-heading);
     }
-    .site .h-page { font-family: var(--font-display); font-weight: 700; letter-spacing: -0.03em; line-height: 1.12; font-size: clamp(1.9rem, 3.6vw, 3rem); color: var(--s-heading); }
-    .site .h-section { font-family: var(--font-display); font-weight: 700; letter-spacing: -0.028em; line-height: 1.15; font-size: clamp(1.6rem, 2.8vw, 2.35rem); color: var(--s-heading); }
+    .site .h-page { font-family: var(--font-display); font-weight: 700; letter-spacing: -0.015em; line-height: 1.12; font-size: clamp(1.9rem, 3.6vw, 3rem); color: var(--s-heading); }
+    .site .h-section { font-family: var(--font-display); font-weight: 700; letter-spacing: -0.015em; line-height: 1.15; font-size: clamp(1.6rem, 2.8vw, 2.35rem); color: var(--s-heading); }
     .site .h-card { font-family: var(--font-display); font-weight: 600; letter-spacing: -0.015em; font-size: 1.14rem; line-height: 1.32; color: var(--s-heading); }
     .site .lead { font-size: 1.125rem; line-height: 1.7; color: var(--s-text-2); }
 

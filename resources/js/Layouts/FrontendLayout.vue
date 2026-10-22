@@ -29,7 +29,7 @@
         </Link>
 
         <nav class="hidden xl:flex items-center gap-5 2xl:gap-7" aria-label="Main">
-          <Link v-for="item in primaryBefore.filter(i => i.href !== '/')" :key="item.href" :href="item.href" :class="navClass(item.href)">{{ item.label }}</Link>
+          <Link v-for="item in primaryBefore" :key="item.href" :href="item.href" :class="navClass(item.href)">{{ item.label }}</Link>
 
           <div class="relative" @mouseenter="openMenu('services')" @mouseleave="closeMenuSoon">
             <button type="button" :class="[navClass('/services'), 'inline-flex items-center gap-1']" :aria-expanded="open === 'services'" aria-haspopup="true" @click="toggle('services')">
