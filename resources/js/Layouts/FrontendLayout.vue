@@ -64,7 +64,7 @@
           <button type="button" @click="searchOpen = true" class="w-10 h-10 rounded-full flex items-center justify-center s-muted hover:bg-[var(--s-surface-2)] hover:text-[var(--s-heading)]" aria-label="Search the website" title="Search (Ctrl K)">
             <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M21 21l-5.2-5.2M17 10.5a6.5 6.5 0 11-13 0 6.5 6.5 0 0113 0z" /></svg>
           </button>
-          <a v-if="company.tel" :href="'tel:' + tel" class="hidden xl:flex w-10 h-10 rounded-full items-center justify-center s-heading hover:bg-[var(--s-surface-2)]" :aria-label="'Call ' + company.phone" :title="company.phone">
+          <a v-if="company.tel" :href="'tel:' + tel" class="hidden xl:flex w-10 h-10 rounded-full items-center justify-center bg-[var(--s-accent-soft)] s-accent s-icon-ring transition-colors hover:bg-[var(--s-accent)] hover:text-white" :aria-label="'Call ' + company.phone" :title="company.phone">
             <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 6.75c0 8.28 6.72 15 15 15h2.25a2.25 2.25 0 002.25-2.25v-1.37c0-.52-.35-.97-.85-1.09l-4.42-1.1a1.12 1.12 0 00-1.17.42l-.97 1.29a1.12 1.12 0 01-1.21.38 12.04 12.04 0 01-7.14-7.14 1.12 1.12 0 01.38-1.21l1.29-.97c.36-.27.52-.73.42-1.17l-1.1-4.42a1.12 1.12 0 00-1.09-.85H4.5A2.25 2.25 0 002.25 4.5v2.25z" /></svg>
           </a>
           <WhatsAppButton size="sm" class="hidden sm:inline-flex !px-5 !py-2.5 !text-[15px]">Get a free quote</WhatsAppButton>

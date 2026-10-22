@@ -281,3 +281,6 @@
     .site .img-cover { width: 100%; height: 100%; object-fit: cover; }
     .site .line-fade { mask-image: linear-gradient(to bottom, #000 60%, transparent); }
 }
+
+/* The header phone button: a thin ring in the brand colour so it reads as a button in light and dark. */
+.s-icon-ring { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--s-accent) 35%, transparent); }
