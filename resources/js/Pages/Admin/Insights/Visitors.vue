@@ -103,6 +103,21 @@
           </tbody>
         </table>
       </section>
+      <section class="admin-card overflow-hidden lg:col-span-2">
+        <header class="a-card-head"><div><h3 class="a-card-title">Ads and campaigns</h3><p class="a-card-sub">Visitors who came from an ad click (Google Ads, Facebook, TikTok) or a link with utm_campaign, and the WhatsApp, call and chat clicks they made.</p></div></header>
+        <table class="a-table text-sm">
+          <thead><tr><th>Ad / campaign</th><th class="text-right">Visitors</th><th class="text-right">Contacts</th><th class="text-right">Contact rate</th></tr></thead>
+          <tbody>
+            <tr v-for="c in stats.campaigns || []" :key="c.campaign">
+              <td class="max-w-[24rem] truncate">{{ c.campaign }}</td>
+              <td class="text-right tabular-nums font-semibold">{{ c.visitors }}</td>
+              <td class="text-right tabular-nums" :class="c.contacts ? 'a-text-success font-semibold' : 'a-subtle'">{{ c.contacts }}</td>
+              <td class="text-right tabular-nums a-muted">{{ c.visitors ? Math.round(c.contacts / c.visitors * 100) + '%' : '—' }}</td>
+            </tr>
+            <tr v-if="!(stats.campaigns || []).length"><td colspan="4" class="a-muted">No ad visits recorded in this period yet. Ad clicks are counted from 29 October 2026.</td></tr>
+          </tbody>
+        </table>
+      </section>
     </div>
   </AdminLayout>
 </template>

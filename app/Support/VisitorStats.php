@@ -31,7 +31,7 @@ class VisitorStats
     private const BOTS = '/bot|crawl|spider|slurp|preview|lighthouse|headless|phantom|python|curl|wget|httpclient|monitor|pingdom|uptime|facebookexternalhit|whatsapp\/|scan/i';
 
     /** Saves one signal from the website. Returns false when it is not counted (bot, admin, bad data). */
-    public static function record(Request $request, string $type, ?string $path, ?string $timezone, ?string $referrer, ?int $width): bool
+    public static function record(Request $request, string $type, ?string $path, ?string $timezone, ?string $referrer, ?int $width, ?string $campaign = null): bool
     {
         $agent = (string) $request->userAgent();
         if (!in_array($type, SiteEvent::TYPES, true) || $agent === '' || preg_match(self::BOTS, $agent) || $request->user()) {
@@ -56,6 +56,7 @@ class VisitorStats
             'country' => self::countryFromTimezone($timezone),
             'path' => $path,
             'source' => $source ? Str::limit(preg_replace('/^www\./', '', $source), 100, '') : null,
+            'campaign' => self::campaign($campaign),
             'device' => ($width && $width < 768) || preg_match('/Mobi|Android|iPhone/i', $agent) ? 'mobile' : 'desktop',
             'created_at' => now(),
         ]);
@@ -168,6 +169,21 @@ class VisitorStats
 
         $devices = (clone $scope())->where('type', 'visit')->selectRaw('device, count(distinct visitor) as n')->groupBy('device')->pluck('n', 'device')->all();
 
-        return compact('totals', 'days', 'countries', 'pages', 'contactPages', 'sources', 'devices');
+        // Ads and campaigns: visitors and the WhatsApp, call and chat clicks each one brought.
+        $campaignContacts = (clone $scope())->whereIn('type', ['whatsapp', 'call', 'chat'])->whereNotNull('campaign')
+            ->selectRaw('campaign, count(*) as n')->groupBy('campaign')->pluck('n', 'campaign');
+        $campaigns = (clone $scope())->where('type', 'visit')->whereNotNull('campaign')
+            ->selectRaw('campaign, count(distinct visitor) as visitors')->groupBy('campaign')->orderByDesc('visitors')->limit(15)->get()
+            ->map(fn ($r) => ['campaign' => $r->campaign, 'visitors' => (int) $r->visitors, 'contacts' => (int) ($campaignContacts[$r->campaign] ?? 0)])->all();
+
+        return compact('totals', 'days', 'countries', 'pages', 'contactPages', 'sources', 'devices', 'campaigns');
+    }
+
+    /** A campaign name as sent by the page: plain text, short, or nothing. */
+    private static function campaign(?string $name): ?string
+    {
+        $name = trim(preg_replace('/[^\pL\pN \/._&+-]+/u', ' ', (string) $name));
+
+        return $name === '' ? null : Str::limit(preg_replace('/\s+/', ' ', $name), 100, '');
     }
 }

@@ -21,6 +21,29 @@ createInertiaApp({
     },
 });
 
+// The ad or campaign this visit came from, read once from the landing address and kept for the
+// visit, so a WhatsApp or call click on a later page is still credited to the ad.
+const campaign = (() => {
+    let saved = '';
+    try { saved = sessionStorage.getItem('site_campaign') || ''; } catch (e) { /* storage blocked */ }
+    try {
+        const q = new URLSearchParams(location.search);
+        const name = q.get('utm_campaign');
+        const found = name ? `${q.get('utm_source') || 'ad'} / ${name}`
+            : (q.get('gclid') || q.get('gbraid') || q.get('wbraid')) ? 'Google Ads'
+            : q.get('fbclid') ? 'Facebook / Instagram'
+            : q.get('ttclid') ? 'TikTok'
+            : q.get('utm_source') ? q.get('utm_source') : '';
+        if (found) {
+            saved = found.slice(0, 100);
+            try { sessionStorage.setItem('site_campaign', saved); } catch (e) { /* storage blocked */ }
+        }
+    } catch (e) {
+        // ignore
+    }
+    return saved;
+})();
+
 // The website's own visitor counter (App\Support\VisitorStats): one small signal per page view and
 // per WhatsApp, call or chat click. Admin pages are not counted; counting never breaks the page.
 window.__siteEvent = (type, withReferrer = false) => {
@@ -32,6 +55,7 @@ window.__siteEvent = (type, withReferrer = false) => {
             z: Intl.DateTimeFormat().resolvedOptions().timeZone,
             r: withReferrer ? document.referrer : '',
             w: window.innerWidth,
+            c: campaign,
         });
         if (!(navigator.sendBeacon && navigator.sendBeacon('/t', new Blob([body], { type: 'application/json' })))) {
             fetch('/t', { method: 'POST', body, headers: { 'Content-Type': 'application/json' }, keepalive: true }).catch(() => {});

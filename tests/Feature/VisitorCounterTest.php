@@ -55,6 +55,23 @@ class VisitorCounterTest extends TestCase
         $this->assertSame('/contact', $s['contactPages'][0]['path']);
     }
 
+    public function test_ad_visits_and_their_contacts_are_counted_per_campaign(): void
+    {
+        $this->signal(['t' => 'visit', 'p' => '/', 'c' => 'Google Ads']);
+        $this->signal(['t' => 'visit', 'p' => '/contact', 'c' => 'Google Ads']);
+        $this->signal(['t' => 'whatsapp', 'p' => '/contact', 'c' => 'Google Ads']);
+        $this->signal(['t' => 'visit', 'p' => '/', 'c' => 'facebook / <b>Roller</b> promo'], self::BROWSER, '198.51.100.9');
+        $this->signal(['t' => 'visit', 'p' => '/'], self::BROWSER, '198.51.100.10');
+
+        $this->assertSame('facebook / b Roller /b promo', SiteEvent::where('visitor', '!=', '')->whereNotNull('campaign')->where('campaign', 'like', 'facebook%')->value('campaign'));
+        $this->assertNull(SiteEvent::where('type', 'visit')->latest('id')->value('campaign'));
+
+        $today = now(config('admin.timezone'))->startOfDay();
+        $s = VisitorStats::summary($today->copy(), $today->copy());
+        $this->assertSame(['campaign' => 'Google Ads', 'visitors' => 1, 'contacts' => 1], collect($s['campaigns'])->firstWhere('campaign', 'Google Ads'));
+        $this->assertCount(2, $s['campaigns'], 'visits without an ad are not a campaign');
+    }
+
     public function test_only_people_with_access_see_the_counter_and_get_the_email(): void
     {
         Notification::fake();

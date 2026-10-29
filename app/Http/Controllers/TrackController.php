@@ -16,8 +16,9 @@ class TrackController extends Controller
             'z' => 'nullable|string|max:64',
             'r' => 'nullable|string|max:500',
             'w' => 'nullable|integer|min:0|max:10000',
+            'c' => 'nullable|string|max:100',
         ]);
-        VisitorStats::record($request, $data['t'], $data['p'] ?? null, $data['z'] ?? null, $data['r'] ?? null, $data['w'] ?? null);
+        VisitorStats::record($request, $data['t'], $data['p'] ?? null, $data['z'] ?? null, $data['r'] ?? null, $data['w'] ?? null, $data['c'] ?? null);
 
         return response()->noContent();
     }
