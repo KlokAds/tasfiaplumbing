@@ -213,6 +213,18 @@ class ContentApiController extends Controller
         return response()->json($this->state($blog));
     }
 
+    /** How much a draft shares with this site's articles (and its AI-style phrases), before it is sent. */
+    public function check(Request $request)
+    {
+        $data = $request->validate(['body_html' => 'required|string|max:60000', 'article_id' => 'nullable|integer']);
+        $result = WritingCheck::run($data['body_html'], $data['article_id'] ?? null);
+        if ($result['duplicate']) {
+            $result['duplicate']['url'] = url($result['duplicate']['path']);
+        }
+
+        return response()->json($result);
+    }
+
     /** Publishes now, or at a later time (the site's scheduler puts it live then). */
     public function publish(Request $request, int $id)
     {

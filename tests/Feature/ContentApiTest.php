@@ -119,6 +119,20 @@ class ContentApiTest extends TestCase
         $this->assertNull(BlogDetail::find($id));
     }
 
+    public function test_a_draft_is_checked_against_the_site_s_articles(): void
+    {
+        $text = implode(' ', array_map(fn ($i) => "Step {$i}: a sliding door that drags usually has worn rollers under panel {$i} and a dirty track.", range(1, 8)));
+        $blog = BlogDetail::create(['name' => 'Sliding Door Rollers', 'slug' => 'sliding-door-rollers', 'desc' => '<p>' . $text . '</p>', 'status' => BlogDetail::PUBLISHED]);
+
+        $r = $this->api()->postJson('/api/content/check', ['body_html' => '<p>' . $text . '</p>'])->assertOk();
+        $this->assertSame($blog->id, $r->json('duplicate.id'));
+        $this->assertGreaterThanOrEqual(15, $r->json('duplicate.percent'));
+        $this->assertStringEndsWith('/blogs/sliding-door-rollers', $r->json('duplicate.url'));
+
+        // The article being improved is not compared with itself.
+        $this->api()->postJson('/api/content/check', ['body_html' => '<p>' . $text . '</p>', 'article_id' => $blog->id])->assertOk()->assertJsonPath('duplicate', null);
+    }
+
     public function test_any_article_is_revised_in_place_with_a_backup_and_can_be_put_back(): void
     {
         \Illuminate\Support\Facades\Storage::fake('local');
