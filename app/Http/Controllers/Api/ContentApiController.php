@@ -22,7 +22,7 @@ use Illuminate\Support\Str;
  */
 class ContentApiController extends Controller
 {
-    private const ALLOWED_TAGS = '<h2><h3><p><ul><ol><li><strong><em><br><table><thead><tbody><tr><th><td>';
+    private const ALLOWED_TAGS = '<h2><h3><h4><p><ul><ol><li><strong><em><u><s><blockquote><hr><br><table><thead><tbody><tr><th><td>';
 
     /** Brand, live services with approved prices, the searches people use, and the phrases articles avoid. */
     public function info()
@@ -361,13 +361,13 @@ class ContentApiController extends Controller
     }
 
     /**
-     * Only plain article markup, without attributes. Links stay only when they point to a page of this
-     * website (a service or a live article), or were already in the article ($keep).
+     * Only plain article markup, without attributes. Links stay when they point to a live page of this
+     * website, to another website (https, opening in a new tab), or were already in the article ($keep).
      */
     private function clean(string $html, array $keep = []): string
     {
         $html = strip_tags($html, self::ALLOWED_TAGS . '<a>');
-        $html = preg_replace('/<(h2|h3|p|ul|ol|li|strong|em|table|thead|tbody|tr|th|td)\b[^>]*>/i', '<$1>', $html);
+        $html = preg_replace('/<(h2|h3|h4|p|ul|ol|li|strong|em|u|s|blockquote|hr|table|thead|tbody|tr|th|td)\b[^>]*>/i', '<$1>', $html);
 
         $internal = null;
         return preg_replace_callback('#<a\b([^>]*)>(.*?)</a>#is', function ($m) use ($keep, &$internal) {
@@ -376,6 +376,9 @@ class ContentApiController extends Controller
                 ->merge(BlogDetail::where('status', BlogDetail::PUBLISHED)->get(['slug'])->map(fn ($b) => $b->publicPath()))->flip();
             $path = rtrim((string) parse_url($href, PHP_URL_PATH), '/');
             $ours = str_starts_with($href, '/') && !str_starts_with($href, '//') && isset($internal[$path]);
+            if (!$ours && preg_match('#^https?://[^\s"<>]+$#i', $href)) {
+                return '<a href="' . e($href) . '" rel="noopener" target="_blank">' . $m[2] . '</a>';
+            }
 
             return $ours || in_array($href, $keep, true) ? '<a href="' . e($href) . '">' . $m[2] . '</a>' : $m[2];
         }, $html);

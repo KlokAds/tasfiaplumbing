@@ -169,7 +169,7 @@ class ContentApiTest extends TestCase
 
         $r = $this->api()->post("/api/content/articles/{$blog->id}/revise", [
             'title' => 'Why Door Locks Get Stiff and How to Fix Them',
-            'body_html' => '<p>New intro. See our <a href="/service/door-lock-replacement">lock replacement</a> page, the <a href="https://supplier.example/locks">supplier</a> and <a href="https://spam.example">this</a>.</p><p>[[keep-1]]</p><h2>Why locks fail</h2><p>Dust and wear.</p>',
+            'body_html' => '<p>New intro. See our <a href="/service/door-lock-replacement">lock replacement</a> page, the <a href="https://supplier.example/locks">supplier</a>, <a href="https://spam.example">this</a> and <a href="javascript:alert(1)">that</a>.</p><p>[[keep-1]]</p><h2>Why locks fail</h2><h4>Dust</h4><blockquote><p>Clean it monthly.</p></blockquote><hr><p><u>Wear</u> and <s>rust</s>.</p>',
             'faqs' => [['question' => 'Is the site visit free?', 'answer' => 'Yes.']],
             'photos' => [UploadedFile::fake()->image('job.jpg')],
             'alts' => ['New lock fitted'],
@@ -180,10 +180,14 @@ class ContentApiTest extends TestCase
         $this->assertSame(BlogDetail::PUBLISHED, $blog->status);
         $this->assertNotNull($blog->content_updated_at);
         $this->assertStringContainsString('<a href="/service/door-lock-replacement">', $blog->desc);
-        $this->assertStringContainsString('<a href="https://supplier.example/locks">', $blog->desc, 'links already in the article stay');
-        $this->assertStringNotContainsString('spam.example', $blog->desc);
+        $this->assertStringContainsString('<a href="https://supplier.example/locks" rel="noopener" target="_blank">', $blog->desc, 'links already in the article stay');
+        $this->assertStringContainsString('<a href="https://spam.example" rel="noopener" target="_blank">this</a>', $blog->desc, 'links to other websites open in a new tab');
+        $this->assertStringNotContainsString('javascript:', $blog->desc);
         $this->assertStringContainsString('old.jpg', $blog->desc);
         $this->assertStringContainsString('<table>', $blog->desc, 'a block the writer dropped is kept at the end');
+        foreach (['<h4>Dust</h4>', '<blockquote><p>Clean it monthly.</p></blockquote>', '<hr>', '<u>Wear</u>', '<s>rust</s>'] as $kept) {
+            $this->assertStringContainsString($kept, $blog->desc);
+        }
         $this->assertStringContainsString('alt="New lock fitted"', $blog->desc);
         $this->assertSame(['Is the site visit free?'], $blog->faqs()->pluck('question')->all());
 
