@@ -169,7 +169,7 @@ class ContentApiTest extends TestCase
 
         $r = $this->api()->post("/api/content/articles/{$blog->id}/revise", [
             'title' => 'Why Door Locks Get Stiff and How to Fix Them',
-            'body_html' => '<p>New intro. See our <a href="/service/door-lock-replacement">lock replacement</a> page, the <a href="https://supplier.example/locks">supplier</a>, <a href="https://spam.example">this</a> and <a href="javascript:alert(1)">that</a>.</p><p>[[keep-1]]</p><h2>Why locks fail</h2><h4>Dust</h4><blockquote><p>Clean it monthly.</p></blockquote><hr><p><u>Wear</u> and <s>rust</s>.</p>',
+            'body_html' => '<p>[[keep-7]]</p><p>New intro. See our <a href="/service/door-lock-replacement">lock replacement</a> page, the <a href="https://supplier.example/locks">supplier</a>, <a href="https://spam.example">this</a> and <a href="javascript:alert(1)">that</a>.</p><p>[[keep-1]]</p><h2>Why locks fail</h2><h4>Dust</h4><blockquote><p>Clean it monthly.</p></blockquote><hr><p><u>Wear</u> and <s>rust</s>.</p>',
             'faqs' => [['question' => 'Is the site visit free?', 'answer' => 'Yes.']],
             'photos' => [UploadedFile::fake()->image('job.jpg')],
             'alts' => ['New lock fitted'],
@@ -185,6 +185,7 @@ class ContentApiTest extends TestCase
         $this->assertStringNotContainsString('javascript:', $blog->desc);
         $this->assertStringContainsString('old.jpg', $blog->desc);
         $this->assertStringContainsString('<table>', $blog->desc, 'a block the writer dropped is kept at the end');
+        $this->assertStringNotContainsString('[[keep-', $blog->desc, 'a line for a block the article does not have is left out');
         foreach (['<h4>Dust</h4>', '<blockquote><p>Clean it monthly.</p></blockquote>', '<hr>', '<u>Wear</u>', '<s>rust</s>'] as $kept) {
             $this->assertStringContainsString($kept, $blog->desc);
         }
@@ -201,5 +202,77 @@ class ContentApiTest extends TestCase
         $this->assertSame(['Old question?'], $blog->faqs()->pluck('question')->all());
 
         $this->api()->postJson("/api/content/articles/{$blog->id}/restore", ['backup' => '../../.env'])->assertUnprocessable();
+    }
+
+    public function test_photos_placed_in_the_text_and_the_search_settings_come_from_the_hub(): void
+    {
+        file_put_contents(public_path('Admin/Blog/Details/hub-test-old.jpg'), 'x');
+        $html = '<p style="text-align: center">Intro</p><img src="[[photo-1]]" alt="Rusty tank" data-align="left" width="320" onerror="alert(1)">'
+            . '<h2>Why it leaks</h2><h5>Small note</h5><img src="https://evil.example/x.jpg" alt="no"><img src="/Admin/Blog/Details/hub-test-old.jpg" alt="Old photo">'
+            . '<img src="/Admin/Blog/Details/missing.jpg"><img src="/../.env">';
+
+        $r = $this->api()->post('/api/content/articles', [
+            'title' => 'Water Heater Leak in a Tampines Flat',
+            'body_html' => $html,
+            'inline' => '1',
+            'cover' => '0',
+            'slug' => 'Water Heater Leak Tampines',
+            'meta_title' => 'Water Heater Leak Repair | Tampines',
+            'canonical' => 'https://example.com/original',
+            'noindex' => '1',
+            'photos' => [UploadedFile::fake()->image('cover.jpg'), UploadedFile::fake()->image('tank.jpg')],
+        ], ['Accept' => 'application/json'])->assertCreated();
+
+        $blog = BlogDetail::findOrFail($r->json('id'));
+        [$cover, $tank] = $r->json('photos');
+        $this->assertSame(ltrim($cover, '/'), $blog->image, 'the chosen photo is the cover');
+        $this->assertStringContainsString('<p style="text-align: center">Intro</p>', $blog->desc);
+        $this->assertStringContainsString('<img src="' . $tank . '" alt="Rusty tank" data-align="left" width="320" loading="lazy">', $blog->desc);
+        $this->assertStringContainsString('<h5>Small note</h5>', $blog->desc);
+        $this->assertStringContainsString('src="/Admin/Blog/Details/hub-test-old.jpg"', $blog->desc, 'a photo already on the website can be used');
+        $this->assertStringNotContainsString('evil.example', $blog->desc);
+        $this->assertStringNotContainsString('missing.jpg', $blog->desc);
+        $this->assertStringNotContainsString('.env', $blog->desc);
+        $this->assertStringNotContainsString('onerror', $blog->desc);
+        $this->assertStringNotContainsString($cover, $blog->desc, 'photos are not added on their own');
+        $this->assertSame('water-heater-leak-tampines', $blog->slug);
+        $this->assertSame('Water Heater Leak Repair | Tampines', $blog->meta_title);
+        $this->assertSame('https://example.com/original', $blog->canonical);
+        $this->assertTrue((bool) $blog->noindex);
+
+        // An edit keeps photos already on the website, takes new ones, and can change the address and cover.
+        $this->api()->post("/api/content/articles/{$blog->id}", [
+            '_method' => 'PUT',
+            'title' => 'Water Heater Leak in a Tampines Flat',
+            'body_html' => '<p>Intro</p><img src="' . url($tank) . '" alt="Rusty tank"><img src="[[photo-0]]" alt="New part">',
+            'inline' => '1',
+            'cover_path' => '/Admin/Blog/Details/hub-test-old.jpg',
+            'slug' => 'tampines-water-heater-leak',
+            'noindex' => '0',
+            'photos' => [UploadedFile::fake()->image('part.jpg')],
+        ], ['Accept' => 'application/json'])->assertOk();
+        $blog->refresh();
+        $this->assertStringContainsString('<img src="' . $tank . '" alt="Rusty tank" loading="lazy">', $blog->desc);
+        $this->assertStringContainsString('alt="New part"', $blog->desc);
+        $this->assertSame('Admin/Blog/Details/hub-test-old.jpg', $blog->image);
+        $this->assertSame('tampines-water-heater-leak', $blog->slug);
+        $this->assertFalse((bool) $blog->noindex);
+
+        // Another article's address is refused.
+        BlogDetail::create(['name' => 'Taken', 'slug' => 'taken-address', 'desc' => '<p>x</p>', 'status' => BlogDetail::DRAFT]);
+        $this->api()->putJson("/api/content/articles/{$blog->id}", ['title' => 'x', 'body_html' => '<p>x</p>', 'slug' => 'taken-address'])->assertUnprocessable()->assertJsonValidationErrors('slug');
+
+        // The text for improving it shows what its kept blocks are.
+        $text = $this->api()->getJson("/api/content/articles/{$blog->id}/text")->assertOk();
+        $this->assertSame('photo', $text->json('kept_blocks.0.kind'));
+        $this->assertStringEndsWith($tank, $text->json('kept_blocks.0.src'));
+        $this->assertSame('tampines-water-heater-leak', $text->json('slug'));
+        $this->assertStringEndsWith('/Admin/Blog/Details/hub-test-old.jpg', $text->json('cover'));
+
+        // The photo library, for the hub's editor.
+        $this->assertSame('/blogs/', $this->api()->getJson('/api/content/info')->json('blog_path'));
+        $this->api()->getJson('/api/content/media')->assertOk()->assertJsonStructure(['data', 'has_more']);
+        @unlink(public_path('Admin/Blog/Details/hub-test-old.jpg'));
+        @unlink(public_path(ltrim($cover, '/'))); // no longer the cover, so tearDown does not see it
     }
 }

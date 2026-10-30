@@ -21,7 +21,7 @@ use Illuminate\Support\Facades\Cache;
 class ContentHtml
 {
     /** Bump when the output changes, so cached pages are rebuilt. */
-    private const VERSION = 6;
+    private const VERSION = 7;
 
     private const DROP_TAGS = ['script', 'style', 'iframe', 'object', 'embed', 'form', 'input', 'button', 'meta', 'link'];
     private const KEEP_ATTRS = [
@@ -217,7 +217,9 @@ class ContentHtml
                     $grid->appendChild($fig);
                 }
                 foreach ($run as $n) {
-                    $n->parentNode?->removeChild($n);
+                    if (!in_array($n, $images, true)) { // a lone <img> is already in its tile
+                        $n->parentNode?->removeChild($n);
+                    }
                 }
             } elseif (count($images) === 1) {
                 // A single photo: keep it, but mark it so it is shown uncropped.
@@ -238,16 +240,19 @@ class ContentHtml
         $flush();
     }
 
+    /** A photo set beside the text (data-align) stays where the editor put it, outside any gallery. */
     private static function isImageOnly(DOMElement $el): bool
     {
         if (strtolower($el->tagName) === 'img') {
-            return true;
+            return !$el->hasAttribute('data-align');
         }
         if (!in_array(strtolower($el->tagName), ['p', 'div', 'figure'], true)) {
             return false;
         }
 
-        return $el->getElementsByTagName('img')->length > 0 && trim(preg_replace('/\s+/u', '', $el->textContent)) === '';
+        $images = iterator_to_array($el->getElementsByTagName('img'));
+
+        return $images && trim(preg_replace('/\s+/u', '', $el->textContent)) === '' && !array_filter($images, fn ($img) => $img->hasAttribute('data-align'));
     }
 
     /** @return DOMElement[] */

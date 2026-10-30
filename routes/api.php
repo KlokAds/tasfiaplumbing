@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Route;
 Route::prefix('content')->middleware([ContentApiToken::class, 'throttle:60,1'])->group(function () {
     Route::get('/info', [ContentApiController::class, 'info']);
     Route::post('/check', [ContentApiController::class, 'check']);
+    Route::get('/media', [ContentApiController::class, 'media']);
     Route::post('/articles', [ContentApiController::class, 'storeDraft']);
     Route::get('/articles/{id}', [ContentApiController::class, 'show'])->whereNumber('id');
     Route::put('/articles/{id}', [ContentApiController::class, 'update'])->whereNumber('id');
