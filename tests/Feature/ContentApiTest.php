@@ -119,6 +119,22 @@ class ContentApiTest extends TestCase
         $this->assertNull(BlogDetail::find($id));
     }
 
+    public function test_markup_from_the_hub_s_editor_is_kept_clean(): void
+    {
+        $html = '<h2>Repair or replace?</h2><ul><li><p>First point</p></li></ul>'
+            . '<table style="min-width: 50px;"><colgroup><col style="min-width: 25px;"><col style="min-width: 25px;"></colgroup><tbody>'
+            . '<tr><th colspan="1" rowspan="1"><p>Repair</p></th><th colspan="1" rowspan="1"><p>Replace</p></th></tr>'
+            . '<tr><td colspan="1" rowspan="1"><p>Small leak</p></td><td colspan="1" rowspan="1"><p>Rusty tank</p></td></tr></tbody></table>';
+        $id = $this->api()->postJson('/api/content/articles', ['title' => 'Water Heater Pipe Leak', 'body_html' => $html])->assertCreated()->json('id');
+
+        $desc = BlogDetail::find($id)->desc;
+        $this->assertStringContainsString('<ul><li><p>First point</p></li></ul>', $desc);
+        $this->assertStringContainsString('<table><tbody><tr><th><p>Repair</p></th><th><p>Replace</p></th></tr><tr><td><p>Small leak</p></td>', $desc);
+        $this->assertStringNotContainsString('style=', $desc);
+        $this->assertStringNotContainsString('colgroup', $desc);
+        $this->assertStringNotContainsString('colspan', $desc);
+    }
+
     public function test_a_draft_is_checked_against_the_site_s_articles(): void
     {
         $text = implode(' ', array_map(fn ($i) => "Step {$i}: a sliding door that drags usually has worn rollers under panel {$i} and a dirty track.", range(1, 8)));
