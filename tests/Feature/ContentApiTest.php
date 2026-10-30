@@ -118,4 +118,54 @@ class ContentApiTest extends TestCase
         $this->api()->deleteJson("/api/content/articles/{$id}")->assertOk()->assertJsonPath('deleted', true);
         $this->assertNull(BlogDetail::find($id));
     }
+
+    public function test_any_article_is_revised_in_place_with_a_backup_and_can_be_put_back(): void
+    {
+        \Illuminate\Support\Facades\Storage::fake('local');
+        $s = ServiceDetail::create(['name' => 'Door Lock Replacement', 'slug' => 'door-lock-replacement', 'desc' => 'x', 'is_active' => true]);
+        $old = '<p>Old intro with a <a href="https://supplier.example/locks">supplier link</a>.</p><figure><img src="/Admin/Blog/Details/old.jpg" alt="old"></figure><h2>Why locks fail</h2><p>Dust.</p><table><tr><td>Size</td></tr></table>';
+        $blog = BlogDetail::create(['name' => 'Why Door Locks Get Stiff', 'slug' => 'why-door-locks-get-stiff', 'desc' => $old, 'status' => BlogDetail::PUBLISHED, 'focus_keyword' => 'stiff door lock']);
+        $blog->syncFaqs([['question' => 'Old question?', 'answer' => 'Old answer.']]);
+
+        // The article list and service pages come with the info, for linking and for choosing what to update.
+        $info = $this->api()->getJson('/api/content/info')->assertOk();
+        $this->assertSame('/blogs/why-door-locks-get-stiff', $info->json('articles.0.path'));
+        $this->assertSame('/service/door-lock-replacement', $info->json('services.0.path'));
+
+        $text = $this->api()->getJson("/api/content/articles/{$blog->id}/text")->assertOk();
+        $this->assertSame(2, $text->json('kept'));
+        $this->assertStringContainsString('[[keep-1]]', $text->json('body_html'));
+        $this->assertStringNotContainsString('old.jpg', $text->json('body_html'));
+
+        $r = $this->api()->post("/api/content/articles/{$blog->id}/revise", [
+            'title' => 'Why Door Locks Get Stiff and How to Fix Them',
+            'body_html' => '<p>New intro. See our <a href="/service/door-lock-replacement">lock replacement</a> page, the <a href="https://supplier.example/locks">supplier</a> and <a href="https://spam.example">this</a>.</p><p>[[keep-1]]</p><h2>Why locks fail</h2><p>Dust and wear.</p>',
+            'faqs' => [['question' => 'Is the site visit free?', 'answer' => 'Yes.']],
+            'photos' => [UploadedFile::fake()->image('job.jpg')],
+            'alts' => ['New lock fitted'],
+        ], ['Accept' => 'application/json'])->assertOk();
+
+        $blog->refresh();
+        $this->assertSame('why-door-locks-get-stiff', $blog->slug, 'the address never changes');
+        $this->assertSame(BlogDetail::PUBLISHED, $blog->status);
+        $this->assertNotNull($blog->content_updated_at);
+        $this->assertStringContainsString('<a href="/service/door-lock-replacement">', $blog->desc);
+        $this->assertStringContainsString('<a href="https://supplier.example/locks">', $blog->desc, 'links already in the article stay');
+        $this->assertStringNotContainsString('spam.example', $blog->desc);
+        $this->assertStringContainsString('old.jpg', $blog->desc);
+        $this->assertStringContainsString('<table>', $blog->desc, 'a block the writer dropped is kept at the end');
+        $this->assertStringContainsString('alt="New lock fitted"', $blog->desc);
+        $this->assertSame(['Is the site visit free?'], $blog->faqs()->pluck('question')->all());
+
+        $backup = $r->json('backup');
+        \Illuminate\Support\Facades\Storage::disk('local')->assertExists('content-backups/' . $backup);
+
+        $this->api()->postJson("/api/content/articles/{$blog->id}/restore", ['backup' => $backup])->assertOk();
+        $blog->refresh();
+        $this->assertSame('Why Door Locks Get Stiff', $blog->name);
+        $this->assertSame($old, $blog->desc);
+        $this->assertSame(['Old question?'], $blog->faqs()->pluck('question')->all());
+
+        $this->api()->postJson("/api/content/articles/{$blog->id}/restore", ['backup' => '../../.env'])->assertUnprocessable();
+    }
 }
