@@ -22,7 +22,7 @@ use Illuminate\Support\Str;
  */
 class ContentApiController extends Controller
 {
-    private const ALLOWED_TAGS = '<h2><h3><p><ul><ol><li><strong><em><br>';
+    private const ALLOWED_TAGS = '<h2><h3><p><ul><ol><li><strong><em><br><table><thead><tbody><tr><th><td>';
 
     /** Brand, live services with approved prices, the searches people use, and the phrases articles avoid. */
     public function info()
@@ -355,7 +355,7 @@ class ContentApiController extends Controller
     private function clean(string $html, array $keep = []): string
     {
         $html = strip_tags($html, self::ALLOWED_TAGS . '<a>');
-        $html = preg_replace('/<(h2|h3|p|ul|ol|li|strong|em)\b[^>]*>/i', '<$1>', $html);
+        $html = preg_replace('/<(h2|h3|p|ul|ol|li|strong|em|table|thead|tbody|tr|th|td)\b[^>]*>/i', '<$1>', $html);
 
         $internal = null;
         return preg_replace_callback('#<a\b([^>]*)>(.*?)</a>#is', function ($m) use ($keep, &$internal) {
