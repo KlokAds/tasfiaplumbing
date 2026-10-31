@@ -351,6 +351,12 @@
     }
     .admin-ui .a-tab:hover { color: var(--a-text); border-bottom-color: var(--a-border-2); }
     .admin-ui .a-tab-active, .admin-ui .a-tab-active:hover { color: var(--a-text); border-bottom-color: var(--a-accent); }
+    /* Phones: every tab visible (wrapped pills), not a row that hides tabs off-screen. */
+    @media (max-width: 639px) {
+        .admin-ui .a-tabs { flex-wrap: wrap; gap: 0.4rem; overflow: visible; border-bottom: 0; }
+        .admin-ui .a-tabs .a-tab { padding: 0.4rem 0.75rem; margin: 0; border: 1px solid var(--a-border); border-radius: 999px; }
+        .admin-ui .a-tabs .a-tab-active, .admin-ui .a-tabs .a-tab-active:hover { border-color: var(--a-accent); }
+    }
 
     /* ---------- Stats ---------- */
     .admin-ui .a-stat { padding: 1.1rem 1.2rem; }
