@@ -149,29 +149,7 @@
       </div>
     </div>
 
-      <!-- Recent enquiries -->
-      <section v-if="recentMessages.length" class="admin-card overflow-hidden mt-6">
-        <header class="flex items-center justify-between px-5 py-4 border-b a-border">
-          <h3 class="font-bold">Latest enquiries</h3>
-          <Link href="/admin/messages" class="admin-btn-secondary a-btn-sm">Open inbox</Link>
-        </header>
-        <div class="overflow-x-auto">
-          <table class="a-table">
-            <thead><tr><th>Customer</th><th>Subject</th><th>Received</th><th class="text-right">Actions</th></tr></thead>
-            <tbody>
-              <tr v-for="m in recentMessages" :key="m.id">
-                <td>
-                  <p class="font-semibold">{{ m.name || 'Unknown' }}</p>
-                  <p class="text-xs a-subtle">{{ m.phone || m.email }}</p>
-                </td>
-                <td class="max-w-xs truncate a-muted">{{ m.subject || '—' }}</td>
-                <td class="whitespace-nowrap a-muted">{{ ago(m.created_at) }}</td>
-                <td class="text-right"><span v-if="!m.is_read" class="a-badge a-badge-accent">New</span></td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </section>
+      <!-- Enquiries are followed up in the company's billing app (Websites › Enquiries). -->
   </AdminLayout>
 </template>
 

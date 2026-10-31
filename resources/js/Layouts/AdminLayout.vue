@@ -126,7 +126,6 @@
                   <p class="text-xs a-subtle truncate">{{ user?.email }}</p>
                 </div>
                 <Link href="/admin/account" class="a-menu-item" @click="userOpen = false">My account</Link>
-                <button v-if="can['system.cache']" type="button" @click="quickClear" class="a-menu-item">Clear website cache</button>
                 <div class="sm:hidden px-2.5 py-2">
                   <p class="text-[11px] a-subtle mb-1.5">Theme</p>
                   <div class="a-seg w-full">
@@ -234,7 +233,6 @@ const groups = computed(() => {
     { label: 'Overview', items: [
       { label: 'Dashboard', icon: 'home', exact: true, tabs: [{ label: 'Dashboard', href: '/admin/dashboard' }] },
       { label: 'Website checklist', icon: 'check', badge: c.checklist, alert: true, tabs: [{ label: 'Website checklist', href: '/admin/checklist', can: 'settings.view' }] },
-      { label: 'Enquiries', icon: 'mail', badge: c.unread, alert: true, tabs: [{ label: 'Enquiries', href: '/admin/messages', can: 'enquiries.view' }] },
     ] },
     { label: 'Content', items: [
       { label: 'Articles', icon: 'doc', badge: c.review, badgeTitle: 'Waiting for approval', alert: true, danger: c.sent_back, dangerTitle: 'Sent back to you: fix and resubmit', count: c.articles, tabs: [{ label: 'Articles', href: '/admin/blogs', can: 'articles.create' }, { label: 'Audit', href: '/admin/blogs-audit', can: 'articles.publish' }] },
@@ -264,7 +262,6 @@ const groups = computed(() => {
         { label: 'Reports', href: '/admin/insights', can: 'analytics.view', exact: true },
         { label: 'Visitor counter', href: '/admin/visitors', can: 'visitors.view' },
         { label: 'Index status', href: '/admin/insights/indexing', can: 'analytics.view' },
-        { label: 'Google connections', href: '/admin/insights/google', can: 'analytics.connect' },
       ] },
     ] },
     { label: 'SEO', items: [
@@ -274,20 +271,12 @@ const groups = computed(() => {
       { label: 'Redirects & 404s', icon: 'arrow', badge: c.open_404s, tabs: [{ label: 'Redirects', href: '/admin/redirects', can: 'redirects.view' }] },
       { label: 'Schema & robots', icon: 'shield', tabs: [{ label: 'Schema & robots', href: '/admin/seo/settings', can: 'seo_settings.view' }] },
     ] },
+    // People, roles, keys, Google connect, enquiries and the system are run from the company's billing app.
     { label: 'Settings', items: [
       { label: 'Business settings', icon: 'cog', tabs: [
         { label: 'Contact & social', href: '/admin/settings/contact', can: 'settings.view' },
         { label: 'Identity & hours', href: '/admin/settings/business', can: 'settings.view' },
         { label: 'Logo, footer & tracking', href: '/admin/settings/footer', can: 'settings.view' },
-      ] },
-      { label: 'Team & roles', icon: 'users', tabs: [
-        { label: 'Users', href: '/admin/users', can: 'users.view' },
-        { label: 'Roles & permissions', href: '/admin/roles', can: 'roles.view' },
-      ] },
-      { label: 'System', icon: 'server', tabs: [
-        { label: 'Site status & email', href: '/admin/system/settings', can: 'system.settings' },
-        { label: 'Cache', href: '/admin/system/cache', can: 'system.cache' },
-        { label: 'Updates', href: '/admin/system/update', can: 'system.update' },
       ] },
     ] },
   ];
@@ -377,24 +366,12 @@ const userRef = ref(null);
 const waiting = computed(() => [
   counts.value.sent_back && { label: 'Sent back to you: fix and resubmit', href: '/admin/blogs?tab=sent_back', count: counts.value.sent_back, cls: 'a-badge-danger' },
   counts.value.review && { label: 'Articles waiting for approval', href: '/admin/blogs?tab=review', count: counts.value.review, cls: 'a-badge-warning' },
-  can.value['enquiries.view'] && counts.value.unread && { label: 'Unread enquiries', href: '/admin/messages', count: counts.value.unread, cls: 'a-badge-accent' },
   can.value['redirects.view'] && counts.value.open_404s && { label: 'Broken URLs (404)', href: '/admin/redirects?tab=404', count: counts.value.open_404s, cls: '' },
 ].filter(Boolean));
 const notificationCount = computed(() => (notes.value.unread || 0) + waiting.value.reduce((s, w) => s + (w.href.includes('messages') ? 0 : w.count), 0));
 function onDocClick(e) {
   if (bellRef.value && !bellRef.value.contains(e.target)) bellOpen.value = false;
   if (userRef.value && !userRef.value.contains(e.target)) userOpen.value = false;
-}
-
-async function quickClear() {
-  userOpen.value = false;
-  const ok = await confirmDialog({
-    title: 'Clear the website cache?',
-    message: 'Use this when a change does not show on the website. Settings, SEO scores and Google reviews are rebuilt on the next visit. Nothing is deleted.',
-    confirmText: 'Clear cache',
-    tone: 'primary',
-  });
-  if (ok) router.post('/admin/system/cache/clear', { scope: 'data' }, { preserveScroll: true });
 }
 
 // ---------- Toasts ----------
