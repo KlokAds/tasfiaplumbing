@@ -52,7 +52,10 @@
             })();
         </script>
         @php
-            $tawkId = ($seo['tracking.tawk_enabled'] ?? '0') === '1' && preg_match('#^[a-z0-9]+/[a-z0-9]+$#i', (string) ($seo['tracking.tawk_id'] ?? '')) ? $seo['tracking.tawk_id'] : null;
+            // The company's own chat (Mujaid, from the billing app) takes the place of Tawk.to while it is on.
+            $mujaidSrc = \App\Models\SiteSetting::stored('chat.mujaid_enabled') === '1' ? \App\Models\SiteSetting::stored('chat.mujaid_src') : null;
+            $mujaidKey = $mujaidSrc ? \App\Models\SiteSetting::stored('chat.mujaid_key') : null;
+            $tawkId = !$mujaidKey && ($seo['tracking.tawk_enabled'] ?? '0') === '1' && preg_match('#^[a-z0-9]+/[a-z0-9]+$#i', (string) ($seo['tracking.tawk_id'] ?? '')) ? $seo['tracking.tawk_id'] : null;
             $sendEvents = ($seo['tracking.events'] ?? '1') === '1' && ($gtmId || $ga4Id);
         @endphp
         @if ($sendEvents)
@@ -83,6 +86,27 @@
                     }
                     ['scroll', 'pointerdown', 'keydown', 'touchstart'].forEach(function (e) { addEventListener(e, load, { once: true, passive: true }); });
                     addEventListener('load', function () { setTimeout(load, 20000); });
+                })();
+            </script>
+        @endif
+        @if ($mujaidKey)
+            {{-- The website chat loads after the first interaction (or 8 s) so it never slows the page. --}}
+            <script>
+                (function () {
+                    var done = false;
+                    function load() {
+                        if (done) return; done = true;
+                        var css = getComputedStyle(document.documentElement);
+                        var v = function (name, fallback) { return css.getPropertyValue(name).trim() || fallback; };
+                        var s = document.createElement('script'); s.async = true;
+                        s.src = @json($mujaidSrc);
+                        s.setAttribute('data-key', @json($mujaidKey));
+                        s.setAttribute('data-color', v('--color-brand-800', '#1b2a3d'));
+                        s.setAttribute('data-accent', v('--color-accent-600', '#1a66d2'));
+                        document.body.appendChild(s);
+                    }
+                    ['scroll', 'pointerdown', 'keydown', 'touchstart'].forEach(function (e) { addEventListener(e, load, { once: true, passive: true }); });
+                    addEventListener('load', function () { setTimeout(load, 8000); });
                 })();
             </script>
         @endif

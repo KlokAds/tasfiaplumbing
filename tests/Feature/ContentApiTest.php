@@ -275,4 +275,21 @@ class ContentApiTest extends TestCase
         @unlink(public_path('Admin/Blog/Details/hub-test-old.jpg'));
         @unlink(public_path(ltrim($cover, '/'))); // no longer the cover, so tearDown does not see it
     }
+
+    public function test_the_billing_app_switches_the_website_chat_on_in_place_of_tawk(): void
+    {
+        SiteSetting::putMany(['tracking.tawk_enabled' => '1', 'tracking.tawk_id' => 'abc123/def456']);
+        $this->get('/')->assertSee('embed.tawk.to', false);
+
+        $this->api()->postJson('/api/content/chat', ['enabled' => true, 'key' => 'abcdefghijklmnopqrstuvwx', 'src' => 'https://evil.example/x.js'])->assertStatus(422);
+        $this->api()->postJson('/api/content/chat', ['enabled' => true, 'key' => 'abcdefghijklmnopqrstuvwx', 'src' => 'https://billing.example.com/chat/mujaid.js'])->assertOk();
+        $page = $this->get('/')->assertOk()->getContent();
+        $this->assertStringContainsString('https:\/\/billing.example.com\/chat\/mujaid.js', $page);
+        $this->assertStringContainsString('abcdefghijklmnopqrstuvwx', $page);
+        $this->assertStringNotContainsString('embed.tawk.to', $page);
+
+        $this->api()->postJson('/api/content/chat', ['enabled' => false, 'key' => 'abcdefghijklmnopqrstuvwx', 'src' => 'https://billing.example.com/chat/mujaid.js'])->assertOk();
+        $this->get('/')->assertSee('embed.tawk.to', false)->assertDontSee('mujaid.js', false);
+        $this->assertArrayHasKey('contact', $this->api()->getJson('/api/content/info')->json());
+    }
 }

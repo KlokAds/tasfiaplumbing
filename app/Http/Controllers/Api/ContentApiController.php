@@ -43,6 +43,12 @@ class ContentApiController extends Controller
         return response()->json([
             'brand' => SiteSetting::get('business.brand_name') ?: config('app.name'),
             'url' => rtrim((string) config('app.url'), '/'),
+            // For the website chat: how visitors reach the team (all shown on the website already).
+            'contact' => (function () {
+                $c = \App\Models\ContactContent::first();
+
+                return array_filter(['phone' => $c?->phone, 'email' => $c?->email, 'whatsapp' => \App\Support\Socials::whatsappUrl($c?->phone)]);
+            })(),
             'services' => ServiceDetail::where('is_active', true)->orderBy('name')->get(['id', 'name', 'slug'])->map(fn ($s) => [
                 'id' => $s->id,
                 'name' => $s->name,
@@ -64,6 +70,22 @@ class ContentApiController extends Controller
                 ]),
             'avoid_phrases' => WritingCheck::AI_PHRASES,
         ]);
+    }
+
+    /**
+     * The company's website chat (Mujaid): the billing app switches it on or off here and gives its key and
+     * script address. While it is on, the website loads it instead of Tawk.to.
+     */
+    public function chat(Request $request)
+    {
+        $data = $request->validate([
+            'enabled' => 'required|boolean',
+            'key' => ['required', 'string', 'regex:/^[A-Za-z0-9]{16,32}$/'],
+            'src' => ['required', 'url', 'max:255', 'regex:#^https?://[^/]+/chat/mujaid\.js$#'],
+        ]);
+        SiteSetting::putMany(['chat.mujaid_enabled' => $data['enabled'] ? '1' : '0', 'chat.mujaid_key' => $data['key'], 'chat.mujaid_src' => $data['src']]);
+
+        return response()->json(['ok' => true]);
     }
 
     /** Saves an article as a draft in Articles, with its photos. */

@@ -149,7 +149,8 @@ class HandleInertiaRequests extends Middleware
             'summary' => $footer?->f_short_desc,
             'copyright' => self::copyright($footer?->c_text, $brand),
             'whatsapp' => \App\Support\Socials::whatsappUrl($contact?->phone),
-            'chat' => (bool) \App\Models\SiteSetting::get('tracking.tawk_enabled') && \App\Models\SiteSetting::get('tracking.tawk_id'),
+            'chat' => ((bool) \App\Models\SiteSetting::get('tracking.tawk_enabled') && \App\Models\SiteSetting::get('tracking.tawk_id'))
+                || \App\Models\SiteSetting::stored('chat.mujaid_enabled') === '1',
             'hours' => \App\Models\SiteSetting::get('hours.mon_fri'),
             // Admin → Website text: every heading/short text used across pages.
             'texts' => collect(\App\Models\SiteSetting::values())->filter(fn ($v, $k) => str_starts_with($k, 'text.'))
