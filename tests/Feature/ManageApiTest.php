@@ -84,6 +84,14 @@ class ManageApiTest extends TestCase
         $this->withToken('wrong')->getJson('/api/content/manage')->assertNotFound();
     }
 
+    public function test_a_saved_key_is_shown_in_full_to_the_billing_app_only(): void
+    {
+        ApiKeys::save('github', 'github_pat_ABCDEF123456');
+        $this->api()->getJson('/api/content/manage/keys/github')->assertOk()->assertJsonPath('value', 'github_pat_ABCDEF123456');
+        $this->api()->getJson('/api/content/manage/keys/nope')->assertNotFound();
+        $this->withoutToken()->getJson('/api/content/manage/keys/github')->assertNotFound();
+    }
+
     public function test_the_owner_is_signed_in_by_a_signed_link_once(): void
     {
         $exp = time() + 60;

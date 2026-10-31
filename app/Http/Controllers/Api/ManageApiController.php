@@ -227,6 +227,15 @@ class ManageApiController extends Controller
         return response()->json(['ok' => true]);
     }
 
+    /** One saved key in full, for the owner in the billing app (asked for on purpose, and written to the log). */
+    public function revealKey(string $name)
+    {
+        abort_unless(isset(ApiKeys::KEYS[$name]), 404);
+        \Illuminate\Support\Facades\Log::info('API key shown in the billing app', ['key' => $name]);
+
+        return response()->json(['value' => ApiKeys::value($name)]);
+    }
+
     /** Saves or removes an API key (checked with its service first); the owner's mailbox is told. */
     public function key(Request $request, string $name)
     {

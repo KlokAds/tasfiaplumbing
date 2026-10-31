@@ -35,14 +35,14 @@ class SystemSettings
     }
 
     /**
-     * Visitor country (ISO code) from the CDN in front of the site. Cloudflare sends CF-IPCountry
-     * for free; other proxies can send X-Country-Code. Null when the server cannot tell.
+     * Visitor country (ISO code): from the CDN when it says (Cloudflare's CF-IPCountry, or X-Country-Code),
+     * otherwise from the visitor's IP address (GeoIp). Null when it cannot be told.
      */
     public static function country(Request $request): ?string
     {
         $code = strtoupper(trim((string) ($request->header('CF-IPCountry') ?: $request->header('X-Country-Code'))));
 
-        return preg_match('/^[A-Z]{2}$/', $code) && !in_array($code, ['XX', 'T1'], true) ? $code : null;
+        return preg_match('/^[A-Z]{2}$/', $code) && !in_array($code, ['XX', 'T1'], true) ? $code : GeoIp::country($request->ip());
     }
 
     /** @return array{mode: string, countries: string[], message: ?string} */

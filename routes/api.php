@@ -18,6 +18,7 @@ Route::prefix('content')->middleware([ContentApiToken::class, 'throttle:60,1'])-
     Route::post('/manage/roles', [\App\Http\Controllers\Api\ManageApiController::class, 'role']);
     Route::put('/manage/roles/{name}', [\App\Http\Controllers\Api\ManageApiController::class, 'role'])->where('name', '[a-z0-9-]+');
     Route::put('/manage/settings', [\App\Http\Controllers\Api\ManageApiController::class, 'settings']);
+    Route::get('/manage/keys/{name}', [\App\Http\Controllers\Api\ManageApiController::class, 'revealKey'])->where('name', '[a-z_]+');
     Route::put('/manage/keys/{name}', [\App\Http\Controllers\Api\ManageApiController::class, 'key'])->where('name', '[a-z_]+');
     Route::get('/manage/code', [\App\Http\Controllers\Api\ManageApiController::class, 'code']);
     Route::post('/manage/code/update', [\App\Http\Controllers\Api\ManageApiController::class, 'updateCode']);

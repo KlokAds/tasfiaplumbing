@@ -115,15 +115,9 @@ class SystemSettingsController extends Controller
             'countries' => 'nullable|required_unless:mode,off|string|max:1000',
             'message' => 'nullable|string|max:300',
         ]);
+        // Nobody on the team is locked out: people signed in here always see the site (SiteAccess), and
+        // the admin and its sign-in page stay open from every country.
         $countries = SystemSettings::parseCountries((string) ($data['countries'] ?? ''));
-        // Never let the owner lock themselves out from the country they are in right now.
-        $mine = SystemSettings::country($request);
-        if ($mine && $data['mode'] === 'allow' && !in_array($mine, $countries, true)) {
-            $countries[] = $mine;
-        }
-        if ($mine && $data['mode'] === 'block') {
-            $countries = array_values(array_diff($countries, [$mine]));
-        }
         SiteSetting::putMany([
             'geo.mode' => $data['mode'],
             'geo.countries' => implode(', ', $countries),

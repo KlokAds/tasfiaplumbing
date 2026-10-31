@@ -46,12 +46,28 @@ class SystemSettingsTest extends TestCase
         $this->get('/')->assertOk(); // unknown country is never blocked
     }
 
-    public function test_owner_cannot_block_their_own_country(): void
+    public function test_only_singapore_by_ip_and_the_signed_in_team_sees_the_site_from_anywhere(): void
     {
-        $this->actingAs($this->owner())
-            ->post('/admin/system/settings', ['section' => 'geo', 'mode' => 'block', 'countries' => 'SG, RU'], ['CF-IPCountry' => 'SG']);
+        // The country list (from the billing app on the same server), here a small one: 203.116/16 SG, 103.121/16 BD.
+        $dir = sys_get_temp_dir() . '/geoip-' . uniqid();
+        mkdir($dir);
+        file_put_contents("{$dir}/ipv4.bin", inet_pton('103.121.0.0') . inet_pton('103.121.255.255') . 'BD' . inet_pton('203.116.0.0') . inet_pton('203.116.255.255') . 'SG');
+        config(['services.geoip_dir' => $dir]);
 
-        $this->assertSame(['RU'], SystemSettings::geo()['countries']);
+        $this->actingAs($this->owner())
+            ->post('/admin/system/settings', ['section' => 'geo', 'mode' => 'allow', 'countries' => 'SG'], ['CF-IPCountry' => 'BD']);
+        $this->assertSame(['SG'], SystemSettings::geo()['countries'], 'saved as given');
+        auth()->logout();
+
+        $from = fn ($ip) => $this->withServerVariables(['REMOTE_ADDR' => $ip])->get('/');
+        $from('203.116.4.4')->assertOk();
+        $from('103.121.63.20')->assertForbidden();
+        $from('103.121.63.20')->assertSee('Not available', false);
+        $this->withServerVariables(['REMOTE_ADDR' => '103.121.63.20'])->get('/admin/login')->assertOk();
+        $this->actingAs($this->owner())->withServerVariables(['REMOTE_ADDR' => '103.121.63.20'])->get('/')->assertOk();
+
+        unlink("{$dir}/ipv4.bin");
+        rmdir($dir);
     }
 
     public function test_smtp_settings_are_encrypted_and_applied(): void
