@@ -9,7 +9,7 @@
       <div class="w-12 h-12 rounded-2xl a-tint-accent a-accent grid place-items-center mx-auto"><svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M4 20V10m6 10V4m6 16v-7m4 7H2" /></svg></div>
       <h3 class="mt-4 text-base font-bold">{{ connected ? 'Choose what to show' : 'Connect Google to see your reports here' }}</h3>
       <p class="mt-1.5 text-sm a-muted">Search clicks, the words people search, top pages, visitors, traffic sources and WhatsApp / call clicks — without opening Google's tools.</p>
-      <Link v-if="can('analytics.connect')" href="/admin/insights/google" class="admin-btn-primary mt-5 inline-flex">{{ connected ? 'Choose properties' : 'Set up Google connection' }}</Link>
+      <a v-if="can('analytics.connect') && $page.props.billingUrl" :href="$page.props.billingUrl + '/keys'" target="_blank" rel="noopener" class="admin-btn-primary mt-5 inline-flex">{{ connected ? 'Choose properties' : 'Set up Google connection' }}</a>
       <p v-else class="mt-4 text-xs a-subtle">Ask the site owner to connect Google.</p>
     </section>
 

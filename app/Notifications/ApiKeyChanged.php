@@ -39,8 +39,8 @@ class ApiKeyChanged extends Notification
                 'quoteLabel' => null,
                 'quote' => null,
                 'seo' => null,
-                'buttons' => [['label' => 'Open API keys', 'url' => url('/admin/system/settings?tab=keys')]],
-                'after' => ['If this was not you or your team, sign in, save your own key again in System → API keys and change the passwords of your admin accounts.'],
+                'buttons' => [['label' => 'Open API keys', 'url' => \App\Support\Billing::url('keys') ?? url('/admin')]],
+                'after' => ['If this was not you or your team, sign in, save your own key again in the billing app (Websites → Keys) and change the passwords of your admin accounts.'],
                 'footer' => 'Sent by the ' . $brand . ' website admin.',
             ]);
     }

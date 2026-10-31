@@ -46,7 +46,9 @@ class ArticlePreviewTest extends TestCase
 
         $this->actingAs($writer)->get("/admin/revisions/{$revision->id}/preview")->assertOk()
             ->assertInertia(fn ($page) => $page->where('blog.desc', fn ($h) => str_contains($h, 'Proposed text')));
-        $this->actingAs($approver)->get("/admin/revisions/{$revision->id}/preview")->assertOk();
+        // The preview is a website page: it loads the website's look, not the admin's.
+        $this->actingAs($approver)->get("/admin/revisions/{$revision->id}/preview")->assertOk()
+            ->assertSee('/build/assets/app-', false)->assertDontSee('/build/assets/admin-app-', false);
         $this->actingAs($other)->get("/admin/revisions/{$revision->id}/preview")->assertForbidden();
         $this->assertSame('<p>Live</p>', $blog->fresh()->desc);
 

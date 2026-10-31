@@ -94,7 +94,7 @@ class SiteChecklist
                 self::item('own_reviews', 'Own reviews with job & area', FeedBackContent::count() === 0 || FeedBackContent::whereNotNull('job')->count() > 0, 'should', 'Add the job type and area to your own reviews ("Bathroom renovation · Tampines").', '/admin/reviews', '/reviews'),
             ],
             'Google & SEO' => [
-                self::item('google', 'Google connected', GoogleApi::connected() && filled($s('google.gsc_property')), 'should', 'Shows search clicks, visitors and index status here in admin.', '/admin/insights/google', null),
+                self::item('google', 'Google connected', GoogleApi::connected() && filled($s('google.gsc_property')), 'should', 'Shows search clicks, visitors and index status here in admin.', Billing::url('keys'), null),
                 self::item('seo_score', 'Average SEO score', $seoAvg >= 80, 'should', "Now {$seoAvg}/100. Fix the pages with errors first.", '/admin/seo/health', null),
                 self::item('share_image', 'Default share image', filled($s('seo.default_og_image')), 'should', 'The picture shown when a link is shared on WhatsApp or Facebook.', '/admin/seo/settings', null),
                 self::item('404s', 'Broken links (404)', NotFoundLog::where('is_resolved', false)->count() === 0, 'should', NotFoundLog::where('is_resolved', false)->count() . ' old URLs lead nowhere. Redirect them to keep their Google ranking.', '/admin/redirects?tab=404', null),
@@ -102,11 +102,11 @@ class SiteChecklist
                     blank($footer?->g_tag) ? 'No Tag Manager ID.' : (filled($footer?->g_a_tag) ? 'Both Tag Manager and GA4 are set. Clear GA4 and add it inside Tag Manager.' : 'Tag Manager loads Analytics and ads pixels.'), '/admin/settings/footer', null),
             ],
             'Server & email' => [
-                self::item('smtp', 'Email server', ($mail['enabled'] ?? false) && filled($mail['host'] ?? null) || config('mail.default') === 'smtp', 'must', 'Without it enquiry emails never arrive.', '/admin/system/settings?tab=mail', null),
-                self::item('https', 'HTTPS', str_starts_with((string) config('app.url'), 'https://'), 'must', 'APP_URL must start with https:// on the live server.', '/admin/system/settings?tab=server', null),
-                self::item('production', 'Live mode', $env === 'production' && !config('app.debug'), 'must', "Now \"{$env}\"" . (config('app.debug') ? ' with error details on' : '') . '. Set APP_ENV=production and APP_DEBUG=false. (Google is blocked by robots.txt until then.)', '/admin/system/settings?tab=server', null),
-                self::item('cron', 'Scheduled tasks', $seen && time() - (int) $seen < 180, 'must', 'The server cron publishes scheduled articles and syncs Google every night.', '/admin/system/settings?tab=server', null),
-                self::item('maintenance', 'Website is online', !SystemSettings::maintenanceOn(), 'must', 'Maintenance mode is on: visitors cannot see the site.', '/admin/system/settings', '/'),
+                self::item('smtp', 'Email server', ($mail['enabled'] ?? false) && filled($mail['host'] ?? null) || config('mail.default') === 'smtp', 'must', 'Without it enquiry emails never arrive.', Billing::url('system'), null),
+                self::item('https', 'HTTPS', str_starts_with((string) config('app.url'), 'https://'), 'must', 'APP_URL must start with https:// on the live server.', Billing::url('system'), null),
+                self::item('production', 'Live mode', $env === 'production' && !config('app.debug'), 'must', "Now \"{$env}\"" . (config('app.debug') ? ' with error details on' : '') . '. Set APP_ENV=production and APP_DEBUG=false. (Google is blocked by robots.txt until then.)', Billing::url('system'), null),
+                self::item('cron', 'Scheduled tasks', $seen && time() - (int) $seen < 180, 'must', 'The server cron publishes scheduled articles and syncs Google every night.', Billing::url('system'), null),
+                self::item('maintenance', 'Website is online', !SystemSettings::maintenanceOn(), 'must', 'Maintenance mode is on: visitors cannot see the site.', Billing::url('system'), '/'),
             ],
         ];
 

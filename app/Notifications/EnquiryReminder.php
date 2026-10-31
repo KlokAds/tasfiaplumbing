@@ -42,7 +42,7 @@ class EnquiryReminder extends Notification
                 'quoteLabel' => null,
                 'quote' => null,
                 'seo' => null,
-                'buttons' => [['label' => 'Open enquiries', 'url' => url('/admin/messages?status=new')]],
+                'buttons' => [['label' => 'Open enquiries', 'url' => \App\Support\Billing::url('enquiries') ?? url('/admin')]],
                 'after' => ['Reply from the enquiry (WhatsApp or email) and it is marked “Contacted”, so this reminder stops. Each enquiry is reminded once.'],
                 'footer' => 'Sent by the ' . $brand . ' website admin.',
             ]);

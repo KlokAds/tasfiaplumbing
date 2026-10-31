@@ -74,7 +74,8 @@
             </div>
             <div class="flex items-center gap-2 shrink-0">
               <a v-if="i.view" :href="i.view" target="_blank" class="admin-btn-secondary a-btn-sm" title="See it on the website">View</a>
-              <Link v-if="i.fix && !i.ok" :href="i.fix" class="admin-btn-primary a-btn-sm">Fix</Link>
+              <a v-if="i.fix && !i.ok && i.fix.startsWith('http')" :href="i.fix" target="_blank" rel="noopener" class="admin-btn-primary a-btn-sm">Fix</a>
+              <Link v-else-if="i.fix && !i.ok" :href="i.fix" class="admin-btn-primary a-btn-sm">Fix</Link>
             </div>
           </li>
         </ul>

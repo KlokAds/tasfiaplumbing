@@ -15,12 +15,13 @@ class EmailTemplateTest extends TestCase
 
     public function test_enquiry_email_uses_the_branded_template_and_links_to_the_enquiry(): void
     {
+        \App\Models\SiteSetting::putMany(['billing.page' => 'https://billing.example.com/admin/websites/3']);
         $m = Message::create(['name' => 'Kelvin Tan', 'email' => 'k@example.test', 'phone' => '81234567', 'subject' => 'Water heater', 'message' => "Leaking since Monday.\nHDB 4-room.", 'is_read' => 0]);
 
         $html = (string) (new NewEnquiry($m))->toMail(new AnonymousNotifiable)->render();
 
         $this->assertStringContainsString('Kelvin Tan sent an enquiry', $html);
-        $this->assertStringContainsString('/admin/messages?open=' . $m->id, $html);
+        $this->assertStringContainsString('https://billing.example.com/admin/websites/3/enquiries', $html);
         $this->assertStringContainsString('https://wa.me/6581234567', $html);
         $this->assertStringContainsString('/mail/seen/' . $m->id, $html);
         $this->assertStringNotContainsString('Laravel', $html, 'No Laravel default template');

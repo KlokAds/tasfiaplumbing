@@ -6,7 +6,7 @@
 
     <p v-if="!ready" class="a-alert a-alert-warning text-sm mb-5">
       Connect Google and choose your Search Console property to see this.
-      <Link v-if="can('analytics.connect')" href="/admin/insights/google" class="font-semibold underline">Open Google connections</Link>
+      <a v-if="can('analytics.connect') && $page.props.billingUrl" :href="$page.props.billingUrl + '/keys'" target="_blank" rel="noopener" class="font-semibold underline">Open Google connections</a>
     </p>
 
     <StickyBar>

@@ -7,6 +7,8 @@
 
     @php
         $isPublicPage = !request()->is('admin', 'admin/*', 'login');
+        // Website pages shown inside admin (article previews) still use the website's own look.
+        $siteLook = $isPublicPage || str_starts_with((string) ($page['component'] ?? ''), 'Frontend/');
         $gtmId = $ga4Id = null;
         if ($isPublicPage) {
             $seo = \App\Models\SiteSetting::values();
@@ -173,13 +175,13 @@
     <link rel="icon" type="image/png" sizes="64x64" href="/favicon-64.png">
     <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 
-    @if ($isPublicPage)
+    @if ($siteLook)
         {{-- Start downloading the two text fonts with the page, so text never shifts when they arrive. --}}
         <link rel="preload" as="font" type="font/woff2" crossorigin href="{{ Vite::asset('node_modules/@fontsource-variable/nunito-sans/files/nunito-sans-latin-wght-normal.woff2') }}">
         <link rel="preload" as="font" type="font/woff2" crossorigin href="{{ Vite::asset('node_modules/@fontsource-variable/rubik/files/rubik-latin-wght-normal.woff2') }}">
     @endif
     {{-- The current page's own code is preloaded too, instead of waiting for app.js to ask for it. --}}
-    @vite([$isPublicPage ? 'resources/css/app.css' : 'resources/css/admin-app.css', 'resources/js/app.js', "resources/js/Pages/{$page['component']}.vue"])
+    @vite([$siteLook ? 'resources/css/app.css' : 'resources/css/admin-app.css', 'resources/js/app.js', "resources/js/Pages/{$page['component']}.vue"])
     @inertiaHead
 </head>
 <body class="font-sans antialiased min-h-screen flex flex-col">

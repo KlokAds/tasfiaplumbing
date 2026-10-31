@@ -31,6 +31,7 @@ class SsoController extends Controller
         abort_unless($owner, 403);
         Auth::login($owner);
         $request->session()->regenerate();
+        \App\Http\Middleware\FromBilling::start($request);
         $owner->forceFill(['last_login_at' => now()])->save();
 
         return redirect($next);

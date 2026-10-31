@@ -28,7 +28,7 @@ class DashboardController extends Controller
                 'label' => 'Enquiries (30 days)',
                 'value' => Message::notSpam()->where('created_at', '>=', now()->subDays(30))->count(),
                 'hint' => Message::notSpam()->where('is_read', 0)->count() . ' unread',
-                'href' => '/admin/messages',
+                'href' => \App\Support\Billing::url('enquiries'),
             ];
         }
         $kpis[] = [

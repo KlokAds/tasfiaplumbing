@@ -31,11 +31,11 @@
     <StickyBar>
     <!-- KPIs -->
     <div class="grid grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
-      <Link v-for="k in kpis" :key="k.label" :href="k.href" class="admin-card p-5 hover:border-[var(--a-border-2)] transition">
+      <component :is="k.href?.startsWith('http') ? 'a' : (k.href ? Link : 'div')" v-for="k in kpis" :key="k.label" :href="k.href || undefined" :target="k.href?.startsWith('http') ? '_blank' : undefined" class="admin-card p-5 hover:border-[var(--a-border-2)] transition">
         <p class="text-xs font-semibold a-muted">{{ k.label }}</p>
         <p class="mt-2 text-3xl font-bold tracking-tight">{{ k.value.toLocaleString() }}<span v-if="k.suffix" class="text-base font-semibold a-subtle">{{ k.suffix }}</span></p>
         <p class="mt-1 text-xs a-subtle">{{ k.hint }}</p>
-      </Link>
+      </component>
     </div>
     </StickyBar>
 

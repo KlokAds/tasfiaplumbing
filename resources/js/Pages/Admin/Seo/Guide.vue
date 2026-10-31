@@ -41,7 +41,7 @@
             <p v-else class="a-muted">No new questions this week: your pages already cover what people search for.</p>
             <p class="mt-2 a-subtle">People search for these on Google and see your site, but no page answers them yet. One article per question, written as in "Writing an article".</p>
           </template>
-          <p v-else class="a-muted">Connect Google Search Console (<Link href="/admin/insights/google" class="underline">Google connections</Link>) and the scan will suggest articles from what people really search for.</p>
+          <p v-else class="a-muted">Connect Google Search Console (in the billing app, Websites → Keys) and the scan will suggest articles from what people really search for.</p>
 
           <h3 class="font-bold mt-6 mb-2">Services to improve</h3>
           <ul v-if="plan.services?.length" class="space-y-2">
@@ -85,7 +85,7 @@
 
             <div v-if="scanType === 'article' && scan.authors?.length" class="mt-4 rounded-xl border a-border p-4 warn">
               <p class="font-bold">Writers without a job title or bio</p>
-              <p class="a-muted">One fix per person lifts E-E-A-T on all their articles. Each writer fills these in under <Link href="/admin/account" class="underline">My account</Link>, or the Super Admin does it in <Link href="/admin/users" class="underline">Team</Link>. Articles without an author show the Default author chosen on the Articles page, else the team with its own title and bio.</p>
+              <p class="a-muted">One fix per person lifts E-E-A-T on all their articles. Each writer fills these in under <Link href="/admin/account" class="underline">My account</Link>, or the owner does it in Team (opened from the billing app). Articles without an author show the Default author chosen on the Articles page, else the team with its own title and bio.</p>
               <ul class="mt-2 space-y-1">
                 <li v-for="a in scan.authors" :key="a.name"><b>{{ a.name }}</b> · {{ fmt(a.articles) }} live {{ a.articles === 1 ? 'article' : 'articles' }} · missing {{ [!a.job_title && 'job title', !a.bio && 'bio'].filter(Boolean).join(' and ') }}</li>
               </ul>

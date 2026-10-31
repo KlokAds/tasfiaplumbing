@@ -136,7 +136,7 @@ Route::get('/robots.txt', fn () => response(\App\Support\SiteSchema::robots(), 2
     ->name('robots');
 
 // Cache clearing lives in Admin > System > Cache (POST, permission system.cache).
-Route::get('/clear', fn () => redirect('/admin/system/cache'))->middleware('auth');
+Route::get('/clear', fn () => redirect('/admin/system/cache'))->middleware(['auth', \App\Http\Middleware\FromBilling::class]);
 
 
 /*
@@ -319,14 +319,17 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', \App\Http\Middleware
     Route::post('/seo/settings', [SeoSettingController::class, 'update'])->middleware('can:seo_settings.edit')->name('seo.settings.update');
 
     // ---------------- Leads ----------------
-    Route::get('/messages', [MessageController::class, 'index'])->middleware('can:enquiries.view')->name('messages.index');
-    Route::post('/messages/{id}/read', [MessageController::class, 'markAsRead'])->middleware('can:enquiries.edit')->name('messages.read');
-    Route::delete('/messages/{id}', [MessageController::class, 'destroy'])->middleware('can:enquiries.delete')->name('messages.destroy');
-    Route::get('/messages/{message}/photos/{index}', [MessageController::class, 'photo'])->whereNumber('index')->middleware('can:enquiries.view')->name('messages.photo');
-    Route::post('/messages/{message}/status', [MessageController::class, 'status'])->middleware('can:enquiries.edit')->name('messages.status');
-    Route::post('/messages/{message}/spam', [MessageController::class, 'spam'])->middleware('can:enquiries.edit')->name('messages.spam');
-    Route::post('/messages-scan-spam', [MessageController::class, 'scanSpam'])->middleware(['can:enquiries.edit', 'throttle:6,1'])->name('messages.scan-spam');
-    Route::post('/messages-templates', [MessageController::class, 'templates'])->middleware('can:enquiries.edit')->name('messages.templates');
+    // Enquiries, people and roles are run from the billing app: here only from its signed-in link.
+    Route::middleware(\App\Http\Middleware\FromBilling::class)->group(function () {
+        Route::get('/messages', [MessageController::class, 'index'])->middleware('can:enquiries.view')->name('messages.index');
+        Route::post('/messages/{id}/read', [MessageController::class, 'markAsRead'])->middleware('can:enquiries.edit')->name('messages.read');
+        Route::delete('/messages/{id}', [MessageController::class, 'destroy'])->middleware('can:enquiries.delete')->name('messages.destroy');
+        Route::get('/messages/{message}/photos/{index}', [MessageController::class, 'photo'])->whereNumber('index')->middleware('can:enquiries.view')->name('messages.photo');
+        Route::post('/messages/{message}/status', [MessageController::class, 'status'])->middleware('can:enquiries.edit')->name('messages.status');
+        Route::post('/messages/{message}/spam', [MessageController::class, 'spam'])->middleware('can:enquiries.edit')->name('messages.spam');
+        Route::post('/messages-scan-spam', [MessageController::class, 'scanSpam'])->middleware(['can:enquiries.edit', 'throttle:6,1'])->name('messages.scan-spam');
+        Route::post('/messages-templates', [MessageController::class, 'templates'])->middleware('can:enquiries.edit')->name('messages.templates');
+    });
 
     // ---------------- Administration ----------------
     Route::middleware('can:settings.view')->group(function () {
@@ -341,15 +344,17 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', \App\Http\Middleware
         Route::post('/settings/footer', [SettingController::class, 'footerUpdate'])->name('settings.footer.update');
     });
 
-    Route::get('/users', [UserController::class, 'index'])->middleware('can:users.view')->name('users.index');
-    Route::post('/users', [UserController::class, 'store'])->middleware('can:users.create')->name('users.store');
-    Route::put('/users/{user}', [UserController::class, 'update'])->middleware('can:users.edit')->name('users.update');
-    Route::delete('/users/{user}', [UserController::class, 'destroy'])->middleware('can:users.delete')->name('users.destroy');
+    Route::middleware(\App\Http\Middleware\FromBilling::class)->group(function () {
+        Route::get('/users', [UserController::class, 'index'])->middleware('can:users.view')->name('users.index');
+        Route::post('/users', [UserController::class, 'store'])->middleware('can:users.create')->name('users.store');
+        Route::put('/users/{user}', [UserController::class, 'update'])->middleware('can:users.edit')->name('users.update');
+        Route::delete('/users/{user}', [UserController::class, 'destroy'])->middleware('can:users.delete')->name('users.destroy');
 
-    Route::get('/roles', [RoleController::class, 'index'])->middleware('can:roles.view')->name('roles.index');
-    Route::post('/roles', [RoleController::class, 'store'])->middleware('can:roles.create')->name('roles.store');
-    Route::put('/roles/{role}', [RoleController::class, 'update'])->middleware('can:roles.edit')->name('roles.update');
-    Route::delete('/roles/{role}', [RoleController::class, 'destroy'])->middleware('can:roles.delete')->name('roles.destroy');
+        Route::get('/roles', [RoleController::class, 'index'])->middleware('can:roles.view')->name('roles.index');
+        Route::post('/roles', [RoleController::class, 'store'])->middleware('can:roles.create')->name('roles.store');
+        Route::put('/roles/{role}', [RoleController::class, 'update'])->middleware('can:roles.edit')->name('roles.update');
+        Route::delete('/roles/{role}', [RoleController::class, 'destroy'])->middleware('can:roles.delete')->name('roles.destroy');
+    });
 
     Route::prefix('insights')->name('insights.')->controller(\App\Http\Controllers\Admin\InsightsController::class)->group(function () {
         Route::middleware('can:analytics.view')->group(function () {
@@ -358,7 +363,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', \App\Http\Middleware
             Route::post('/indexing/inspect', 'inspect')->middleware('throttle:30,1')->name('indexing.inspect');
             Route::post('/indexing/batch', 'inspectBatch')->middleware('throttle:3,10')->name('indexing.batch');
         });
-        Route::middleware('can:analytics.connect')->group(function () {
+        Route::middleware(['can:analytics.connect', \App\Http\Middleware\FromBilling::class])->group(function () {
             Route::get('/google', 'google')->name('google');
             Route::post('/google/client', 'saveClient')->name('google.client');
             Route::post('/google/connect', 'connect')->name('google.connect');
@@ -371,7 +376,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', \App\Http\Middleware
         });
     });
 
-    Route::prefix('system')->name('system.')->group(function () {
+    Route::prefix('system')->name('system.')->middleware(\App\Http\Middleware\FromBilling::class)->group(function () {
         Route::get('/cache', [CacheController::class, 'index'])->middleware('can:system.cache')->name('cache');
         Route::middleware('can:system.settings')->group(function () {
             Route::get('/settings', [\App\Http\Controllers\Admin\SystemSettingsController::class, 'index'])->name('settings');

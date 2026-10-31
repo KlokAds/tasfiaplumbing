@@ -24,10 +24,10 @@ class NewEnquiry extends Notification
         if (strlen($digits) === 8) {
             $digits = '65' . $digits;
         }
-        $open = url('/admin/messages?open=' . $m->id);
+        $open = \App\Support\Billing::url('enquiries') ?? url('/admin');
         $buttons = array_values(array_filter([
             $digits ? ['label' => 'Reply on WhatsApp', 'url' => 'https://wa.me/' . $digits, 'style' => 'whatsapp'] : null,
-            ['label' => 'Open in admin', 'url' => $open, 'style' => $digits ? 'secondary' : 'primary'],
+            ['label' => 'Open enquiries', 'url' => $open, 'style' => $digits ? 'secondary' : 'primary'],
         ]));
 
         $mail = (new MailMessage)
@@ -69,7 +69,7 @@ class NewEnquiry extends Notification
             'event' => 'enquiry',
             'title' => 'New enquiry from ' . $this->message->name,
             'body' => $this->message->subject ?: \Illuminate\Support\Str::limit($this->message->message, 80),
-            'url' => url('/admin/messages'),
+            'url' => \App\Support\Billing::url('enquiries') ?? url('/admin'),
             'level' => 'warning',
         ];
     }

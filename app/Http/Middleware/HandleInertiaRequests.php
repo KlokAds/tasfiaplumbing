@@ -97,6 +97,8 @@ class HandleInertiaRequests extends Middleware
                     ? $count('blog_details', fn ($q) => $q->where('status', 'pending')) + $count('article_revisions', fn ($q) => $q->where('status', 'pending'))
                     : 0,
             ],
+            // The billing app's page for this website (enquiries, keys, Google, system are run there).
+            'billingUrl' => \App\Support\Billing::url(),
             'can' => collect(\App\Support\Permissions::all())
                 ->mapWithKeys(fn ($p) => [$p => $request->user()->can($p)])
                 ->all(),

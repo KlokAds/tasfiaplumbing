@@ -21,6 +21,7 @@ class ContentApiToken
         if ($hash === '' || $token === '' || !hash_equals($hash, hash('sha256', $token))) {
             abort(404);
         }
+        \App\Support\Billing::remember($request->header('X-Billing-Page'));
 
         return $next($request);
     }

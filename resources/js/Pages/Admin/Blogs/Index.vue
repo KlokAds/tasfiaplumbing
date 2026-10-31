@@ -76,7 +76,7 @@
           ? 'Sentences of every article and change waiting here are searched on the web. Copied text shows below and comes by email.'
           : (sourceCheck.can_manage ? 'Source check is off. Add a Brave Search API key in System → API keys to find text copied from other websites.' : 'Source check is off. A Super Admin can turn it on.') }}</p>
       </div>
-      <a v-if="sourceCheck.can_manage" href="/admin/system/settings?tab=keys" class="admin-btn-secondary a-btn-sm sm:shrink-0">{{ sourceCheck.on ? 'Change key' : 'Add key' }} in API keys</a>
+      <a v-if="sourceCheck.can_manage && $page.props.billingUrl" :href="$page.props.billingUrl + '/keys'" target="_blank" rel="noopener" class="admin-btn-secondary a-btn-sm sm:shrink-0">{{ sourceCheck.on ? 'Change key' : 'Add key' }} in API keys</a>
     </div>
 
     <!-- Default author (approvers): shown on articles that have no author of their own -->

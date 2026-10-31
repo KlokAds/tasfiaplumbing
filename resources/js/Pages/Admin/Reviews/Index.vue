@@ -27,10 +27,10 @@
             <b>All reviews are imported</b> from your Business Profile{{ profile.name ? ` (${profile.name})` : '' }}:
             {{ imported.length }} reviews<span v-if="profile.rating">, {{ profile.rating }}★ overall</span>. The Places API settings below are only a fallback.
           </p>
-          <Link href="/admin/insights/google" class="mt-2 inline-block text-xs a-accent font-semibold">Google connections →</Link>
+          <a v-if="$page.props.billingUrl" :href="$page.props.billingUrl + '/keys'" target="_blank" rel="noopener" class="mt-2 inline-block text-xs a-accent font-semibold">Google connections →</a>
         </div>
         <div v-else class="px-5 pt-4">
-          <p class="a-alert a-alert-info text-xs">The Places API only gives Google's 5 "most relevant" reviews. To show <b>every</b> review, connect your Business Profile under <Link href="/admin/insights/google" class="font-semibold underline">Insights → Google connections</Link>.</p>
+          <p class="a-alert a-alert-info text-xs">The Places API only gives Google's 5 "most relevant" reviews. To show <b>every</b> review, connect your Business Profile in the billing app (Websites → Keys).</p>
         </div>
         <div v-if="google.result?.ok" class="px-5 py-4 border-b a-border flex items-center gap-4">
           <p class="text-3xl font-bold tabular-nums">{{ google.result.rating?.toFixed(1) }}</p>
@@ -62,7 +62,7 @@
 
           <div>
             <label class="admin-label">Places API key</label>
-            <p class="admin-input flex items-center justify-between gap-2"><span>{{ google.has_key ? 'Saved' : 'Not set' }}</span><a href="/admin/system/settings?tab=keys" class="underline text-sm">{{ google.has_key ? 'Change' : 'Add' }} in API keys</a></p>
+            <p class="admin-input flex items-center justify-between gap-2"><span>{{ google.has_key ? 'Saved' : 'Not set' }}</span><a v-if="$page.props.billingUrl" :href="$page.props.billingUrl + '/keys'" target="_blank" rel="noopener" class="underline text-sm">{{ google.has_key ? 'Change' : 'Add' }} in API keys</a></p>
             <p class="a-help">Google Cloud Console → enable “Places API (New)” → create an API key and restrict it to that API. Kept with all other keys in System → Settings → API keys (Super Admin only).</p>
           </div>
 
