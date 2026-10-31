@@ -114,7 +114,8 @@ class RewriteImport
 
         return [
             "Length 1200–1500 words ($words)" => $words >= 1200 && $words <= 1500,
-            'Short direct answer at the start (AEO)' => $opening !== '' && count(preg_split('/\s+/u', $opening)) <= 80,
+            // The answer is the first two sentences of the opening paragraph.
+            'Short direct answer at the start (AEO)' => $opening !== '' && count(preg_split('/\s+/u', implode(' ', array_slice(preg_split('/(?<=[.!?])\s+/u', $opening), 0, 2)))) <= 60,
             "Question headings ($questions)" => $questions >= 2,
             'Key takeaways section (GEO)' => stripos($html, 'Key takeaways') !== false,
             'FAQs (' . count($change['faqs']) . ')' => count($change['faqs']) >= 4,
