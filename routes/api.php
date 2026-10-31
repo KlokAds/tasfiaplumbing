@@ -12,6 +12,13 @@ use Illuminate\Support\Facades\Route;
 Route::prefix('content')->middleware([ContentApiToken::class, 'throttle:60,1'])->group(function () {
     Route::get('/info', [ContentApiController::class, 'info']);
     Route::post('/chat', [ContentApiController::class, 'chat']);
+    // The billing app runs the website: people and roles, keys, tracking codes.
+    Route::get('/manage', [\App\Http\Controllers\Api\ManageApiController::class, 'show']);
+    Route::post('/manage/users', [\App\Http\Controllers\Api\ManageApiController::class, 'user']);
+    Route::post('/manage/roles', [\App\Http\Controllers\Api\ManageApiController::class, 'role']);
+    Route::put('/manage/roles/{name}', [\App\Http\Controllers\Api\ManageApiController::class, 'role'])->where('name', '[a-z0-9-]+');
+    Route::put('/manage/settings', [\App\Http\Controllers\Api\ManageApiController::class, 'settings']);
+    Route::put('/manage/keys/{name}', [\App\Http\Controllers\Api\ManageApiController::class, 'key'])->where('name', '[a-z_]+');
     Route::post('/check', [ContentApiController::class, 'check']);
     Route::get('/media', [ContentApiController::class, 'media']);
     Route::post('/articles', [ContentApiController::class, 'storeDraft']);
