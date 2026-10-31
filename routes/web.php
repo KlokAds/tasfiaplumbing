@@ -149,7 +149,7 @@ Route::get('/login', fn() => redirect()->route('admin.login'))->name('login');
 
 Route::prefix('admin')->name('admin.')->group(function () {
     // From the billing app's "Open site admin": a signed link that signs the owner in.
-    Route::get('/sso', [\App\Http\Controllers\Admin\SsoController::class, 'login'])->middleware('throttle:20,1')->name('sso');
+    Route::get('/sso', [\App\Http\Controllers\Admin\SsoController::class, 'login'])->middleware('throttle:20,1,sso')->name('sso');
     Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
     Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:5,1')->name('login.submit');
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
