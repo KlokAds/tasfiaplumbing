@@ -103,6 +103,9 @@
                         s.setAttribute('data-key', @json($mujaidKey));
                         s.setAttribute('data-color', v('--color-brand-800', '#1b2a3d'));
                         s.setAttribute('data-accent', v('--color-accent-600', '#1a66d2'));
+                        // Right above this site's WhatsApp pill (24 px from the corner, 48 px tall).
+                        s.setAttribute('data-right', '24');
+                        s.setAttribute('data-bottom', '84');
                         document.body.appendChild(s);
                     }
                     ['scroll', 'pointerdown', 'keydown', 'touchstart'].forEach(function (e) { addEventListener(e, load, { once: true, passive: true }); });
