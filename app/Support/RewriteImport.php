@@ -113,7 +113,8 @@ class RewriteImport
         $meta = mb_strlen($change['meta_desc'] ?? '');
 
         return [
-            "Length 1200–1500 words ($words)" => $words >= 1200 && $words <= 1500,
+            // Long enough to cover the question fully; past 2000 words it is worth checking for repetition.
+            "Length 1200–2000 words ($words)" => $words >= 1200 && $words <= 2000,
             // The answer is the first two sentences of the opening paragraph.
             'Short direct answer at the start (AEO)' => $opening !== '' && count(preg_split('/\s+/u', implode(' ', array_slice(preg_split('/(?<=[.!?])\s+/u', $opening), 0, 2)))) <= 60,
             "Question headings ($questions)" => $questions >= 2,

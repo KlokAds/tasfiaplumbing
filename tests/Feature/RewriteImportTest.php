@@ -87,7 +87,7 @@ class RewriteImportTest extends TestCase
         $live = BlogDetail::create(['name' => 'X', 'slug' => 'x', 'status' => BlogDetail::PUBLISHED, 'desc' => '<img src="/uploads/a.jpg">']);
         $list = RewriteImport::checklist($live, ['desc' => '<p>Short. It costs $80 and we delve into it.</p>', 'meta_desc' => 'Too short', 'faqs' => []]);
 
-        $this->assertFalse($list['Length 1200–1500 words (9)']);
+        $this->assertFalse($list['Length 1200–2000 words (9)']);
         $this->assertFalse($list['All photos kept (1 missing)']);
         $this->assertFalse($list['No prices']);
         $this->assertFalse($list['No AI-style phrases']);
