@@ -124,10 +124,10 @@ class BlogController extends Controller
             'timezone' => config('admin.timezone'),
             'unlinkedCount' => $scope(BlogDetail::whereNull('primary_service_id'))->count(),
             'revisions' => $canPublish && $tab === 'review'
-                ? ArticleRevision::with(['article:id,name,slug', 'user:id,name'])->where('status', 'pending')->latest()->get()
+                ? ArticleRevision::with(['article:id,name,slug', 'user:id,name'])->where('status', 'pending')->latest()->limit(50)->get() // 50 at a time: approved ones make room for the next
                     // The preview is rendered as HTML in admin: clean it exactly like the public page does
                     // (no scripts, event handlers or pasted styles), so a submitted draft cannot run code.
-                    ->map(fn ($r) => ['id' => $r->id, 'article' => $r->article, 'user' => $r->user?->name, 'payload' => ['desc' => \App\Support\ContentHtml::render((string) ($r->payload['desc'] ?? ''), (string) ($r->payload['name'] ?? ''))] + (array) $r->payload, 'created_at' => $r->created_at->toIso8601String(), 'source_check' => $r->source_check, 'quality_check' => $r->quality_check])
+                    ->map(fn ($r) => ['id' => $r->id, 'article' => $r->article, 'user' => $r->user?->name, 'payload' => ['desc' => \App\Support\ContentHtml::render((string) ($r->payload['desc'] ?? ''), (string) ($r->payload['name'] ?? ''))] + (array) $r->payload, 'created_at' => $r->created_at->toIso8601String(), 'note' => $r->note, 'source_check' => $r->source_check, 'quality_check' => $r->quality_check])
                 : [],
             'myRevisions' => $this->openRevisions($user),
             // Approvers choose an article's author and the default author (byline, schema, E-E-A-T).

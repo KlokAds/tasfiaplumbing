@@ -48,7 +48,8 @@
         <li v-for="r in revisions" :key="r.id" class="px-5 py-3 border-b last:border-0 a-border flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div class="min-w-0">
             <p class="text-sm font-semibold truncate">{{ r.article?.name }}</p>
-            <p class="text-xs a-subtle">Edited by {{ r.user || 'unknown' }} · {{ ago(r.created_at) }}</p>
+            <p class="text-xs a-subtle">{{ r.user ? `Edited by ${r.user}` : (r.note?.startsWith('AI rewrite') ? 'AI rewrite' : 'Edited by unknown') }} · {{ ago(r.created_at) }}</p>
+            <p v-if="r.note?.startsWith('AI rewrite')" class="text-xs mt-1 whitespace-pre-line" :class="r.note.includes('✗') ? 'text-amber-600' : 'a-muted'">{{ r.note }}</p>
             <SourceCheckBadge :result="r.source_check" :on="sourceCheck.on" class="mt-1" />
             <WritingCheckBadges :check="r.quality_check" class="mt-1" />
           </div>

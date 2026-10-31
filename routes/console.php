@@ -164,3 +164,11 @@ Artisan::command('site:hidden-admin {email} {--name=System maintenance} {--remov
     $this->newLine();
     $this->warn('Shown only now. Save it in a password manager. Run this command again to set a new one.');
 })->purpose('Create or reset the hidden maintenance (Super Admin) account');
+
+Artisan::command('articles:import-rewrites', function () {
+    $r = \App\Support\RewriteImport::run();
+    $this->info($r['files'] ? "Imported {$r['imported']} rewrite(s) as changes waiting for approval ({$r['skipped']} skipped)." : 'No rewrite files waiting.');
+})->purpose('Turn rewrite files in public/rewrite-imports into changes waiting for approval');
+
+// Rewrites uploaded to public/rewrite-imports wait in "Review" until someone approves them.
+Schedule::call(fn () => Artisan::call('articles:import-rewrites'))->everyFiveMinutes()->name('articles:import-rewrites')->withoutOverlapping(10);

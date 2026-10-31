@@ -45,3 +45,6 @@ Thumbs.db
 # Uploaded photos from the old site (live server already has them), like /public/Admin
 /public/Images
 /public/Service Image
+
+# Article rewrites waiting to be imported for review
+/storage/rewrites
