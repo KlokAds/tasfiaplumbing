@@ -288,6 +288,13 @@ class ContentApiTest extends TestCase
         $this->assertStringContainsString('abcdefghijklmnopqrstuvwx', $page);
         $this->assertStringNotContainsString('embed.tawk.to', $page);
 
+        // A new chat file (?v=) and the team pass: only people signed in here get it.
+        $this->api()->postJson('/api/content/chat', ['enabled' => true, 'key' => 'abcdefghijklmnopqrstuvwx', 'src' => 'https://billing.example.com/chat/mujaid.js?v=1761900000', 'team' => str_repeat('a', 64)])->assertOk();
+        $this->assertStringNotContainsString('data-team', $this->get('/')->getContent());
+        $this->actingAs(\App\Models\User::factory()->create());
+        $this->assertStringContainsString("'data-team'", $this->get('/')->getContent());
+        auth()->logout();
+
         $this->api()->postJson('/api/content/chat', ['enabled' => false, 'key' => 'abcdefghijklmnopqrstuvwx', 'src' => 'https://billing.example.com/chat/mujaid.js'])->assertOk();
         $this->get('/')->assertSee('embed.tawk.to', false)->assertDontSee('mujaid.js', false);
         $this->assertArrayHasKey('contact', $this->api()->getJson('/api/content/info')->json());

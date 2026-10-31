@@ -81,9 +81,11 @@ class ContentApiController extends Controller
         $data = $request->validate([
             'enabled' => 'required|boolean',
             'key' => ['required', 'string', 'regex:/^[A-Za-z0-9]{16,32}$/'],
-            'src' => ['required', 'url', 'max:255', 'regex:#^https?://[^/]+/chat/mujaid\.js$#'],
+            'src' => ['required', 'url', 'max:255', 'regex:#^https?://[^/]+/chat/mujaid\.js(\?v=[0-9]+)?$#'],
+            'team' => ['nullable', 'string', 'regex:/^[a-f0-9]{64}$/'],
         ]);
-        SiteSetting::putMany(['chat.mujaid_enabled' => $data['enabled'] ? '1' : '0', 'chat.mujaid_key' => $data['key'], 'chat.mujaid_src' => $data['src']]);
+        // "team" signs a pass for people signed in here, so they see the chat from any country (to check it).
+        SiteSetting::putMany(['chat.mujaid_enabled' => $data['enabled'] ? '1' : '0', 'chat.mujaid_key' => $data['key'], 'chat.mujaid_src' => $data['src'], 'chat.mujaid_team' => $data['team'] ?? '']);
 
         return response()->json(['ok' => true]);
     }
