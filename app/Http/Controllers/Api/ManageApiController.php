@@ -8,6 +8,7 @@ use App\Models\Message;
 use App\Models\SiteSetting;
 use App\Models\User;
 use App\Support\ApiKeys;
+use App\Support\CodeUpdate;
 use App\Support\Permissions;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Password;
@@ -71,7 +72,54 @@ class ManageApiController extends Controller
                 'tawk' => SiteSetting::get('tracking.tawk_enabled') === '1' && filled(SiteSetting::get('tracking.tawk_id')),
             ],
             'leads_week' => Message::where('created_at', '>=', now()->subDays(7))->count(),
+            'version' => self::version(),
         ]);
+    }
+
+    /**
+     * The code running here: its commit, when it came, and its title when git keeps it as a loose object.
+     * Read from the files git keeps (this host lets PHP run no programs).
+     */
+    public static function version(): ?array
+    {
+        $git = base_path('.git');
+        $head = @file_get_contents("{$git}/HEAD");
+        if (!$head) {
+            return null;
+        }
+        $hash = trim($head);
+        $file = "{$git}/HEAD";
+        if (str_starts_with($hash, 'ref: ')) {
+            $file = $git . '/' . trim(substr($hash, 5));
+            $hash = trim((string) @file_get_contents($file));
+        }
+        if (!preg_match('/^[0-9a-f]{40}$/', $hash)) {
+            return null;
+        }
+        $title = null;
+        $raw = @file_get_contents("{$git}/objects/" . substr($hash, 0, 2) . '/' . substr($hash, 2));
+        if ($raw !== false && ($commit = @gzuncompress($raw)) !== false) {
+            $title = mb_substr(strtok((string) substr($commit, strpos($commit, "\n\n") + 2), "\n") ?: '', 0, 160) ?: null;
+        }
+
+        return ['hash' => $hash, 'commit' => substr($hash, 0, 7), 'title' => $title, 'at' => @filemtime($file) ? date(DATE_ATOM, filemtime($file)) : null];
+    }
+
+    /** The code running here, a waiting or running update and the last one; with ?incoming=1 also what GitHub has. */
+    public function code(Request $request)
+    {
+        return response()->json(CodeUpdate::state() + ($request->boolean('incoming') ? ['incoming' => CodeUpdate::incoming()] : []));
+    }
+
+    /** Asks the server's update job to bring the code up to date with GitHub (it starts within a minute). */
+    public function updateCode(Request $request)
+    {
+        $data = $request->validate(['by' => 'nullable|string|max:120']);
+        if (!CodeUpdate::request($data['by'] ?? 'the billing app')) {
+            return response()->json(['message' => 'An update is already waiting or running.'], 422);
+        }
+
+        return response()->json(['ok' => true] + CodeUpdate::state());
     }
 
     /**

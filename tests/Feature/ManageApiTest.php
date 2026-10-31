@@ -37,7 +37,7 @@ class ManageApiTest extends TestCase
 
     public function test_people_get_a_role_or_lose_access_and_the_owner_is_never_touched(): void
     {
-        $this->api()->getJson('/api/content/manage')->assertOk()->assertJsonPath('users', [])->assertJsonStructure(['roles', 'modules', 'keys', 'google', 'tracking', 'chat', 'leads_week']);
+        $this->api()->getJson('/api/content/manage')->assertOk()->assertJsonPath('users', [])->assertJsonStructure(['roles', 'modules', 'keys', 'google', 'tracking', 'chat', 'leads_week', 'version' => ['commit', 'at']]);
 
         $this->api()->postJson('/api/content/manage/users', ['email' => 'Nadia@Example.com', 'name' => 'Nadia', 'role' => 'editor'])->assertOk()->assertJson(['created' => true]);
         $nadia = User::where('email', 'nadia@example.com')->sole();
@@ -98,5 +98,28 @@ class ManageApiTest extends TestCase
         $bad = '/admin/sso?' . http_build_query(['exp' => $exp, 'next' => '/admin', 'sig' => $sig]);
         $this->get($bad)->assertForbidden();
         $this->assertGuest();
+    }
+
+    public function test_a_code_update_is_asked_for_once_and_github_says_what_is_new(): void
+    {
+        $dir = sys_get_temp_dir() . '/code-update-' . uniqid();
+        config(['deploy.code_update_dir' => $dir]);
+        $hash = \App\Http\Controllers\Api\ManageApiController::version()['hash'];
+        \Illuminate\Support\Facades\Http::fake(["api.github.com/repos/*/compare/{$hash}...*" => \Illuminate\Support\Facades\Http::response([
+            'ahead_by' => 1, 'behind_by' => 0,
+            'commits' => [['sha' => str_repeat('a', 40), 'commit' => ['message' => "New prices page\n\nDetails", 'committer' => ['date' => '2026-10-31T10:00:00Z']]]],
+        ])]);
+
+        $this->api()->getJson('/api/content/manage/code?incoming=1')->assertOk()
+            ->assertJsonPath('waiting', null)
+            ->assertJsonPath('incoming.behind', 1)
+            ->assertJsonPath('incoming.commits.0.title', 'New prices page');
+
+        $this->api()->postJson('/api/content/manage/code/update', ['by' => 'Owner'])->assertOk()->assertJsonPath('waiting.by', 'Owner');
+        $this->api()->postJson('/api/content/manage/code/update')->assertStatus(422);
+        $this->withoutToken()->getJson('/api/content/manage/code')->assertNotFound();
+
+        @unlink("{$dir}/request.json");
+        @rmdir($dir);
     }
 }

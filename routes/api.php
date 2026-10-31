@@ -19,6 +19,8 @@ Route::prefix('content')->middleware([ContentApiToken::class, 'throttle:60,1'])-
     Route::put('/manage/roles/{name}', [\App\Http\Controllers\Api\ManageApiController::class, 'role'])->where('name', '[a-z0-9-]+');
     Route::put('/manage/settings', [\App\Http\Controllers\Api\ManageApiController::class, 'settings']);
     Route::put('/manage/keys/{name}', [\App\Http\Controllers\Api\ManageApiController::class, 'key'])->where('name', '[a-z_]+');
+    Route::get('/manage/code', [\App\Http\Controllers\Api\ManageApiController::class, 'code']);
+    Route::post('/manage/code/update', [\App\Http\Controllers\Api\ManageApiController::class, 'updateCode']);
     Route::get('/manage/pages/{page}', [\App\Http\Controllers\Api\ManagePagesController::class, 'show'])->where('page', '[a-z-]+');
     Route::post('/manage/pages/{page}/{action}/{id?}', [\App\Http\Controllers\Api\ManagePagesController::class, 'act'])->where(['page' => '[a-z-]+', 'action' => '[a-z-]+', 'id' => '[0-9]+']);
     Route::post('/check', [ContentApiController::class, 'check']);
