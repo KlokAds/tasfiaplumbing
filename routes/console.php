@@ -172,3 +172,18 @@ Artisan::command('articles:import-rewrites', function () {
 
 // Rewrites uploaded to public/rewrite-imports wait in "Review" until someone approves them.
 Schedule::call(fn () => Artisan::call('articles:import-rewrites'))->everyFiveMinutes()->name('articles:import-rewrites')->withoutOverlapping(10);
+
+Artisan::command('articles:release-daily {--dry : Only show what would be released and what is held}', function () {
+    $r = \App\Support\DailyRelease::run((bool) $this->option('dry'));
+    $verb = $this->option('dry') ? 'Would release' : 'Released';
+    $this->info("{$verb} " . count($r['released']) . ' rewrite(s) now; ' . $r['waiting'] . ' waiting for later days; ' . count($r['held']) . ' held for a person.');
+    foreach ($r['released'] as $name) {
+        $this->line("  + {$name}");
+    }
+    foreach ($r['held'] as $id => $why) {
+        $this->line("  held #{$id} {$why}");
+    }
+})->purpose('Release the waiting AI rewrites, ' . \App\Support\DailyRelease::PER_DAY . ' a day (one at 9am, 12pm, 3pm and 6pm Singapore time)');
+
+// Every hour: releases the AI rewrite due at the next daily slot (catches up later the same day if a run is missed).
+Schedule::call(fn () => Artisan::call('articles:release-daily'))->hourlyAt(2)->name('articles:release-daily')->withoutOverlapping(30);
